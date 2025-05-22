@@ -1,0 +1,117 @@
+.App {
+    text-align: center;
+  }
+  
+  .navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+  }
+  
+  .nav-buttons button {
+    margin-left: 1rem;
+    padding: 0.5rem 1.5rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  
+  .login-btn {
+    background-color: transparent;
+    color: #2c3e50;
+  }
+  
+  .signup-btn {
+    background-color: #3498db;
+    color: white;
+  }
+  
+  .hero-section {
+    padding: 4rem 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  h1 {
+    font-size: 2.5rem;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+  }
+  
+  .subtitle {
+    font-size: 1.2rem;
+    color: #7f8c8d;
+    margin-bottom: 3rem;
+  }
+  
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin: 4rem 0;
+  }
+  
+  .feature-card {
+    padding: 2rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+  
+  .feature-card h3 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+  }
+  
+  .feature-card p {
+    color: #7f8c8d;
+    line-height: 1.6;
+  }
+  
+  .cta-section {
+    margin-top: 4rem;
+  }
+  
+  .cta-btn {
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  
+  .cta-btn:hover {
+    background-color: #2980b9;
+  }
+  
+  .cta-subtitle {
+    margin-top: 1rem;
+    color: #7f8c8d;
+  }
+  
+  @media (max-width: 768px) {
+    .hero-section {
+      padding: 2rem 1rem;
+    }
+  
+    h1 {
+      font-size: 2rem;
+    }
+  
+    .features {
+      grid-template-columns: 1fr;
+    }
+  }
