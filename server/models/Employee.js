@@ -36,6 +36,72 @@ const employeeSchema = new mongoose.Schema({
         type: Date,
         required: true
     },
+    documents: {
+        employmentContract: {
+            url: String,
+            uploadDate: Date,
+            expiryDate: Date
+        },
+        idDocument: {
+            type: String,
+            url: String,
+            uploadDate: Date,
+            expiryDate: Date
+        },
+        taxPin: {
+            number: String,
+            url: String,
+            uploadDate: Date,
+            expiryDate: Date
+        }
+    },
+    insurance: {
+        nhif: {
+            number: String,
+            url: String,
+            uploadDate: Date,
+            expiryDate: Date,
+            status: {
+                type: String,
+                enum: ['active', 'inactive', 'pending'],
+                default: 'pending'
+            }
+        },
+        medical: {
+            provider: String,
+            policyNumber: String,
+            coverage: {
+                type: String,
+                enum: ['basic', 'standard', 'premium'],
+                default: 'basic'
+            },
+            url: String,
+            uploadDate: Date,
+            expiryDate: Date,
+            status: {
+                type: String,
+                enum: ['active', 'inactive', 'pending'],
+                default: 'pending'
+            }
+        },
+        life: {
+            provider: String,
+            policyNumber: String,
+            coverage: {
+                type: String,
+                enum: ['basic', 'standard', 'premium'],
+                default: 'basic'
+            },
+            url: String,
+            uploadDate: Date,
+            expiryDate: Date,
+            status: {
+                type: String,
+                enum: ['active', 'inactive', 'pending'],
+                default: 'pending'
+            }
+        }
+    },
     salary: {
         basic: {
             type: Number,

@@ -8,6 +8,10 @@ function EmployeeDetails() {
   const [activeTab, setActiveTab] = useState('personal');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -18,21 +22,77 @@ function EmployeeDetails() {
     fetchEmployeeDetails();
   }, [id]);
 
-  const fetchEmployeeDetails = async () => {
+  const refreshToken = async () => {
     try {
-      console.log('Fetching details for employee ID:', id); // Debug log
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('No authentication token found');
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
       }
 
-      const response = await fetch(`http://localhost:5001/api/employees/${id}`, {
+      const response = await fetch('http://localhost:5001/api/refresh-token', {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ refreshToken })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to refresh token');
+      }
+
+      const data = await response.json();
+      localStorage.setItem('token', data.token);
+      return data.token;
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      // If refresh fails, redirect to login
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      navigate('/login');
+      throw error;
+    }
+  };
+
+  const fetchWithAuth = async (url, options = {}) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No token available');
+      }
+
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          'Authorization': `Bearer ${token}`
         }
       });
+
+      // If token expired, try to refresh
+      if (response.status === 401) {
+        const newToken = await refreshToken();
+        // Retry the request with new token
+        return fetch(url, {
+          ...options,
+          headers: {
+            ...options.headers,
+            'Authorization': `Bearer ${newToken}`
+          }
+        });
+      }
+
+      return response;
+    } catch (error) {
+      console.error('Error in fetchWithAuth:', error);
+      throw error;
+        }
+  };
+
+  const fetchEmployeeDetails = async () => {
+    try {
+      console.log('Fetching details for employee ID:', id);
+      const response = await fetchWithAuth(`http://localhost:5001/api/employees/${id}`);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -40,13 +100,117 @@ function EmployeeDetails() {
       }
 
       const data = await response.json();
-      console.log('Received employee data:', data); // Debug log
+      console.log('Received employee data:', data);
       setEmployee(data);
     } catch (error) {
       console.error('Error in fetchEmployeeDetails:', error);
       setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDocumentUpload = async (documentType, file) => {
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('documentType', documentType);
+
+      const response = await fetchWithAuth(
+        `http://localhost:5001/api/employees/${id}/documents/${documentType}`,
+        {
+          method: 'POST',
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to upload document');
+      }
+
+      await fetchEmployeeDetails();
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      alert('Failed to upload document: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleInsuranceUpdate = async (insuranceType, field, value) => {
+    try {
+      const response = await fetchWithAuth(
+        `http://localhost:5001/api/employees/${id}/insurance/${insuranceType}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            [field]: value
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to update insurance information');
+      }
+
+      await fetchEmployeeDetails();
+    } catch (error) {
+      console.error('Error updating insurance:', error);
+      alert('Failed to update insurance information: ' + error.message);
+    }
+  };
+
+  const handleDeleteEmployee = async () => {
+    try {
+      setActionLoading(true);
+      const response = await fetchWithAuth(`http://localhost:5001/api/employees/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete employee');
+      }
+
+      alert('Employee deleted successfully');
+      navigate('/employees');
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      alert('Failed to delete employee: ' + error.message);
+    } finally {
+      setActionLoading(false);
+      setShowDeleteModal(false);
+    }
+  };
+
+  const handleToggleEmployeeStatus = async () => {
+    try {
+      setActionLoading(true);
+      const newStatus = employee.status === 'active' ? 'inactive' : 'active';
+      
+      const response = await fetchWithAuth(`http://localhost:5001/api/employees/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update employee status');
+      }
+
+      await fetchEmployeeDetails();
+      alert(`Employee ${newStatus === 'active' ? 'activated' : 'blocked'} successfully`);
+    } catch (error) {
+      console.error('Error updating employee status:', error);
+      alert('Failed to update employee status: ' + error.message);
+    } finally {
+      setActionLoading(false);
+      setShowBlockModal(false);
     }
   };
 
@@ -104,6 +268,28 @@ function EmployeeDetails() {
             {employee.firstName} {employee.lastName}
           </h1>
         </div>
+        <div style={styles.actionButtons}>
+          <button
+            onClick={() => setShowBlockModal(true)}
+            style={{
+              ...styles.actionButton,
+              backgroundColor: employee.status === 'active' ? '#e74c3c' : '#2ecc71'
+            }}
+            disabled={actionLoading}
+          >
+            {employee.status === 'active' ? 'Block Employee' : 'Activate Employee'}
+          </button>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            style={{
+              ...styles.actionButton,
+              backgroundColor: '#e74c3c'
+            }}
+            disabled={actionLoading}
+          >
+            Delete Employee
+          </button>
+        </div>
       </div>
 
       <div style={styles.tabs}>
@@ -112,6 +298,18 @@ function EmployeeDetails() {
           onClick={() => setActiveTab('personal')}
         >
           Personal Information
+        </button>
+        <button 
+          style={{...styles.tab, ...(activeTab === 'documents' && styles.activeTab)}}
+          onClick={() => setActiveTab('documents')}
+        >
+          Documents
+        </button>
+        <button 
+          style={{...styles.tab, ...(activeTab === 'insurance' && styles.activeTab)}}
+          onClick={() => setActiveTab('insurance')}
+        >
+          Insurance
         </button>
         <button 
           style={{...styles.tab, ...(activeTab === 'performance' && styles.activeTab)}}
@@ -153,6 +351,281 @@ function EmployeeDetails() {
                 <span style={styles.value}>
                   {new Date(employee.startDate).toLocaleDateString()}
                 </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'documents' && (
+          <div style={styles.card}>
+            <h2 style={styles.subtitle}>Employee Documents</h2>
+            
+            {/* Employment Contract Section */}
+            <div style={styles.documentSection}>
+              <h3 style={styles.documentTitle}>Employment Contract</h3>
+              {employee.documents?.employmentContract?.url ? (
+                <div style={styles.documentInfo}>
+                  <p>Uploaded: {new Date(employee.documents.employmentContract.uploadDate).toLocaleDateString()}</p>
+                  <p>Expires: {new Date(employee.documents.employmentContract.expiryDate).toLocaleDateString()}</p>
+                  <a 
+                    href={employee.documents.employmentContract.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={styles.downloadLink}
+                  >
+                    View Contract
+                  </a>
+                </div>
+              ) : (
+                <p>No contract uploaded</p>
+              )}
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx"
+                onChange={(e) => handleDocumentUpload('employmentContract', e.target.files[0])}
+                style={styles.fileInput}
+                disabled={uploading}
+              />
+            </div>
+
+            {/* ID Document Section */}
+            <div style={styles.documentSection}>
+              <h3 style={styles.documentTitle}>ID Document</h3>
+              {employee.documents?.idDocument?.url ? (
+                <div style={styles.documentInfo}>
+                  <p>Type: {employee.documents.idDocument.type}</p>
+                  <p>Uploaded: {new Date(employee.documents.idDocument.uploadDate).toLocaleDateString()}</p>
+                  <p>Expires: {new Date(employee.documents.idDocument.expiryDate).toLocaleDateString()}</p>
+                  <a 
+                    href={employee.documents.idDocument.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={styles.downloadLink}
+                  >
+                    View ID Document
+                  </a>
+                </div>
+              ) : (
+                <p>No ID document uploaded</p>
+              )}
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => handleDocumentUpload('idDocument', e.target.files[0])}
+                style={styles.fileInput}
+                disabled={uploading}
+              />
+            </div>
+
+            {/* Tax PIN Section */}
+            <div style={styles.documentSection}>
+              <h3 style={styles.documentTitle}>Tax PIN</h3>
+              {employee.documents?.taxPin?.url ? (
+                <div style={styles.documentInfo}>
+                  <p>PIN Number: {employee.documents.taxPin.number}</p>
+                  <p>Uploaded: {new Date(employee.documents.taxPin.uploadDate).toLocaleDateString()}</p>
+                  <p>Expires: {new Date(employee.documents.taxPin.expiryDate).toLocaleDateString()}</p>
+                  <a 
+                    href={employee.documents.taxPin.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={styles.downloadLink}
+                  >
+                    View Tax PIN Document
+                  </a>
+                </div>
+              ) : (
+                <p>No tax PIN document uploaded</p>
+              )}
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => handleDocumentUpload('taxPin', e.target.files[0])}
+                style={styles.fileInput}
+                disabled={uploading}
+              />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'insurance' && (
+          <div style={styles.card}>
+            <h2 style={styles.subtitle}>Insurance Information</h2>
+            
+            {/* NHIF Section */}
+            <div style={styles.insuranceSection}>
+              <h3 style={styles.insuranceTitle}>NHIF</h3>
+              {employee.insurance?.nhif?.url ? (
+                <div style={styles.insuranceInfo}>
+                  <p><strong>Number:</strong> {employee.insurance.nhif.number}</p>
+                  <p><strong>Status:</strong> 
+                    <span style={{
+                      color: employee.insurance.nhif.status === 'active' ? '#2ecc71' : 
+                             employee.insurance.nhif.status === 'pending' ? '#f1c40f' : '#e74c3c'
+                    }}>
+                      {employee.insurance.nhif.status.charAt(0).toUpperCase() + 
+                       employee.insurance.nhif.status.slice(1)}
+                    </span>
+                  </p>
+                  <p><strong>Uploaded:</strong> {new Date(employee.insurance.nhif.uploadDate).toLocaleDateString()}</p>
+                  <p><strong>Expires:</strong> {new Date(employee.insurance.nhif.expiryDate).toLocaleDateString()}</p>
+                  <a 
+                    href={employee.insurance.nhif.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={styles.downloadLink}
+                  >
+                    View NHIF Card
+                  </a>
+                </div>
+              ) : (
+                <p>No NHIF information available</p>
+              )}
+              <div style={styles.uploadSection}>
+                <input
+                  type="text"
+                  placeholder="NHIF Number"
+                  value={employee.insurance?.nhif?.number || ''}
+                  onChange={(e) => handleInsuranceUpdate('nhif', 'number', e.target.value)}
+                  style={styles.input}
+                />
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => handleDocumentUpload('nhif', e.target.files[0])}
+                  style={styles.fileInput}
+                  disabled={uploading}
+                />
+              </div>
+            </div>
+
+            {/* Medical Insurance Section */}
+            <div style={styles.insuranceSection}>
+              <h3 style={styles.insuranceTitle}>Medical Insurance</h3>
+              {employee.insurance?.medical?.url ? (
+                <div style={styles.insuranceInfo}>
+                  <p><strong>Provider:</strong> {employee.insurance.medical.provider}</p>
+                  <p><strong>Policy Number:</strong> {employee.insurance.medical.policyNumber}</p>
+                  <p><strong>Coverage:</strong> {employee.insurance.medical.coverage}</p>
+                  <p><strong>Status:</strong> 
+                    <span style={{
+                      color: employee.insurance.medical.status === 'active' ? '#2ecc71' : 
+                             employee.insurance.medical.status === 'pending' ? '#f1c40f' : '#e74c3c'
+                    }}>
+                      {employee.insurance.medical.status.charAt(0).toUpperCase() + 
+                       employee.insurance.medical.status.slice(1)}
+                    </span>
+                  </p>
+                  <p><strong>Uploaded:</strong> {new Date(employee.insurance.medical.uploadDate).toLocaleDateString()}</p>
+                  <p><strong>Expires:</strong> {new Date(employee.insurance.medical.expiryDate).toLocaleDateString()}</p>
+                  <a 
+                    href={employee.insurance.medical.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={styles.downloadLink}
+                  >
+                    View Medical Insurance
+                  </a>
+                </div>
+              ) : (
+                <p>No medical insurance information available</p>
+              )}
+              <div style={styles.uploadSection}>
+                <input
+                  type="text"
+                  placeholder="Provider"
+                  value={employee.insurance?.medical?.provider || ''}
+                  onChange={(e) => handleInsuranceUpdate('medical', 'provider', e.target.value)}
+                  style={styles.input}
+                />
+                <input
+                  type="text"
+                  placeholder="Policy Number"
+                  value={employee.insurance?.medical?.policyNumber || ''}
+                  onChange={(e) => handleInsuranceUpdate('medical', 'policyNumber', e.target.value)}
+                  style={styles.input}
+                />
+                <select
+                  value={employee.insurance?.medical?.coverage || 'basic'}
+                  onChange={(e) => handleInsuranceUpdate('medical', 'coverage', e.target.value)}
+                  style={styles.select}
+                >
+                  <option value="basic">Basic Coverage</option>
+                  <option value="standard">Standard Coverage</option>
+                  <option value="premium">Premium Coverage</option>
+                </select>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => handleDocumentUpload('medical', e.target.files[0])}
+                  style={styles.fileInput}
+                  disabled={uploading}
+                />
+              </div>
+            </div>
+
+            {/* Life Insurance Section */}
+            <div style={styles.insuranceSection}>
+              <h3 style={styles.insuranceTitle}>Life Insurance</h3>
+              {employee.insurance?.life?.url ? (
+                <div style={styles.insuranceInfo}>
+                  <p><strong>Provider:</strong> {employee.insurance.life.provider}</p>
+                  <p><strong>Policy Number:</strong> {employee.insurance.life.policyNumber}</p>
+                  <p><strong>Coverage:</strong> {employee.insurance.life.coverage}</p>
+                  <p><strong>Status:</strong> 
+                    <span style={{
+                      color: employee.insurance.life.status === 'active' ? '#2ecc71' : 
+                             employee.insurance.life.status === 'pending' ? '#f1c40f' : '#e74c3c'
+                    }}>
+                      {employee.insurance.life.status.charAt(0).toUpperCase() + 
+                       employee.insurance.life.status.slice(1)}
+                    </span>
+                  </p>
+                  <p><strong>Uploaded:</strong> {new Date(employee.insurance.life.uploadDate).toLocaleDateString()}</p>
+                  <p><strong>Expires:</strong> {new Date(employee.insurance.life.expiryDate).toLocaleDateString()}</p>
+                  <a 
+                    href={employee.insurance.life.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={styles.downloadLink}
+                  >
+                    View Life Insurance
+                  </a>
+                </div>
+              ) : (
+                <p>No life insurance information available</p>
+              )}
+              <div style={styles.uploadSection}>
+                <input
+                  type="text"
+                  placeholder="Provider"
+                  value={employee.insurance?.life?.provider || ''}
+                  onChange={(e) => handleInsuranceUpdate('life', 'provider', e.target.value)}
+                  style={styles.input}
+                />
+                <input
+                  type="text"
+                  placeholder="Policy Number"
+                  value={employee.insurance?.life?.policyNumber || ''}
+                  onChange={(e) => handleInsuranceUpdate('life', 'policyNumber', e.target.value)}
+                  style={styles.input}
+                />
+                <select
+                  value={employee.insurance?.life?.coverage || 'basic'}
+                  onChange={(e) => handleInsuranceUpdate('life', 'coverage', e.target.value)}
+                  style={styles.select}
+                >
+                  <option value="basic">Basic Coverage</option>
+                  <option value="standard">Standard Coverage</option>
+                  <option value="premium">Premium Coverage</option>
+                </select>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => handleDocumentUpload('life', e.target.files[0])}
+                  style={styles.fileInput}
+                  disabled={uploading}
+                />
               </div>
             </div>
           </div>
@@ -215,6 +688,76 @@ function EmployeeDetails() {
           </div>
         )}
       </div>
+
+      {showDeleteModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <h3 style={styles.modalTitle}>Delete Employee</h3>
+            <p style={styles.modalText}>
+              Are you sure you want to delete this employee? This action will:
+            </p>
+            <ul style={styles.modalList}>
+              <li>Delete all employee records</li>
+              <li>Remove payroll history</li>
+              <li>Delete performance reviews</li>
+              <li>Remove all uploaded documents</li>
+            </ul>
+            <p style={styles.modalWarning}>This action cannot be undone.</p>
+            <div style={styles.modalButtons}>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                style={styles.modalButton}
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteEmployee}
+                style={{...styles.modalButton, ...styles.deleteButton}}
+                disabled={actionLoading}
+              >
+                {actionLoading ? 'Deleting...' : 'Delete Employee'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBlockModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <h3 style={styles.modalTitle}>
+              {employee.status === 'active' ? 'Block Employee' : 'Activate Employee'}
+            </h3>
+            <p style={styles.modalText}>
+              {employee.status === 'active'
+                ? 'Are you sure you want to block this employee? They will not be able to access the system.'
+                : 'Are you sure you want to activate this employee? They will regain access to the system.'}
+            </p>
+            <div style={styles.modalButtons}>
+              <button
+                onClick={() => setShowBlockModal(false)}
+                style={styles.modalButton}
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleToggleEmployeeStatus}
+                style={{
+                  ...styles.modalButton,
+                  backgroundColor: employee.status === 'active' ? '#e74c3c' : '#2ecc71'
+                }}
+                disabled={actionLoading}
+              >
+                {actionLoading
+                  ? (employee.status === 'active' ? 'Blocking...' : 'Activating...')
+                  : (employee.status === 'active' ? 'Block Employee' : 'Activate Employee')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -321,6 +864,140 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '20px',
+  },
+  documentSection: {
+    marginBottom: '30px',
+    padding: '20px',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '8px',
+  },
+  documentTitle: {
+    margin: '0 0 15px 0',
+    color: '#2c3e50',
+  },
+  documentInfo: {
+    marginBottom: '15px',
+  },
+  downloadLink: {
+    display: 'inline-block',
+    padding: '8px 16px',
+    backgroundColor: '#3498db',
+    color: 'white',
+    textDecoration: 'none',
+    borderRadius: '4px',
+    marginTop: '10px',
+  },
+  fileInput: {
+    marginTop: '10px',
+    padding: '8px',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    width: '100%',
+  },
+  insuranceSection: {
+    marginBottom: '30px',
+    padding: '20px',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '8px',
+  },
+  insuranceTitle: {
+    margin: '0 0 15px 0',
+    color: '#2c3e50',
+  },
+  insuranceInfo: {
+    marginBottom: '15px',
+  },
+  uploadSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+  },
+  input: {
+    padding: '8px',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    width: '100%',
+  },
+  select: {
+    padding: '8px',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    width: '100%',
+    backgroundColor: 'white',
+  },
+  actionButtons: {
+    display: 'flex',
+    gap: '10px',
+    marginLeft: 'auto',
+  },
+  actionButton: {
+    padding: '8px 16px',
+    border: 'none',
+    borderRadius: '4px',
+    color: 'white',
+    cursor: 'pointer',
+    fontWeight: '500',
+    '&:disabled': {
+      opacity: 0.7,
+      cursor: 'not-allowed',
+    },
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  modal: {
+    backgroundColor: 'white',
+    padding: '24px',
+    borderRadius: '8px',
+    maxWidth: '500px',
+    width: '90%',
+  },
+  modalTitle: {
+    margin: '0 0 16px 0',
+    color: '#2c3e50',
+  },
+  modalText: {
+    margin: '0 0 16px 0',
+    color: '#666',
+  },
+  modalList: {
+    margin: '0 0 16px 0',
+    paddingLeft: '20px',
+    color: '#666',
+  },
+  modalWarning: {
+    color: '#e74c3c',
+    fontWeight: '500',
+    margin: '0 0 16px 0',
+  },
+  modalButtons: {
+    display: 'flex',
+    gap: '10px',
+    justifyContent: 'flex-end',
+  },
+  modalButton: {
+    padding: '8px 16px',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontWeight: '500',
+    '&:disabled': {
+      opacity: 0.7,
+      cursor: 'not-allowed',
+    },
+  },
+  deleteButton: {
+    backgroundColor: '#e74c3c',
+    color: 'white',
   },
 };
 

@@ -23,10 +23,10 @@ const PORT = process.env.PORT || 5001;
 
 // Create S3 client
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION,
+  region: process.env.AWS_REGION || 'us-east-1',
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY,
-    secretAccessKey: process.env.AWS_SECRET_KEY
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_KEY
   }
 });
 
@@ -47,7 +47,7 @@ const upload = multer({
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: ['http://localhost:3000', 'http://localhost:3001'],
   credentials: true
 }));
 
@@ -64,6 +64,12 @@ mongoose.connect(process.env.MONGODB_URI)
     process.exit(1);  // Exit if can't connect to database
   });
 
+// Add this near the top of the file, after the require statements
+if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
+  console.error('JWT secrets are not properly configured in environment variables');
+  process.exit(1);
+}
+
 // Authentication middleware
 const authenticateBusiness = async (req, res, next) => {
   try {
@@ -73,14 +79,52 @@ const authenticateBusiness = async (req, res, next) => {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    if (!mongoose.Types.ObjectId.isValid(decoded.businessId)) {
-      return res.status(400).json({ error: 'Invalid business ID' });
-    }
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
+      if (!mongoose.Types.ObjectId.isValid(decoded.businessId)) {
+        return res.status(400).json({ error: 'Invalid business ID' });
+      }
 
-    req.businessId = decoded.businessId;
-    next();
+      req.businessId = decoded.businessId;
+      next();
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        // Check if there's a refresh token
+        const refreshToken = req.headers['x-refresh-token'];
+        if (!refreshToken) {
+          return res.status(401).json({ error: 'Token expired, no refresh token provided' });
+        }
+
+        try {
+          // Verify refresh token
+          const decodedRefresh = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+          const business = await Business.findById(decodedRefresh.businessId);
+          
+          if (!business) {
+            return res.status(401).json({ error: 'Invalid refresh token' });
+          }
+
+          // Generate new access token
+          const newToken = jwt.sign(
+            { businessId: business._id },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+          );
+
+          // Set new token in response header
+          res.setHeader('x-new-token', newToken);
+          req.businessId = business._id;
+          next();
+        } catch (refreshError) {
+          console.error('Refresh token error:', refreshError);
+          return res.status(401).json({ error: 'Invalid refresh token' });
+        }
+      } else {
+        console.error('Token verification error:', error);
+        throw error;
+      }
+    }
   } catch (error) {
     console.error('Authentication error:', error);
     res.status(401).json({ error: 'Invalid token' });
@@ -343,16 +387,86 @@ app.delete('/api/employees/:id', authenticateBusiness, async (req, res) => {
       return res.status(404).json({ error: 'Employee not found' });
     }
 
-    // Delete employee and their payroll records
+    // Delete all related records and documents
     await Promise.all([
+      // Delete employee
       Employee.findByIdAndDelete(id),
-      Payroll.deleteMany({ employeeId: id })
+      // Delete payroll records
+      Payroll.deleteMany({ employeeId: id }),
+      // Delete performance reviews
+      PerformanceReview.deleteMany({ employeeId: id }),
+      // Delete documents from S3
+      deleteEmployeeDocuments(employee)
     ]);
 
-    res.json({ message: 'Employee deleted successfully' });
+    res.json({ message: 'Employee and all related records deleted successfully' });
   } catch (error) {
     console.error('Error deleting employee:', error);
     res.status(500).json({ error: 'Failed to delete employee' });
+  }
+});
+
+// Helper function to delete employee documents from S3
+async function deleteEmployeeDocuments(employee) {
+  try {
+    const documents = [
+      employee.documents?.employmentContract?.url,
+      employee.documents?.idDocument?.url,
+      employee.documents?.taxPin?.url,
+      employee.insurance?.nhif?.url,
+      employee.insurance?.medical?.url,
+      employee.insurance?.life?.url
+    ].filter(url => url);
+
+    if (documents.length > 0) {
+      const deletePromises = documents.map(url => {
+        const key = url.split('/').pop();
+        return s3Client.send(new DeleteObjectCommand({
+          Bucket: process.env.AWS_BUCKET_NAME,
+          Key: key
+        }));
+      });
+
+      await Promise.all(deletePromises);
+    }
+  } catch (error) {
+    console.error('Error deleting employee documents from S3:', error);
+    // Don't throw error to allow employee deletion to complete even if document deletion fails
+  }
+}
+
+// Add employee status update endpoint
+app.put('/api/employees/:id/status', authenticateBusiness, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // Validate status
+    if (!['active', 'inactive'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
+
+    // Verify employee belongs to this business
+    const employee = await Employee.findOne({
+      _id: id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    // Update employee status
+    const updatedEmployee = await Employee.findByIdAndUpdate(
+      id,
+      { $set: { status } },
+      { new: true }
+    );
+
+    res.json(updatedEmployee);
+  } catch (error) {
+    console.error('Error updating employee status:', error);
+    res.status(500).json({ error: 'Failed to update employee status' });
   }
 });
 
@@ -478,15 +592,24 @@ app.post('/api/login', async (req, res) => {
       });
     }
 
+    // Generate access token (1 hour expiry)
     const token = jwt.sign(
       { businessId: business._id },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '1h' }
     );
 
-    // Send response with proper headers
+    // Generate refresh token (7 days expiry)
+    const refreshToken = jwt.sign(
+      { businessId: business._id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Send response with both tokens
     res.status(200).json({
       token,
+      refreshToken,
       business: {
         id: business._id,
         businessName: business.businessName,
@@ -499,6 +622,37 @@ app.post('/api/login', async (req, res) => {
       error: 'Login failed',
       details: error.message 
     });
+  }
+});
+
+// Add refresh token endpoint
+app.post('/api/refresh-token', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'Refresh token is required' });
+    }
+
+    // Verify refresh token
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const business = await Business.findById(decoded.businessId);
+
+    if (!business) {
+      return res.status(401).json({ error: 'Invalid refresh token' });
+    }
+
+    // Generate new access token
+    const newToken = jwt.sign(
+      { businessId: business._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    res.json({ token: newToken });
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    res.status(401).json({ error: 'Invalid refresh token' });
   }
 });
 

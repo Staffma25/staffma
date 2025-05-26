@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { refreshToken } from '../utils/auth';
 
 function LogIn() {
   const [email, setEmail] = useState('');
@@ -14,6 +15,44 @@ function LogIn() {
     if (localStorage.getItem('token')) {
       navigate('/dashboard');
     }
+  }, [navigate]);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      const refreshToken = localStorage.getItem('refreshToken');
+
+      if (token && refreshToken) {
+        try {
+          // Try to refresh the token
+          const response = await fetch('http://localhost:5001/api/refresh-token', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ refreshToken })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            localStorage.setItem('token', data.token);
+            navigate('/dashboard');
+          } else {
+            // If refresh fails, clear tokens and stay on login page
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+          }
+        } catch (error) {
+          console.error('Token refresh error:', error);
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
+        }
+      }
+    };
+
+    checkAuth();
   }, [navigate]);
 
   const handleSubmit = async (e) => {
@@ -36,8 +75,9 @@ function LogIn() {
         throw new Error(data.error || 'Login failed');
       }
 
-      // Store token and user data
+      // Store both tokens and user data
       localStorage.setItem('token', data.token);
+      localStorage.setItem('refreshToken', data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.business));
 
       // Navigate to dashboard

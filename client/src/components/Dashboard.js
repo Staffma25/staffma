@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import EmployeeDetails from './EmployeeDetails';
 import PayrollCard from './PayrollCard';
+import { getDashboardData } from '../utils/api';
 
 function Dashboard() {
-  const navigate = useNavigate();
-  const [business, setBusiness] = useState(null);
-  const [employees, setEmployees] = useState([]);
+  const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [employeeCount, setEmployeeCount] = useState({ total: 0, remaining: 100 });
 
@@ -33,83 +33,35 @@ function Dashboard() {
   const [reviewStats, setReviewStats] = useState({ pendingReviews: 0, completedReviews: 0 });
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const token = localStorage.getItem('token');
-        
-        // Fetch business details from the server instead of localStorage
-        const businessResponse = await fetch('http://localhost:5001/api/business', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+        const data = await getDashboardData();
+        setDashboardData(data);
+        setEmployeeCount({
+          total: data.metrics?.employeeCount?.total || 0,
+          remaining: data.metrics?.employeeCount?.remaining || 100
         });
-        
-        if (!businessResponse.ok) {
-          throw new Error('Failed to fetch business data');
+        setPayrollSummary(data.payrollSummary || {
+          totalGrossSalary: 0,
+          totalNetSalary: 0
+        });
+        setReviewStats(data.performanceReviewsStats || {
+          pendingReviews: 0,
+          completedReviews: 0
+        });
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        setError(error.message);
+        if (error.message.includes('Failed to fetch')) {
+          navigate('/login');
         }
-        
-        const businessData = await businessResponse.json();
-        setBusiness(businessData);
-        setEditedBusiness(businessData);
-
-        // Fetch employees
-        const response = await fetch('http://localhost:5001/api/employees', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        const data = await response.json();
-        setEmployees(data);
-
-        // Fetch employee count
-        const countResponse = await fetch('http://localhost:5001/api/employees/count', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        const countData = await countResponse.json();
-        setEmployeeCount(countData);
-
-        fetchPayrollSummary();
-
-        const reviewStatsResponse = await fetch('http://localhost:5001/api/performance-reviews/stats', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        const reviewStatsData = await reviewStatsResponse.json();
-        setReviewStats(reviewStatsData);
-
-      } catch (err) {
-        setError('Failed to load dashboard data');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
-  }, []);
-
-  const fetchPayrollSummary = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `http://localhost:5001/api/payroll/summary?month=${currentMonth}&year=${currentYear}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      if (!response.ok) throw new Error('Failed to fetch payroll summary');
-      
-      const data = await response.json();
-      setPayrollSummary(data);
-    } catch (error) {
-      console.error('Error fetching payroll summary:', error);
-    }
-  };
+    fetchDashboardData();
+  }, [navigate]);
 
   const handleAddEmployee = async (e) => {
     e.preventDefault();
@@ -146,7 +98,10 @@ function Dashboard() {
       }
 
       const addedEmployee = await response.json();
-      setEmployees(prevEmployees => [...prevEmployees, addedEmployee]);
+      setDashboardData(prevData => ({
+        ...prevData,
+        employees: [...prevData.employees, addedEmployee]
+      }));
       
       // Reset form
       setShowAddEmployee(false);
@@ -187,7 +142,10 @@ function Dashboard() {
       }
 
       const updatedBusiness = await response.json();
-      setBusiness(updatedBusiness);
+      setDashboardData(prevData => ({
+        ...prevData,
+        business: updatedBusiness
+      }));
       setIsEditing(false);
       
       // Update localStorage
@@ -209,14 +167,15 @@ function Dashboard() {
 
   if (loading) return <div style={styles.loading}>Loading...</div>;
   if (error) return <div style={styles.error}>{error}</div>;
+  if (!dashboardData) return <div style={styles.error}>No data available</div>;
 
   return (
     <div style={styles.container}>
       {/* Header */}
       <header style={styles.header}>
         <div>
-          <h1 style={styles.title}>{business?.businessName} Dashboard</h1>
-          <p style={styles.subtitle}>Welcome, {business?.applicantName}</p>
+          <h1 style={styles.title}>{dashboardData.business?.businessName || 'Dashboard'}</h1>
+          <p style={styles.subtitle}>Welcome, {dashboardData.business?.applicantName || 'User'}</p>
         </div>
         <button onClick={handleLogout} style={styles.logoutBtn}>
           Logout
@@ -239,7 +198,7 @@ function Dashboard() {
               <button 
                 onClick={() => {
                   setIsEditing(false);
-                  setEditedBusiness(business);
+                  setEditedBusiness(dashboardData.business);
                 }} 
                 style={styles.cancelEditBtn}
               >
@@ -264,12 +223,12 @@ function Dashboard() {
                 <option value="sole">Sole Proprietorship</option>
               </select>
             ) : (
-              <span>{business?.businessType === 'limited' ? 'Limited Company' : 'Sole Proprietorship'}</span>
+              <span>{dashboardData.business?.businessType === 'limited' ? 'Limited Company' : 'Sole Proprietorship'}</span>
             )}
           </div>
           <div style={styles.infoItem}>
             <span style={styles.label}>Contact Email:</span>
-            <span>{business?.email}</span>
+            <span>{dashboardData.business?.email}</span>
           </div>
           <div style={styles.infoItem}>
             <span style={styles.label}>Contact Number:</span>
@@ -284,7 +243,7 @@ function Dashboard() {
                 })}
               />
             ) : (
-              <span>{business?.contactNumber}</span>
+              <span>{dashboardData.business?.contactNumber}</span>
             )}
           </div>
           <div style={styles.infoItem}>
@@ -300,7 +259,7 @@ function Dashboard() {
                 })}
               />
             ) : (
-              <span>{business?.businessAddress}</span>
+              <span>{dashboardData.business?.businessAddress}</span>
             )}
           </div>
         </div>
@@ -329,7 +288,6 @@ function Dashboard() {
               >
                 View Employee List
               </button>
-          
             </div>
           </div>
         </div>
