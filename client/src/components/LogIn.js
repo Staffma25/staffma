@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { refreshToken } from '../utils/auth';
+import { useAuth } from '../contexts/AuthContext';
 
 function LogIn() {
   const [email, setEmail] = useState('');
@@ -9,6 +9,7 @@ function LogIn() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { login } = useAuth();
 
   useEffect(() => {
     // If already logged in, redirect to dashboard
@@ -17,74 +18,22 @@ function LogIn() {
     }
   }, [navigate]);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem('token');
-      const refreshToken = localStorage.getItem('refreshToken');
-
-      if (token && refreshToken) {
-        try {
-          // Try to refresh the token
-          const response = await fetch('http://localhost:5001/api/refresh-token', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ refreshToken })
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            localStorage.setItem('token', data.token);
-            navigate('/dashboard');
-          } else {
-            // If refresh fails, clear tokens and stay on login page
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('user');
-          }
-        } catch (error) {
-          console.error('Token refresh error:', error);
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
-        }
-      }
-    };
-
-    checkAuth();
-  }, [navigate]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5001/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
+      const result = await login(email, password);
+      
+      if (result.success) {
+        navigate('/dashboard');
+      } else {
+        setError(result.error || 'Failed to login. Please try again.');
       }
-
-      // Store both tokens and user data
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      localStorage.setItem('user', JSON.stringify(data.business));
-
-      // Navigate to dashboard
-      navigate('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
-      setError(error.message || 'Failed to login. Please try again.');
+      setError('Failed to login. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -200,46 +149,30 @@ const styles = {
     },
   },
   error: {
-    color: 'red',
-    padding: '10px',
-    backgroundColor: '#fee',
-    borderRadius: '4px',
-    marginBottom: '20px',
+    color: '#e74c3c',
+    marginBottom: '16px',
     textAlign: 'center',
   },
   footer: {
-    marginTop: '30px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '15px',
+    marginTop: '24px',
+    textAlign: 'center',
   },
   backButton: {
-    backgroundColor: 'transparent',
+    background: 'none',
     border: 'none',
     color: '#7f8c8d',
     cursor: 'pointer',
-    fontSize: '0.9rem',
-    padding: '8px 16px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '5px',
-    transition: 'color 0.3s',
-    '&:hover': {
-      color: '#2c3e50',
-    },
+    fontSize: '14px',
+    marginBottom: '16px',
   },
   footerText: {
     color: '#7f8c8d',
-    fontSize: '0.9rem',
+    fontSize: '14px',
   },
   footerLink: {
     color: '#3498db',
     cursor: 'pointer',
     textDecoration: 'underline',
-    '&:hover': {
-      color: '#2980b9',
-    },
   },
 };
 

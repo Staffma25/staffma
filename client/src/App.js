@@ -6,57 +6,66 @@ import Register from './components/Register';
 import EmployeesList from './components/EmployeesList';
 import EmployeeDetails from './components/EmployeeDetails';
 import PayrollManagement from './components/PayrollManagement';
+import PayrollSettings from './components/PayrollSettings';
 import PerformanceReviews from './components/PerformanceReviews';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './components/LandingPage';
+import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
   return (
-    <Router>
-      <div style={styles.app}>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LogIn />} />
-          <Route path="/register" element={<Register />} />
+    <AuthProvider>
+      <Router>
+        <div style={styles.app}>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LogIn />} />
+            <Route path="/register" element={<Register />} />
 
-          {/* Protected routes */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/employees" element={
-            <ProtectedRoute>
-              <EmployeesList />
-            </ProtectedRoute>
-          } />
-          <Route path="/employee/:id" element={
-            <ProtectedRoute>
-              <EmployeeDetails />
-            </ProtectedRoute>
-          } />
-          <Route path="/payroll" element={
-            <ProtectedRoute>
-              <PayrollManagement />
-            </ProtectedRoute>
-          } />
-          <Route path="/performance-reviews" element={
-            <ProtectedRoute>
-              <PerformanceReviews />
-            </ProtectedRoute>
-          } />
-        </Routes>
-      </div>
-    </Router>
+            {/* Protected routes */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/employees" element={
+              <ProtectedRoute>
+                <EmployeesList />
+              </ProtectedRoute>
+            } />
+            <Route path="/employee/:id" element={
+              <ProtectedRoute>
+                <EmployeeDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/payroll" element={
+              <ProtectedRoute>
+                <PayrollManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/payroll/settings" element={
+              <ProtectedRoute>
+                <PayrollSettings />
+              </ProtectedRoute>
+            } />
+            <Route path="/performance-reviews" element={
+              <ProtectedRoute>
+                <PerformanceReviews />
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 
 const styles = {
   app: {
     minHeight: '100vh',
-    backgroundColor: '#f5f6fa',
-  }
+    backgroundColor: '#f8f9fa',
+  },
 };
 
 export default App;

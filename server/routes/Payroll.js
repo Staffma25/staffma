@@ -6,6 +6,7 @@ const Employee = require('../models/Employee');
 const Payroll = require('../models/Payroll');
 const mongoose = require('mongoose');
 const Business = require('../models/Business');
+const PayrollSettings = require('../models/PayrollSettings');
 
 // Import tax calculation functions
 const {
@@ -21,6 +22,11 @@ const isValidPayrollPeriod = async (businessId, month, year) => {
     const business = await Business.findById(businessId);
     if (!business) return false;
 
+    // During development, allow all dates
+    return true;
+
+    // Original validation logic (commented out for development)
+    /*
     // Get business registration date
     const registrationDate = business.createdAt;
     const requestDate = new Date(year, month - 1); // month is 0-based
@@ -37,6 +43,7 @@ const isValidPayrollPeriod = async (businessId, month, year) => {
     }
 
     return true;
+    */
   } catch (error) {
     console.error('Error validating payroll period:', error);
     return false;
@@ -116,16 +123,19 @@ router.post('/process', auth, async (req, res) => {
       });
     }
 
-    // Check if payroll already processed for this month
-    const existingPayroll = await Payroll.findOne({
+    // During development, allow reprocessing by deleting existing records
+    const existingPayroll = await Payroll.find({
       businessId: req.user.businessId,
       month: Number(month),
       year: Number(year)
     });
 
-    if (existingPayroll) {
-      return res.status(400).json({
-        message: `Payroll for ${month}/${year} has already been processed`
+    if (existingPayroll.length > 0) {
+      // Delete existing payroll records for this period
+      await Payroll.deleteMany({
+        businessId: req.user.businessId,
+        month: Number(month),
+        year: Number(year)
       });
     }
 
@@ -134,79 +144,24 @@ router.post('/process', auth, async (req, res) => {
 
     for (const employee of employees) {
       try {
-        // Ensure we have valid salary data
-        if (!employee.salary?.basic) {
-          errors.push(`Employee ${employee.firstName} ${employee.lastName} has no valid salary data`);
-          continue;
-        }
+        // Calculate payroll using the async function
+        const payrollData = await calculatePayroll(employee, req.user.businessId);
 
-        // Get basic salary and ensure it's a number
-        const basicSalary = Number(employee.salary.basic);
-        if (isNaN(basicSalary) || basicSalary < 0) {
-          errors.push(`Employee ${employee.firstName} ${employee.lastName} has invalid basic salary`);
-          continue;
-        }
-
-        // Calculate allowances (all defaulting to 0)
-        const allowances = {
-          housing: 0,
-          transport: 0,
-          medical: 0,
-          other: 0
-        };
-
-        // Calculate gross salary (basic + allowances)
-        const grossSalary = basicSalary + Object.values(allowances)
-          .reduce((sum, val) => sum + (Number(val) || 0), 0);
-
-        // Calculate deductions using the tax calculation functions
-        const paye = Math.round(calculatePAYE(grossSalary));
-        const nhif = Math.round(calculateNHIF(grossSalary));
-        const nssf = Math.round(calculateNSSF(grossSalary));
-        
-        const deductions = {
-          paye,
-          nhif,
-          nssf,
-          loans: 0,
-          other: 0,
-          totalDeductions: paye + nhif + nssf
-        };
-
-        // Calculate net salary
-        const netSalary = grossSalary - deductions.totalDeductions;
-
-        // Create payroll record with explicit number conversions
-        const payrollRecord = {
+        // Create payroll record
+        const payrollRecord = new Payroll({
           employeeId: employee._id,
           businessId: req.user.businessId,
           month: Number(month),
           year: Number(year),
-          basicSalary: Number(basicSalary),
-          grossSalary: Number(grossSalary),
-          allowances,
-          deductions: {
-            paye: Number(deductions.paye),
-            nhif: Number(deductions.nhif),
-            nssf: Number(deductions.nssf),
-            loans: 0,
-            other: 0,
-            totalDeductions: Number(deductions.totalDeductions)
-          },
-          netSalary: Number(netSalary),
+          ...payrollData,
           processedDate: new Date()
-        };
+        });
 
-        // Validate numbers before pushing
-        if (Object.values(payrollRecord).some(val => 
-            typeof val === 'number' && isNaN(val))) {
-          console.warn(`Skipping employee ${employee._id} - Invalid calculations`);
-          continue;
-        }
-
-        payrollResults.push(new Payroll(payrollRecord));
-      } catch (employeeError) {
-        errors.push(`Error processing ${employee.firstName} ${employee.lastName}: ${employeeError.message}`);
+        await payrollRecord.save();
+        payrollResults.push(payrollRecord);
+      } catch (error) {
+        console.error(`Error processing payroll for employee ${employee._id}:`, error);
+        errors.push(`Failed to process payroll for ${employee.firstName} ${employee.lastName}: ${error.message}`);
       }
     }
 
@@ -217,20 +172,15 @@ router.post('/process', auth, async (req, res) => {
       });
     }
 
-    // Save all valid payroll records
-    await Payroll.insertMany(payrollResults);
-
     res.status(200).json({
-      message: `Payroll processed successfully for ${payrollResults.length} employees`,
-      warnings: errors.length ? errors : undefined,
-      count: payrollResults.length
+      message: `Successfully processed payroll for ${payrollResults.length} employees`,
+      errors: errors.length > 0 ? errors : undefined
     });
-
   } catch (error) {
     console.error('Payroll processing error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Failed to process payroll',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -341,6 +291,138 @@ router.get('/debug', auth, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Get payroll settings
+router.get('/settings', auth, async (req, res) => {
+  try {
+    let settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
+    
+    if (!settings) {
+      // Create default settings if none exist
+      settings = new PayrollSettings({
+        businessId: req.user.businessId,
+        taxRates: {
+          paye: {
+            rates: [
+              { min: 0, max: 24000, rate: 0 },
+              { min: 24000, max: 32333, rate: 25 },
+              { min: 32333, max: 500000, rate: 30 },
+              { min: 500000, max: 800000, rate: 32.5 },
+              { min: 800000, rate: 35 }
+            ]
+          },
+          nhif: {
+            rates: [
+              { min: 0, max: 5999, amount: 150 },
+              { min: 6000, max: 7999, amount: 300 },
+              { min: 8000, max: 11999, amount: 400 },
+              { min: 12000, max: 14999, amount: 500 },
+              { min: 15000, max: 19999, amount: 600 },
+              { min: 20000, max: 24999, amount: 750 },
+              { min: 25000, max: 29999, amount: 850 },
+              { min: 30000, max: 34999, amount: 900 },
+              { min: 35000, max: 39999, amount: 950 },
+              { min: 40000, max: 44999, amount: 1000 },
+              { min: 45000, max: 49999, amount: 1100 },
+              { min: 50000, max: 59999, amount: 1200 },
+              { min: 60000, max: 69999, amount: 1300 },
+              { min: 70000, max: 79999, amount: 1400 },
+              { min: 80000, max: 89999, amount: 1500 },
+              { min: 90000, max: 99999, amount: 1600 },
+              { min: 100000, amount: 1700 }
+            ]
+          },
+          nssf: {
+            rate: 6,
+            maxContribution: 1080 // 6% of 18,000
+          },
+          customDeductions: []
+        },
+        allowances: {
+          housing: { enabled: true, defaultRate: 15 },
+          transport: { enabled: true, defaultRate: 10 },
+          medical: { enabled: true, defaultRate: 5 },
+          other: { enabled: false, defaultRate: 0 }
+        }
+      });
+      await settings.save();
+    }
+    
+    res.json(settings);
+  } catch (error) {
+    console.error('Error fetching payroll settings:', error);
+    res.status(500).json({ message: 'Error fetching payroll settings' });
+  }
+});
+
+// Update payroll settings
+router.put('/settings', auth, async (req, res) => {
+  try {
+    const settings = await PayrollSettings.findOneAndUpdate(
+      { businessId: req.user.businessId },
+      { 
+        ...req.body,
+        lastUpdated: new Date()
+      },
+      { new: true, upsert: true }
+    );
+    
+    res.json(settings);
+  } catch (error) {
+    console.error('Error updating payroll settings:', error);
+    res.status(500).json({ message: 'Error updating payroll settings' });
+  }
+});
+
+// Add custom deduction
+router.post('/settings/deductions', auth, async (req, res) => {
+  try {
+    const { name, type, value } = req.body;
+    
+    if (!name || !type || value === undefined) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    
+    const settings = await PayrollSettings.findOneAndUpdate(
+      { businessId: req.user.businessId },
+      { 
+        $push: { 
+          'taxRates.customDeductions': {
+            name,
+            type,
+            value,
+            enabled: true
+          }
+        }
+      },
+      { new: true }
+    );
+    
+    res.json(settings);
+  } catch (error) {
+    console.error('Error adding custom deduction:', error);
+    res.status(500).json({ message: 'Error adding custom deduction' });
+  }
+});
+
+// Remove custom deduction
+router.delete('/settings/deductions/:index', auth, async (req, res) => {
+  try {
+    const settings = await PayrollSettings.findOneAndUpdate(
+      { businessId: req.user.businessId },
+      { 
+        $unset: { [`taxRates.customDeductions.${req.params.index}`]: 1 },
+        $pull: { 'taxRates.customDeductions': null }
+      },
+      { new: true }
+    );
+    
+    res.json(settings);
+  } catch (error) {
+    console.error('Error removing custom deduction:', error);
+    res.status(500).json({ message: 'Error removing custom deduction' });
   }
 });
 

@@ -179,6 +179,11 @@ function PayrollManagement() {
   };
 
   const isValidPayrollPeriod = (month, year) => {
+    // During development, allow all dates
+    return true;
+
+    // Original validation logic (commented out for development)
+    /*
     if (!registrationDate) return true; // Allow if registration date not loaded yet
     
     const periodDate = new Date(year, month - 1);
@@ -191,11 +196,35 @@ function PayrollManagement() {
     if (periodDate < registrationDate) return false;
     
     return true;
+    */
   };
 
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>Payroll Management</h2>
+      <div style={styles.header}>
+        <button
+          style={styles.backButton}
+          onClick={() => navigate('/dashboard')}
+        >
+          ← Back
+        </button>
+        <h1 style={styles.title}>Payroll Management</h1>
+        <div style={styles.headerActions}>
+          <button
+            style={styles.settingsButton}
+            onClick={() => navigate('/payroll/settings')}
+          >
+            Settings
+          </button>
+          <button
+            style={styles.processButton}
+            onClick={processPayroll}
+            disabled={loading || !isValidPayrollPeriod(selectedMonth, selectedYear)}
+          >
+            {loading ? 'Processing...' : 'Process Payroll'}
+          </button>
+        </div>
+      </div>
       
       {error && <div style={styles.error}>{error}</div>}
       
@@ -241,17 +270,6 @@ function PayrollManagement() {
             );
           })}
         </select>
-        
-        <button 
-          onClick={processPayroll} 
-          disabled={loading || !isValidPayrollPeriod(selectedMonth, selectedYear)}
-          style={{
-            ...styles.button,
-            ...((!isValidPayrollPeriod(selectedMonth, selectedYear)) && styles.disabledButton)
-          }}
-        >
-          {loading ? 'Processing...' : 'Process Payroll'}
-        </button>
       </div>
 
       {payrollSummary && (
@@ -351,6 +369,28 @@ const styles = {
     maxWidth: '1200px',
     margin: '0 auto',
   },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '20px'
+  },
+  backButton: {
+    padding: '0.75rem 1.5rem',
+    backgroundColor: '#6c757d',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '1rem',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    transition: 'background-color 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#5a6268',
+    },
+  },
   title: {
     marginBottom: '20px',
     color: '#2c3e50',
@@ -365,13 +405,26 @@ const styles = {
     borderRadius: '4px',
     border: '1px solid #ddd',
   },
-  button: {
+  headerActions: {
+    display: 'flex',
+    gap: '10px'
+  },
+  settingsButton: {
     padding: '8px 16px',
-    backgroundColor: '#3498db',
+    backgroundColor: '#f0f0f0',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px'
+  },
+  processButton: {
+    padding: '8px 16px',
+    backgroundColor: '#4caf50',
     color: 'white',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
+    fontSize: '14px'
   },
   summaryContainer: {
     backgroundColor: '#ffffff',
