@@ -11,6 +11,7 @@ function Dashboard() {
   const navigate = useNavigate();
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [employeeCount, setEmployeeCount] = useState({ total: 0, remaining: 100 });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const [newEmployee, setNewEmployee] = useState({
     firstName: '',
@@ -36,6 +37,7 @@ function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         const data = await getDashboardData();
+        console.log('Dashboard data received:', data);
         setDashboardData(data);
         setEmployeeCount({
           total: data.metrics?.employeeCount?.total || 0,

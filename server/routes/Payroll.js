@@ -278,7 +278,7 @@ router.get('/history', auth, async (req, res) => {
     const payrollHistory = await Payroll.find(query)
       .populate({
         path: 'employeeId',
-        select: 'firstName lastName position department'
+        select: 'firstName lastName position department employeeNumber'
       })
       .sort({ processedDate: -1 });
 
@@ -1030,6 +1030,35 @@ router.delete('/settings', auth, async (req, res) => {
   } catch (error) {
     console.error('Error deleting payroll settings:', error);
     res.status(500).json({ message: 'Error deleting payroll settings' });
+  }
+});
+
+// Get employee payroll history
+router.get('/employee/:employeeId', auth, async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    
+    const payrollHistory = await Payroll.find({
+      businessId: req.user.businessId,
+      employeeId: employeeId
+    })
+    .populate({
+      path: 'employeeId',
+      select: 'firstName lastName position department employeeNumber'
+    })
+    .sort({ year: -1, month: -1 });
+
+    if (!payrollHistory.length) {
+      return res.status(404).json({ message: 'No payroll history found for this employee' });
+    }
+
+    res.json(payrollHistory);
+  } catch (error) {
+    console.error('Error fetching employee payroll history:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch employee payroll history',
+      details: error.message 
+    });
   }
 });
 

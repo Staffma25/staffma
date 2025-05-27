@@ -12,12 +12,15 @@ function PayrollManagement() {
   const [error, setError] = useState('');
   const [registrationDate, setRegistrationDate] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [payrollSettings, setPayrollSettings] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchEmployees();
     fetchPayrollHistory();
     fetchBusinessDetails();
+    fetchPayrollSettings();
   }, [selectedMonth, selectedYear]);
 
   const fetchEmployees = async () => {
@@ -95,11 +98,37 @@ function PayrollManagement() {
     }
   };
 
+  const fetchPayrollSettings = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5001/api/payroll/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch payroll settings');
+      }
+
+      const data = await response.json();
+      console.log('Payroll settings:', data);
+      setPayrollSettings(data);
+    } catch (error) {
+      console.error('Error fetching payroll settings:', error);
+      setError('Failed to fetch payroll settings');
+    }
+  };
+
   const processPayroll = async () => {
     try {
       setLoading(true);
       setError('');
       
+      if (!payrollSettings) {
+        throw new Error('Please configure your payroll settings before processing payroll');
+      }
+
       const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:5001/api/payroll/process', {
         method: 'POST',
@@ -109,28 +138,26 @@ function PayrollManagement() {
         },
         body: JSON.stringify({
           month: selectedMonth,
-          year: selectedYear
+          year: selectedYear,
+          settings: payrollSettings
         })
       });
 
       const data = await response.json();
       
       if (!response.ok) {
-        // Log the full error response for debugging
         console.error('Payroll processing failed:', {
           status: response.status,
           statusText: response.statusText,
           data: data
         });
 
-        // Handle specific error cases
         if (response.status === 400) {
           if (data.message === 'Payroll settings not found') {
             throw new Error('Please configure your payroll settings before processing payroll');
           } else if (data.message === 'No active employees found') {
             throw new Error('No active employees found. Please add employees before processing payroll');
           } else if (data.errors && data.errors.length > 0) {
-            // Show detailed errors for each employee
             throw new Error(`Payroll processing failed for some employees:\n${data.errors.join('\n')}`);
           }
         }
@@ -370,6 +397,74 @@ function PayrollManagement() {
     */
   };
 
+  // Calculate summary from filtered payroll history
+  const calculateSummary = (records) => {
+    return {
+      totalEmployees: records.length,
+      totalGrossSalary: records.reduce((sum, record) => sum + (record.grossSalary || 0), 0),
+      totalNetSalary: records.reduce((sum, record) => sum + (record.netSalary || 0), 0),
+      totalAllowances: records.reduce((sum, record) => sum + (record.allowances?.total || 0), 0),
+      totalDeductions: records.reduce((sum, record) => sum + (record.deductions?.total || 0), 0),
+      // Calculate individual deduction totals based on configured deductions
+      deductionTotals: records.reduce((totals, record) => {
+        if (record.deductions?.items) {
+          record.deductions.items.forEach(item => {
+            totals[item.name] = (totals[item.name] || 0) + (item.amount || 0);
+          });
+        }
+        return totals;
+      }, {})
+    };
+  };
+
+  // Filter payroll history based on search term
+  const filteredPayrollHistory = payrollHistory.filter(record => {
+    const searchLower = searchTerm.toLowerCase();
+    const employeeName = `${record.employeeId?.firstName} ${record.employeeId?.lastName}`.toLowerCase();
+    const employeeNumber = record.employeeId?.employeeNumber?.toLowerCase() || '';
+    const department = record.employeeId?.department?.toLowerCase() || '';
+    const position = record.employeeId?.position?.toLowerCase() || '';
+
+    return employeeName.includes(searchLower) ||
+           employeeNumber.includes(searchLower) ||
+           department.includes(searchLower) ||
+           position.includes(searchLower);
+  });
+
+  // Calculate current summary based on filtered data
+  const currentSummary = calculateSummary(filteredPayrollHistory);
+
+  // Get configured deductions from payroll settings
+  const getConfiguredDeductions = () => {
+    if (!payrollSettings?.taxRates) return [];
+    
+    const deductions = [];
+    if (payrollSettings.taxRates.paye?.enabled) deductions.push('PAYE');
+    if (payrollSettings.taxRates.nhif?.enabled) deductions.push('NHIF');
+    if (payrollSettings.taxRates.nssf?.enabled) deductions.push('NSSF');
+    
+    // Add custom deductions
+    if (payrollSettings.taxRates.customDeductions) {
+      payrollSettings.taxRates.customDeductions
+        .filter(d => d.enabled)
+        .forEach(d => deductions.push(d.name));
+    }
+    
+    return deductions;
+  };
+
+  // Get configured allowances from payroll settings
+  const getConfiguredAllowances = () => {
+    if (!payrollSettings?.taxRates?.allowances) return [];
+    
+    return payrollSettings.taxRates.allowances
+      .filter(a => a.enabled)
+      .map(a => a.name);
+  };
+
+  const configuredDeductions = getConfiguredDeductions();
+  const configuredAllowances = getConfiguredAllowances();
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -400,117 +495,179 @@ function PayrollManagement() {
       {error && <div style={styles.error}>{error}</div>}
       
       <div style={styles.controls}>
-        <select 
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(Number(e.target.value))}
-          style={styles.select}
-        >
-          {Array.from({ length: 12 }, (_, i) => {
-            const month = i + 1;
-            const isValid = isValidPayrollPeriod(month, selectedYear);
-            return (
-              <option 
-                key={month} 
-                value={month}
-                disabled={!isValid}
-              >
-                {new Date(2000, i).toLocaleString('default', { month: 'long' })}
-                {!isValid ? ' (Not Available)' : ''}
-              </option>
-            );
-          })}
-        </select>
-        
-        <select
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(Number(e.target.value))}
-          style={styles.select}
-        >
-          {Array.from({ length: 5 }, (_, i) => {
-            const year = new Date().getFullYear() - i;
-            const isValid = isValidPayrollPeriod(selectedMonth, year);
-            return (
-              <option 
-                key={year} 
-                value={year}
-                disabled={!isValid}
-              >
-                {year}
-                {!isValid ? ' (Not Available)' : ''}
-              </option>
-            );
-          })}
-        </select>
+        <div style={styles.dateControls}>
+          <select 
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+            style={styles.select}
+          >
+            {Array.from({ length: 12 }, (_, i) => {
+              const month = i + 1;
+              const isValid = isValidPayrollPeriod(month, selectedYear);
+              return (
+                <option 
+                  key={month} 
+                  value={month}
+                  disabled={!isValid}
+                >
+                  {new Date(2000, i).toLocaleString('default', { month: 'long' })}
+                  {!isValid ? ' (Not Available)' : ''}
+                </option>
+              );
+            })}
+          </select>
+          
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            style={styles.select}
+          >
+            {Array.from({ length: 5 }, (_, i) => {
+              const year = new Date().getFullYear() - i;
+              const isValid = isValidPayrollPeriod(selectedMonth, year);
+              return (
+                <option 
+                  key={year} 
+                  value={year}
+                  disabled={!isValid}
+                >
+                  {year}
+                  {!isValid ? ' (Not Available)' : ''}
+                </option>
+              );
+            })}
+          </select>
+        </div>
       </div>
 
-      {payrollSummary && (
-        <div style={styles.summaryContainer}>
-          <h3 style={styles.summaryTitle}>Payroll Summary</h3>
-          <div style={styles.summaryGrid}>
-            <div style={styles.summaryCard}>
-              <div style={styles.cardIcon}>👥</div>
-              <span style={styles.cardLabel}>Total Employees</span>
-              <span style={styles.cardValue}>{payrollSummary.totalEmployees}</span>
-            </div>
-            <div style={styles.summaryCard}>
-              <div style={styles.cardIcon}>💰</div>
-              <span style={styles.cardLabel}>Total Gross Salary</span>
-              <span style={styles.cardValue}>KES {payrollSummary.totalGrossSalary?.toLocaleString()}</span>
-            </div>
-            <div style={styles.summaryCard}>
-              <div style={styles.cardIcon}>💵</div>
-              <span style={styles.cardLabel}>Total Net Salary</span>
-              <span style={styles.cardValue}>KES {payrollSummary.totalNetSalary?.toLocaleString()}</span>
-            </div>
-            <div style={styles.summaryCard}>
-              <div style={styles.cardIcon}>📊</div>
-              <span style={styles.cardLabel}>Total PAYE</span>
-              <span style={styles.cardValue}>KES {payrollSummary.totalPAYE?.toLocaleString()}</span>
-            </div>
-            <div style={styles.summaryCard}>
-              <div style={styles.cardIcon}>🏥</div>
-              <span style={styles.cardLabel}>Total NHIF</span>
-              <span style={styles.cardValue}>KES {payrollSummary.totalNHIF?.toLocaleString()}</span>
-            </div>
-            <div style={styles.summaryCard}>
-              <div style={styles.cardIcon}>🏦</div>
-              <span style={styles.cardLabel}>Total NSSF</span>
-              <span style={styles.cardValue}>KES {payrollSummary.totalNSSF?.toLocaleString()}</span>
-            </div>
+      {/* Updated Payroll Summary */}
+      <div style={styles.summaryContainer}>
+        <h3 style={styles.summaryTitle}>
+          Payroll Summary
+          {searchTerm && <span style={styles.filteredLabel}> (Filtered Results)</span>}
+        </h3>
+        <div style={styles.summaryGrid}>
+          <div style={styles.summaryCard}>
+            <div style={styles.cardIcon}>👥</div>
+            <span style={styles.cardLabel}>Total Employees</span>
+            <span style={styles.cardValue}>{currentSummary.totalEmployees}</span>
           </div>
+          <div style={styles.summaryCard}>
+            <div style={styles.cardIcon}>💰</div>
+            <span style={styles.cardLabel}>Total Gross Salary</span>
+            <span style={styles.cardValue}>KES {currentSummary.totalGrossSalary?.toLocaleString()}</span>
+          </div>
+          <div style={styles.summaryCard}>
+            <div style={styles.cardIcon}>💵</div>
+            <span style={styles.cardLabel}>Total Net Salary</span>
+            <span style={styles.cardValue}>KES {currentSummary.totalNetSalary?.toLocaleString()}</span>
+          </div>
+          <div style={styles.summaryCard}>
+            <div style={styles.cardIcon}>➕</div>
+            <span style={styles.cardLabel}>Total Allowances</span>
+            <span style={styles.cardValue}>KES {currentSummary.totalAllowances?.toLocaleString()}</span>
+          </div>
+          <div style={styles.summaryCard}>
+            <div style={styles.cardIcon}>➖</div>
+            <span style={styles.cardLabel}>Total Deductions</span>
+            <span style={styles.cardValue}>KES {currentSummary.totalDeductions?.toLocaleString()}</span>
+          </div>
+          {/* Dynamically render configured deductions */}
+          {configuredDeductions.map(deduction => (
+            <div key={deduction} style={styles.summaryCard}>
+              <div style={styles.cardIcon}>📊</div>
+              <span style={styles.cardLabel}>Total {deduction}</span>
+              <span style={styles.cardValue}>
+                KES {currentSummary.deductionTotals[deduction]?.toLocaleString() || '0'}
+              </span>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
+
+      {/* Search Bar - Moved here */}
+      <div style={styles.searchContainer}>
+        <input
+          type="text"
+          placeholder="Search by employee name, number, department, or position..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={styles.searchInput}
+        />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            style={styles.clearSearchButton}
+          >
+            Clear
+          </button>
+        )}
+      </div>
 
       <div style={styles.tableContainer}>
-        {payrollHistory.length > 0 ? (
+        {filteredPayrollHistory.length > 0 ? (
           <table style={styles.table}>
             <thead>
               <tr>
+                <th style={styles.tableHeader}>Employee ID</th>
                 <th style={styles.tableHeader}>Employee</th>
                 <th style={styles.tableHeader}>Position</th>
                 <th style={styles.tableHeader}>Department</th>
                 <th style={styles.tableHeader}>Basic Salary</th>
+                {configuredAllowances.map(allowance => (
+                  <th key={allowance} style={styles.tableHeader}>{allowance}</th>
+                ))}
+                <th style={styles.tableHeader}>Total Allowances</th>
                 <th style={styles.tableHeader}>Gross Salary</th>
-                <th style={styles.tableHeader}>PAYE</th>
-                <th style={styles.tableHeader}>NHIF</th>
-                <th style={styles.tableHeader}>NSSF</th>
+                {configuredDeductions.map(deduction => (
+                  <th key={deduction} style={styles.tableHeader}>{deduction}</th>
+                ))}
+                <th style={styles.tableHeader}>Total Deductions</th>
                 <th style={styles.tableHeader}>Net Salary</th>
                 <th style={styles.tableHeader}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {payrollHistory.map((record) => (
-                <tr key={record._id} style={styles.tableRow}>
+              {filteredPayrollHistory.map((record) => (
+                <tr key={record._id}>
                   <td style={styles.tableCell}>
-                    {record.employeeId?.firstName} {record.employeeId?.lastName}
+                    {record.employeeId?.employeeNumber || 'N/A'}
                   </td>
-                  <td style={styles.tableCell}>{record.employeeId?.position}</td>
-                  <td style={styles.tableCell}>{record.employeeId?.department}</td>
-                  <td style={styles.tableCell}>KES {record.basicSalary?.toLocaleString()}</td>
+                  <td style={styles.tableCell}>
+                    {`${record.employeeId?.firstName} ${record.employeeId?.lastName}`}
+                  </td>
+                  <td style={styles.tableCell}>
+                    {record.employeeId?.position || 'N/A'}
+                  </td>
+                  <td style={styles.tableCell}>
+                    {record.employeeId?.department || 'N/A'}
+                  </td>
+                  <td style={styles.tableCell}>
+                    KES {record.basicSalary?.toLocaleString()}
+                  </td>
+                  {configuredAllowances.map(allowance => {
+                    const allowanceItem = record.allowances?.items?.find(item => 
+                      item.name.toLowerCase() === allowance.toLowerCase()
+                    );
+                    return (
+                      <td key={allowance} style={styles.tableCell}>
+                        KES {allowanceItem?.amount?.toLocaleString() || '0'}
+                      </td>
+                    );
+                  })}
+                  <td style={styles.tableCell}>KES {record.allowances?.total?.toLocaleString()}</td>
                   <td style={styles.tableCell}>KES {record.grossSalary?.toLocaleString()}</td>
-                  <td style={styles.tableCell}>KES {record.deductions?.paye?.toLocaleString()}</td>
-                  <td style={styles.tableCell}>KES {record.deductions?.nhif?.toLocaleString()}</td>
-                  <td style={styles.tableCell}>KES {record.deductions?.nssf?.toLocaleString()}</td>
+                  {configuredDeductions.map(deduction => {
+                    const deductionItem = record.deductions?.items?.find(item => 
+                      item.name.toLowerCase() === deduction.toLowerCase()
+                    );
+                    return (
+                      <td key={deduction} style={styles.tableCell}>
+                        KES {deductionItem?.amount?.toLocaleString() || '0'}
+                      </td>
+                    );
+                  })}
+                  <td style={styles.tableCell}>KES {record.deductions?.total?.toLocaleString()}</td>
                   <td style={styles.tableCell}>KES {record.netSalary?.toLocaleString()}</td>
                   <td style={styles.tableCell}>
                     <div style={styles.actionButtons}>
@@ -534,7 +691,10 @@ function PayrollManagement() {
           </table>
         ) : (
           <div style={styles.noData}>
-            No payroll records found for {new Date(2000, selectedMonth - 1).toLocaleString('default', { month: 'long' })} {selectedYear}
+            {searchTerm 
+              ? 'No payroll records found matching your search criteria.'
+              : `No payroll records found for ${new Date(2000, selectedMonth - 1).toLocaleString('default', { month: 'long' })} ${selectedYear}`
+            }
           </div>
         )}
       </div>
@@ -576,8 +736,13 @@ const styles = {
   },
   controls: {
     display: 'flex',
-    gap: '10px',
+    flexDirection: 'column',
+    gap: '15px',
     marginBottom: '20px',
+  },
+  dateControls: {
+    display: 'flex',
+    gap: '10px',
   },
   select: {
     padding: '8px',
@@ -618,6 +783,15 @@ const styles = {
     marginBottom: '20px',
     textAlign: 'center',
     fontWeight: '600',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '10px',
+  },
+  filteredLabel: {
+    fontSize: '1rem',
+    color: '#666',
+    fontWeight: 'normal',
   },
   summaryGrid: {
     display: 'grid',
@@ -739,7 +913,42 @@ const styles = {
   disabledButton: {
     backgroundColor: '#ccc',
     cursor: 'not-allowed',
-  }
+  },
+  searchContainer: {
+    display: 'flex',
+    gap: '10px',
+    backgroundColor: '#ffffff',
+    padding: '15px',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    marginBottom: '20px',
+    marginTop: '20px',
+  },
+  searchInput: {
+    flex: 1,
+    padding: '12px',
+    borderRadius: '6px',
+    border: '1px solid #dee2e6',
+    fontSize: '1rem',
+    transition: 'border-color 0.2s ease',
+    '&:focus': {
+      outline: 'none',
+      borderColor: '#3498db',
+    },
+  },
+  clearSearchButton: {
+    padding: '8px 16px',
+    backgroundColor: '#e74c3c',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '0.9rem',
+    transition: 'background-color 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#c0392b',
+    },
+  },
 };
 
 export default PayrollManagement; 

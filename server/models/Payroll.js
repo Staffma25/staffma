@@ -6,6 +6,10 @@ const PayrollSchema = new mongoose.Schema({
     ref: 'Employee',
     required: true
   },
+  employeeNumber: {
+    type: String,
+    required: true
+  },
   businessId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Business',
@@ -30,14 +34,24 @@ const PayrollSchema = new mongoose.Schema({
     min: 0
   },
   allowances: {
-    type: Map,
-    of: Number,
-    default: {}
+    items: [{
+      name: String,
+      amount: Number
+    }],
+    total: {
+      type: Number,
+      default: 0
+    }
   },
   deductions: {
-    type: Map,
-    of: Number,
-    default: {}
+    items: [{
+      name: String,
+      amount: Number
+    }],
+    total: {
+      type: Number,
+      default: 0
+    }
   },
   netSalary: {
     type: Number,

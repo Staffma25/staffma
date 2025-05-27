@@ -46,10 +46,10 @@ const insuranceSchema = new mongoose.Schema({
 });
 
 const employeeSchema = new mongoose.Schema({
-    businessId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Business',
-        required: true
+    employeeNumber: {
+        type: String,
+        required: true,
+        unique: true
     },
     firstName: {
         type: String,
@@ -78,6 +78,10 @@ const employeeSchema = new mongoose.Schema({
         trim: true
     },
     startDate: {
+        type: Date,
+        required: true
+    },
+    joiningDate: {
         type: Date,
         required: true
     },
@@ -158,7 +162,12 @@ const employeeSchema = new mongoose.Schema({
     performanceReviews: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'PerformanceReview'
-    }]
+    }],
+    businessId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Business',
+        required: true
+    }
 }, {
     timestamps: true
 });

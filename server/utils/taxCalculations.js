@@ -96,6 +96,7 @@ const calculateAllowances = async (basicSalary, businessId) => {
     let totalAllowances = 0;
     const allowanceDetails = {};
 
+    // Process each allowance from settings
     for (const allowance of settings.taxRates.allowances) {
       if (!allowance.enabled) continue;
 
@@ -106,7 +107,7 @@ const calculateAllowances = async (basicSalary, businessId) => {
         amount = allowance.value;
       }
 
-      allowanceDetails[allowance.name] = amount;
+      allowanceDetails[allowance.name] = Math.round(amount);
       totalAllowances += amount;
     }
 
@@ -171,17 +172,60 @@ const calculatePayroll = async (employee, businessId) => {
     // Calculate gross salary
     const grossSalary = basicSalary + totalAllowances;
 
+    // Calculate statutory deductions only if enabled in settings
+    const statutoryDeductions = {};
+    let totalStatutoryDeductions = 0;
+
+    if (settings.taxRates.paye?.enabled) {
+      const paye = calculatePAYE(grossSalary, settings);
+      statutoryDeductions.paye = paye;
+      totalStatutoryDeductions += paye;
+    }
+
+    if (settings.taxRates.nhif?.enabled) {
+      const nhif = calculateNHIF(grossSalary, settings);
+      statutoryDeductions.nhif = nhif;
+      totalStatutoryDeductions += nhif;
+    }
+
+    if (settings.taxRates.nssf?.enabled) {
+      const nssf = calculateNSSF(grossSalary, settings);
+      statutoryDeductions.nssf = nssf;
+      totalStatutoryDeductions += nssf;
+    }
+
     // Calculate custom deductions
     const { totalDeductions, deductionDetails } = await calculateDeductions(grossSalary, businessId);
 
+    // Combine all deductions
+    const allDeductions = {
+      ...statutoryDeductions,
+      ...deductionDetails
+    };
+
     // Calculate net salary
-    const netSalary = grossSalary - totalDeductions;
+    const totalDeductionsAmount = totalStatutoryDeductions + totalDeductions;
+    const netSalary = grossSalary - totalDeductionsAmount;
 
     return {
+      employeeId: employee._id,
+      employeeNumber: employee.employeeNumber,
       basicSalary,
       grossSalary,
-      allowances: allowanceDetails,
-      deductions: deductionDetails,
+      allowances: {
+        items: Object.entries(allowanceDetails).map(([name, amount]) => ({
+          name,
+          amount
+        })),
+        total: totalAllowances
+      },
+      deductions: {
+        items: Object.entries(allDeductions).map(([name, amount]) => ({
+          name,
+          amount
+        })),
+        total: totalDeductionsAmount
+      },
       netSalary: Math.round(netSalary)
     };
   } catch (error) {

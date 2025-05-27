@@ -4,10 +4,30 @@ function EmployeePayrollHistory({ employeeId }) {
   const [payrollHistory, setPayrollHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [payrollSettings, setPayrollSettings] = useState(null);
 
   useEffect(() => {
     fetchEmployeePayrollHistory();
+    fetchPayrollSettings();
   }, [employeeId]);
+
+  const fetchPayrollSettings = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5001/api/payroll/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch payroll settings');
+      const data = await response.json();
+      console.log('Fetched payroll settings:', data);
+      setPayrollSettings(data);
+    } catch (error) {
+      console.error('Error fetching payroll settings:', error);
+    }
+  };
 
   const fetchEmployeePayrollHistory = async () => {
     try {
@@ -21,6 +41,7 @@ function EmployeePayrollHistory({ employeeId }) {
       if (!response.ok) throw new Error('Failed to fetch payroll history');
       
       const data = await response.json();
+      console.log('Fetched payroll history:', data);
       setPayrollHistory(data);
     } catch (error) {
       setError('Failed to fetch payroll history');
@@ -62,43 +83,136 @@ function EmployeePayrollHistory({ employeeId }) {
     }
   };
 
-  if (loading) return <div>Loading payroll history...</div>;
+  const renderAllowances = (record) => {
+    if (!record.allowances?.items || !payrollSettings?.taxRates?.allowances) return null;
+
+    // Get enabled allowances from settings
+    const enabledAllowances = payrollSettings.taxRates.allowances
+      .filter(a => a.enabled)
+      .map(a => a.name);
+
+    // Filter allowances to only show enabled ones
+    const filteredItems = record.allowances.items.filter(item => 
+      enabledAllowances.some(a => a.toLowerCase() === item.name.toLowerCase())
+    );
+
+    if (filteredItems.length === 0) return null;
+
+    return (
+      <div style={styles.detailsContainer}>
+        <div style={styles.detailsRow}>
+          <span style={styles.detailsLabel}>Total:</span>
+          <span style={styles.detailsValue}>
+            KES {record.allowances.total?.toLocaleString()}
+          </span>
+        </div>
+        {filteredItems.map((item, index) => (
+          <div key={index} style={styles.detailsRow}>
+            <span style={styles.detailsLabel}>{item.name}:</span>
+            <span style={styles.detailsValue}>
+              KES {item.amount?.toLocaleString()}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderDeductions = (record) => {
+    if (!record.deductions?.items || !payrollSettings?.taxRates) return null;
+
+    // Get enabled deductions from settings
+    const enabledDeductions = [];
+    if (payrollSettings.taxRates.paye?.enabled) enabledDeductions.push('PAYE');
+    if (payrollSettings.taxRates.nhif?.enabled) enabledDeductions.push('NHIF');
+    if (payrollSettings.taxRates.nssf?.enabled) enabledDeductions.push('NSSF');
+    
+    // Add enabled custom deductions
+    if (payrollSettings.taxRates.customDeductions) {
+      payrollSettings.taxRates.customDeductions
+        .filter(d => d.enabled)
+        .forEach(d => enabledDeductions.push(d.name));
+    }
+
+    // Filter deductions to only show enabled ones
+    const filteredItems = record.deductions.items.filter(item => 
+      enabledDeductions.some(d => d.toLowerCase() === item.name.toLowerCase())
+    );
+
+    if (filteredItems.length === 0) return null;
+
+    return (
+      <div style={styles.detailsContainer}>
+        <div style={styles.detailsRow}>
+          <span style={styles.detailsLabel}>Total:</span>
+          <span style={styles.detailsValue}>
+            KES {record.deductions.total?.toLocaleString()}
+          </span>
+        </div>
+        {filteredItems.map((item, index) => (
+          <div key={index} style={styles.detailsRow}>
+            <span style={styles.detailsLabel}>{item.name}:</span>
+            <span style={styles.detailsValue}>
+              KES {item.amount?.toLocaleString()}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  if (loading) return <div style={styles.loading}>Loading payroll history...</div>;
   if (error) return <div style={styles.error}>{error}</div>;
 
   return (
     <div style={styles.container}>
-      <h3 style={styles.title}>Payroll History</h3>
+      <h3 style={styles.title}>
+        Payroll History
+        {payrollHistory[0]?.employeeId?.employeeNumber && (
+          <span style={styles.employeeNumber}>
+            (Employee ID: {payrollHistory[0].employeeId.employeeNumber})
+          </span>
+        )}
+      </h3>
       
       {payrollHistory.length === 0 ? (
-        <p>No payroll history available</p>
+        <p style={styles.noData}>No payroll history available</p>
       ) : (
         <div style={styles.tableContainer}>
           <table style={styles.table}>
             <thead>
               <tr>
-                <th>Period</th>
-                <th>Basic Salary</th>
-                <th>Allowances</th>
-                <th>Gross Salary</th>
-                <th>PAYE</th>
-                <th>NHIF</th>
-                <th>NSSF</th>
-                <th>Net Salary</th>
-                <th>Actions</th>
+                <th style={styles.tableHeader}>Period</th>
+                <th style={styles.tableHeader}>Basic Salary</th>
+                <th style={styles.tableHeader}>Allowances</th>
+                <th style={styles.tableHeader}>Gross Salary</th>
+                <th style={styles.tableHeader}>Deductions</th>
+                <th style={styles.tableHeader}>Net Salary</th>
+                <th style={styles.tableHeader}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {payrollHistory.map((record) => (
-                <tr key={record._id}>
-                  <td>{`${new Date(2000, record.month - 1).toLocaleString('default', { month: 'long' })} ${record.year}`}</td>
-                  <td>KES {record.basicSalary.toLocaleString()}</td>
-                  <td>KES {record.allowances.toLocaleString()}</td>
-                  <td>KES {record.grossSalary.toLocaleString()}</td>
-                  <td>KES {record.deductions.paye.toLocaleString()}</td>
-                  <td>KES {record.deductions.nhif.toLocaleString()}</td>
-                  <td>KES {record.deductions.nssf.toLocaleString()}</td>
-                  <td>KES {record.netSalary.toLocaleString()}</td>
-                  <td>
+                <tr key={record._id} style={styles.tableRow}>
+                  <td style={styles.tableCell}>
+                    {`${new Date(2000, record.month - 1).toLocaleString('default', { month: 'long' })} ${record.year}`}
+                  </td>
+                  <td style={styles.tableCell}>
+                    KES {record.basicSalary?.toLocaleString()}
+                  </td>
+                  <td style={styles.tableCell}>
+                    {renderAllowances(record)}
+                  </td>
+                  <td style={styles.tableCell}>
+                    KES {record.grossSalary?.toLocaleString()}
+                  </td>
+                  <td style={styles.tableCell}>
+                    {renderDeductions(record)}
+                  </td>
+                  <td style={styles.tableCell}>
+                    KES {record.netSalary?.toLocaleString()}
+                  </td>
+                  <td style={styles.tableCell}>
                     <button 
                       onClick={() => downloadPayslip(record.month, record.year)}
                       style={styles.downloadButton}
@@ -127,6 +241,8 @@ const styles = {
   title: {
     marginBottom: '20px',
     color: '#2c3e50',
+    fontSize: '1.5rem',
+    fontWeight: '600',
   },
   tableContainer: {
     overflowX: 'auto',
@@ -136,20 +252,83 @@ const styles = {
     borderCollapse: 'collapse',
     marginTop: '10px',
   },
+  tableHeader: {
+    backgroundColor: '#f8f9fa',
+    color: '#2c3e50',
+    padding: '12px',
+    textAlign: 'left',
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    borderBottom: '2px solid #dee2e6',
+  },
+  tableRow: {
+    borderBottom: '1px solid #dee2e6',
+    '&:hover': {
+      backgroundColor: '#f8f9fa',
+    },
+  },
+  tableCell: {
+    padding: '12px',
+    color: '#2c3e50',
+    fontSize: '0.9rem',
+    verticalAlign: 'top',
+  },
+  detailsContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  detailsRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    fontSize: '0.85rem',
+  },
+  detailsLabel: {
+    color: '#666',
+    fontWeight: '500',
+  },
+  detailsValue: {
+    color: '#2c3e50',
+    fontWeight: '600',
+  },
   error: {
-    color: 'red',
+    color: '#e74c3c',
     padding: '10px',
-    backgroundColor: '#fee',
+    backgroundColor: '#fde8e8',
     borderRadius: '4px',
     marginBottom: '10px',
   },
+  loading: {
+    textAlign: 'center',
+    padding: '20px',
+    color: '#666',
+  },
+  noData: {
+    textAlign: 'center',
+    padding: '20px',
+    color: '#666',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '4px',
+  },
   downloadButton: {
-    padding: '6px 12px',
+    padding: '8px 16px',
     backgroundColor: '#2ecc71',
     color: 'white',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
+    fontSize: '0.9rem',
+    transition: 'background-color 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#27ae60',
+    },
+  },
+  employeeNumber: {
+    fontSize: '1rem',
+    color: '#666',
+    marginLeft: '10px',
+    fontWeight: 'normal',
   },
 };
 

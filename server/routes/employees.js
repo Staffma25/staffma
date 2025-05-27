@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const Employee = require('../models/Employee');
+const Business = require('../models/Business');
 const auth = require('../middleware/auth');
+const { generateEmployeeNumber } = require('../utils/employeeNumberGenerator');
 
 // Get all employees
 router.get('/', auth, async (req, res) => {
@@ -36,9 +38,19 @@ router.get('/:id', auth, async (req, res) => {
 // Create new employee
 router.post('/', auth, async (req, res) => {
   try {
+    // Get business details to generate employee number
+    const business = await Business.findById(req.user.businessId);
+    if (!business) {
+      return res.status(404).json({ message: 'Business not found' });
+    }
+
+    // Generate employee number
+    const employeeNumber = await generateEmployeeNumber(business.businessName);
+
     const employeeData = {
       ...req.body,
-      businessId: req.user.businessId
+      businessId: req.user.businessId,
+      employeeNumber
     };
     
     const employee = new Employee(employeeData);

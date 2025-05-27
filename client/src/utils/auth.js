@@ -5,9 +5,11 @@ export const fetchWithAuth = async (url, options = {}) => {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
+      console.error('No authentication token found');
       throw new Error('No authentication token found');
     }
 
+    console.log('Making authenticated request to:', url);
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -19,8 +21,10 @@ export const fetchWithAuth = async (url, options = {}) => {
 
     // If token expired, try to refresh
     if (response.status === 401) {
+      console.log('Token expired, attempting to refresh...');
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) {
+        console.error('No refresh token available');
         throw new Error('No refresh token available');
       }
 
@@ -35,11 +39,13 @@ export const fetchWithAuth = async (url, options = {}) => {
       });
 
       if (!refreshResponse.ok) {
+        console.error('Failed to refresh token');
         throw new Error('Failed to refresh token');
       }
 
       const { token: newToken } = await refreshResponse.json();
       localStorage.setItem('token', newToken);
+      console.log('Token refreshed successfully');
 
       // Retry the original request with new token
       return fetch(url, {
@@ -50,6 +56,16 @@ export const fetchWithAuth = async (url, options = {}) => {
         },
         credentials: 'include'
       });
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('API request failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
+      throw new Error(errorData.message || `Request failed with status ${response.status}`);
     }
 
     return response;

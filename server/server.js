@@ -10,6 +10,7 @@ require('dotenv').config();
 const { ObjectId } = mongoose.Types;
 const { GetObjectCommand, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { generateEmployeeNumber } = require('./utils/employeeNumberGenerator');
 
 // Import models
 const Business = require('./models/Business');
@@ -147,29 +148,85 @@ app.get('/api/dashboard', authenticateBusiness, async (req, res) => {
       return res.status(404).json({ error: 'Business not found' });
     }
 
-    // Calculate dashboard metrics
+    // Calculate employee metrics
     const totalEmployees = business.employees.length;
-    const departments = business.departments || [];
-    const employeesByDepartment = {};
-    
-    business.employees.forEach(employee => {
-      employeesByDepartment[employee.department] = 
-        (employeesByDepartment[employee.department] || 0) + 1;
+    const maxEmployees = 100; // You can adjust this based on your business rules
+    const remainingSlots = maxEmployees - totalEmployees;
+
+    // Get current month and year for payroll summary
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
+
+    // Calculate payroll summary
+    const payrollSummary = await Payroll.aggregate([
+      {
+        $match: {
+          businessId: new mongoose.Types.ObjectId(req.businessId),
+          month: currentMonth,
+          year: currentYear
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalGrossSalary: { $sum: '$grossSalary' },
+          totalNetSalary: { $sum: '$netSalary' }
+        }
+      }
+    ]);
+
+    // Get performance review stats
+    const performanceReviewsStats = await PerformanceReview.aggregate([
+      {
+        $match: {
+          businessId: new mongoose.Types.ObjectId(req.businessId)
+        }
+      },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Convert performance review stats to the expected format
+    const reviewStats = {
+      pendingReviews: 0,
+      completedReviews: 0
+    };
+
+    performanceReviewsStats.forEach(stat => {
+      if (stat._id === 'draft') {
+        reviewStats.pendingReviews = stat.count;
+      } else if (stat._id === 'submitted' || stat._id === 'acknowledged') {
+        reviewStats.completedReviews += stat.count;
+      }
     });
 
     res.json({
       business: {
         id: business._id,
         businessName: business.businessName,
+        applicantName: business.applicantName,
         email: business.email,
         businessType: business.businessType,
+        contactNumber: business.contactNumber,
+        businessAddress: business.businessAddress,
         departments: business.departments
       },
       metrics: {
-        totalEmployees,
-        departments: departments.length,
-        employeesByDepartment
+        employeeCount: {
+          total: totalEmployees,
+          remaining: remainingSlots
+        }
       },
+      payrollSummary: payrollSummary[0] || {
+        totalGrossSalary: 0,
+        totalNetSalary: 0
+      },
+      performanceReviewsStats: reviewStats,
       employees: business.employees
     });
   } catch (error) {
@@ -197,11 +254,33 @@ app.get('/api/business', authenticateBusiness, async (req, res) => {
 
 app.get('/api/employees', authenticateBusiness, async (req, res) => {
   try {
-    const employees = await Employee.find({ businessId: req.businessId });
+    console.log('Fetching employees for business:', req.businessId);
+    
+    // Convert businessId to ObjectId
+    const businessId = new mongoose.Types.ObjectId(req.businessId);
+    
+    // Find all employees for this business with all fields
+    const employees = await Employee.find({ businessId })
+      .select('employeeNumber firstName lastName email department position salary startDate joiningDate status')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    console.log(`Found ${employees.length} employees:`, employees.map(emp => ({
+      id: emp._id,
+      employeeNumber: emp.employeeNumber,
+      name: `${emp.firstName} ${emp.lastName}`,
+      email: emp.email,
+      department: emp.department,
+      position: emp.position
+    })));
+
     res.json(employees);
   } catch (error) {
     console.error('Error fetching employees:', error);
-    res.status(500).json({ error: 'Failed to fetch employees' });
+    res.status(500).json({ 
+      error: 'Failed to fetch employees',
+      details: error.message 
+    });
   }
 });
 
@@ -241,6 +320,18 @@ app.put('/api/business/update', authenticateBusiness, async (req, res) => {
 // Add employee endpoint
 app.post('/api/employees', authenticateBusiness, async (req, res) => {
   try {
+    // Get business details to generate employee number
+    const business = await Business.findById(req.businessId);
+    if (!business) {
+      return res.status(404).json({ message: 'Business not found' });
+    }
+
+    console.log('Creating employee for business:', business.businessName);
+
+    // Generate employee number
+    const employeeNumber = await generateEmployeeNumber(business.businessName);
+    console.log('Generated employee number:', employeeNumber);
+
     // Validate salary before creating employee
     const basicSalary = Number(req.body.salary);
     if (isNaN(basicSalary) || basicSalary <= 0) {
@@ -249,11 +340,13 @@ app.post('/api/employees', authenticateBusiness, async (req, res) => {
       });
     }
 
+    // Create employee data with businessId
     const employeeData = {
       ...req.body,
-      businessId: req.businessId,
+      businessId: new mongoose.Types.ObjectId(req.businessId),
+      employeeNumber,
       salary: {
-        basic: basicSalary, // Use the validated salary
+        basic: basicSalary,
         allowances: {
           housing: 0,
           transport: 0,
@@ -267,7 +360,6 @@ app.post('/api/employees', authenticateBusiness, async (req, res) => {
       }
     };
 
-    // Log the employee data for debugging
     console.log('Creating employee with data:', {
       ...employeeData,
       salary: {
@@ -279,6 +371,12 @@ app.post('/api/employees', authenticateBusiness, async (req, res) => {
     const employee = new Employee(employeeData);
     await employee.save();
 
+    console.log('Employee created successfully:', {
+      id: employee._id,
+      employeeNumber: employee.employeeNumber,
+      name: `${employee.firstName} ${employee.lastName}`
+    });
+
     // Update business with new employee
     await Business.findByIdAndUpdate(
       req.businessId,
@@ -288,6 +386,12 @@ app.post('/api/employees', authenticateBusiness, async (req, res) => {
     res.status(201).json(employee);
   } catch (error) {
     console.error('Error adding employee:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ 
+        error: 'An employee with this email already exists in your business',
+        details: error.message 
+      });
+    }
     res.status(500).json({ 
       error: 'Failed to add employee',
       details: error.message 
@@ -497,7 +601,7 @@ app.post('/api/employees/:id/upload-url', authenticateBusiness, async (req, res)
     if (!fileName || !fileType || !documentType) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
-
+    
     // Verify employee belongs to this business
     const employee = await Employee.findOne({
       _id: id,
