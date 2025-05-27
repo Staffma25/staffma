@@ -178,183 +178,22 @@ function PayrollManagement() {
 
   const downloadPayslip = async (payrollId) => {
     try {
-      setLoading(true);
       const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      // First check if server is available
-      try {
-        await axios.get('http://localhost:5001/api/health');
-      } catch (error) {
-        throw new Error('Server is not available. Please make sure the server is running at http://localhost:5001');
-      }
-
       const response = await axios.get(`http://localhost:5001/api/payroll/download/${payrollId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         responseType: 'blob'
       });
-
-      // Create a blob and download
-      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-      const a = document.createElement('a');
-      // Try to extract filename from Content-Disposition header
-      const disposition = response.headers['content-disposition'];
-      let filename = 'payslip.pdf';
-      if (disposition && disposition.indexOf('filename=') !== -1) {
-        filename = disposition.split('filename=')[1].replace(/"/g, '');
-      }
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      setSuccess('Payslip downloaded successfully');
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `payslip-${payrollId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } catch (error) {
-      console.error('Payslip download error:', error);
-      if (error.message.includes('Server is not available')) {
-        setError(error.message);
-      } else if (error.code === 'ERR_NETWORK') {
-        setError('Cannot connect to the server. Please make sure the server is running at http://localhost:5001');
-      } else {
-        setError(error.response?.data?.message || 'Failed to download payslip. Please try again.');
-      }
-    } finally {
-      setLoading(false);
-      setTimeout(() => {
-        setSuccess(null);
-        setError(null);
-      }, 3000);
-    }
-  };
-
-  const viewPayslip = async (payrollId) => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      // First check if server is available
-      try {
-        await axios.get('http://localhost:5001/api/health');
-      } catch (error) {
-        throw new Error('Server is not available. Please make sure the server is running at http://localhost:5001');
-      }
-
-      // Create a modal or container for the PDF viewer
-      const modal = document.createElement('div');
-      modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-      `;
-
-      // Create the PDF viewer container
-      const viewer = document.createElement('div');
-      viewer.style.cssText = `
-        width: 90%;
-        height: 90%;
-        background: white;
-        border-radius: 8px;
-        overflow: hidden;
-        position: relative;
-      `;
-
-      // Add close button
-      const closeButton = document.createElement('button');
-      closeButton.innerHTML = '×';
-      closeButton.style.cssText = `
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: #ff4444;
-        color: white;
-        border: none;
-        border-radius: 50%;
-        width: 30px;
-        height: 30px;
-        font-size: 20px;
-        cursor: pointer;
-        z-index: 1001;
-      `;
-      closeButton.onclick = () => {
-        document.body.removeChild(modal);
-      };
-
-      // Create the PDF viewer
-      const pdfViewer = document.createElement('iframe');
-      pdfViewer.style.cssText = `
-        width: 100%;
-        height: 100%;
-        border: none;
-      `;
-      
-      // Add token to the URL
-      pdfViewer.src = `http://localhost:5001/api/payroll/view/${payrollId}?token=${token}`;
-
-      // Add error handling for the PDF viewer
-      pdfViewer.onerror = () => {
-        setError('Failed to load PDF. Please make sure the server is running at http://localhost:5001');
-        document.body.removeChild(modal);
-      };
-
-      // Add load event handler with timeout
-      let loadTimeout = setTimeout(() => {
-        if (pdfViewer.contentWindow.location.href === 'about:blank') {
-          setError('PDF loading timed out. Please make sure the server is running at http://localhost:5001');
-          document.body.removeChild(modal);
-        }
-      }, 10000); // 10 second timeout
-
-      pdfViewer.onload = () => {
-        clearTimeout(loadTimeout);
-        // Check if the iframe loaded successfully
-        try {
-          if (pdfViewer.contentWindow.location.href === 'about:blank') {
-            setError('Failed to load PDF. Please make sure the server is running at http://localhost:5001');
-            document.body.removeChild(modal);
-          }
-        } catch (e) {
-          // If we can't access the contentWindow, it might be due to CORS
-          // This is not necessarily an error, as the PDF might still load
-          console.log('Note: Could not access iframe content due to CORS policy');
-        }
-      };
-
-      // Assemble the viewer
-      viewer.appendChild(closeButton);
-      viewer.appendChild(pdfViewer);
-      modal.appendChild(viewer);
-      document.body.appendChild(modal);
-
-      setSuccess('Payslip loaded successfully');
-    } catch (error) {
-      console.error('Payslip view error:', error);
-      if (error.message.includes('Server is not available')) {
-        setError(error.message);
-      } else if (error.code === 'ERR_NETWORK') {
-        setError('Cannot connect to the server. Please make sure the server is running at http://localhost:5001');
-      } else {
-        setError(error.message || 'Failed to view payslip. Please try again.');
-      }
-    } finally {
-      setLoading(false);
-      setTimeout(() => {
-        setSuccess(null);
-        setError(null);
-      }, 3000);
+      setError(error.message || 'Failed to download payslip. Please try again.');
     }
   };
 
@@ -672,12 +511,6 @@ function PayrollManagement() {
                   <td style={styles.tableCell}>
                     <div style={styles.actionButtons}>
                       <button 
-                        onClick={() => viewPayslip(record._id)}
-                        style={styles.viewButton}
-                      >
-                        View Payslip
-                      </button>
-                      <button 
                         onClick={() => downloadPayslip(record._id)}
                         style={styles.downloadButton}
                       >
@@ -869,22 +702,6 @@ const styles = {
     display: 'flex',
     gap: '8px',
     alignItems: 'center'
-  },
-  viewButton: {
-    padding: '8px 16px',
-    backgroundColor: '#2ecc71',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '0.9rem',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '5px',
-    transition: 'background-color 0.2s ease',
-    '&:hover': {
-      backgroundColor: '#27ae60',
-    },
   },
   downloadButton: {
     padding: '8px 16px',

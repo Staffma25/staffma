@@ -556,28 +556,19 @@ function EmployeeDetails() {
               <table style={styles.table}>
                 <thead>
                   <tr>
-                    <th>Period</th>
-                    <th>Basic Salary</th>
-                    <th>Gross Pay</th>
-                    <th>Net Pay</th>
-                    <th>Actions</th>
+                    <th style={styles.tableHeader}>Period</th>
+                    <th style={styles.tableHeader}>Basic Salary</th>
+                    <th style={styles.tableHeader}>Gross Pay</th>
+                    <th style={styles.tableHeader}>Net Pay</th>
                   </tr>
                 </thead>
                 <tbody>
                   {employee.payrollHistory.map(payroll => (
-                    <tr key={payroll._id}>
-                      <td>{`${payroll.month}/${payroll.year}`}</td>
-                      <td>KES {payroll.basicSalary?.toLocaleString()}</td>
-                      <td>KES {payroll.grossSalary?.toLocaleString()}</td>
-                      <td>KES {payroll.netSalary?.toLocaleString()}</td>
-                      <td>
-                        <button 
-                          onClick={() => window.open(`/api/payroll/download/${payroll._id}`, '_blank')}
-                          style={styles.downloadButton}
-                        >
-                          Download Payslip
-                        </button>
-                      </td>
+                    <tr key={payroll._id} style={styles.tableRow}>
+                      <td style={styles.tableCell}>{`${payroll.month}/${payroll.year}`}</td>
+                      <td style={styles.tableCell}>KES {payroll.basicSalary?.toLocaleString()}</td>
+                      <td style={styles.tableCell}>KES {payroll.grossSalary?.toLocaleString()}</td>
+                      <td style={styles.tableCell}>KES {payroll.netSalary?.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -738,7 +729,29 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse',
-    marginTop: '15px',
+    marginTop: '20px',
+    backgroundColor: 'white',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    borderRadius: '8px',
+    overflow: 'hidden',
+  },
+  tableHeader: {
+    backgroundColor: '#f8f9fa',
+    padding: '12px 15px',
+    textAlign: 'left',
+    fontWeight: '600',
+    color: '#2c3e50',
+    borderBottom: '2px solid #e9ecef',
+  },
+  tableCell: {
+    padding: '12px 15px',
+    borderBottom: '1px solid #e9ecef',
+    color: '#2c3e50',
+  },
+  tableRow: {
+    '&:hover': {
+      backgroundColor: '#f8f9fa',
+    },
   },
   downloadButton: {
     padding: '6px 12px',

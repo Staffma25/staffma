@@ -149,11 +149,13 @@ router.post('/process', auth, async (req, res) => {
     }
 
     // Validate employee data
-    const invalidEmployees = employees.filter(emp => !emp.salary?.basic);
+    const invalidEmployees = employees.filter(emp => !emp.salary?.basic || !emp.employeeNumber);
     if (invalidEmployees.length > 0) {
       return res.status(400).json({
         message: 'Invalid employee data',
-        details: `The following employees have no basic salary set: ${invalidEmployees.map(emp => `${emp.firstName} ${emp.lastName}`).join(', ')}`
+        details: `The following employees have missing required data: ${invalidEmployees.map(emp => 
+          `${emp.firstName} ${emp.lastName} (${!emp.salary?.basic ? 'No basic salary' : 'No employee number'})`
+        ).join(', ')}`
       });
     }
 
@@ -207,6 +209,7 @@ router.post('/process', auth, async (req, res) => {
         // Create payroll record
         const payrollRecord = new Payroll({
           employeeId: employee._id,
+          employeeNumber: employee.employeeNumber,
           businessId: req.user.businessId,
           month: Number(month),
           year: Number(year),
@@ -645,6 +648,7 @@ router.get('/download/:payrollId', auth, async (req, res) => {
       .fillColor('#333')
       .font('Helvetica')
       .text(`Name: ${payroll.employeeId.firstName} ${payroll.employeeId.lastName}`)
+      .text(`Employee Number: ${payroll.employeeNumber}`)
       .text(`Position: ${payroll.employeeId.position}`)
       .text(`Department: ${payroll.employeeId.department}`)
       .moveDown(0.5);
@@ -687,13 +691,18 @@ router.get('/download/:payrollId', auth, async (req, res) => {
       .fillColor('#333')
       .font('Helvetica');
 
-    // Display custom allowances from settings
+    // Display allowances from payroll settings
     const allowances = settings.taxRates.allowances || [];
     let totalAllowances = 0;
     
     allowances.forEach(allowance => {
       if (allowance.enabled) {
-        const amount = payroll.allowances.get(allowance.name) || 0;
+        let amount = 0;
+        if (allowance.type === 'percentage') {
+          amount = (payroll.basicSalary * allowance.value) / 100;
+        } else {
+          amount = allowance.value;
+        }
         totalAllowances += amount;
         doc.text(`${allowance.name}: KES ${amount.toLocaleString()}`);
       }
@@ -712,20 +721,44 @@ router.get('/download/:payrollId', auth, async (req, res) => {
       .fillColor('#333')
       .font('Helvetica');
 
-    // Display custom deductions from settings
-    const deductions = settings.taxRates.customDeductions || [];
-    let totalDeductions = 0;
+    // Get tax rates from settings for display purposes only
+    const payeRate = settings?.taxRates?.paye?.rates?.find(rate => 
+      payroll.grossSalary >= rate.min && payroll.grossSalary <= (rate.max || Infinity)
+    )?.rate || 30;
+
+    const nhifRate = settings?.taxRates?.nhif?.rates?.find(rate => 
+      payroll.grossSalary >= rate.min && payroll.grossSalary <= (rate.max || Infinity)
+    )?.amount || 1;
+
+    const nssfRate = settings?.taxRates?.nssf?.employeeRate || 2;
+
+    // Display only the actual calculated deductions from the payroll record
+    if (payroll.deductions?.paye) {
+      doc.text(`PAYE (${payeRate}%): KES ${payroll.deductions.paye.toLocaleString()}`);
+    }
+    if (payroll.deductions?.nhif) {
+      doc.text(`NHIF (${nhifRate}%): KES ${payroll.deductions.nhif.toLocaleString()}`);
+    }
+    if (payroll.deductions?.nssf) {
+      doc.text(`NSSF (${nssfRate}%): KES ${payroll.deductions.nssf.toLocaleString()}`);
+    }
+    doc.moveDown(0.2);
+
+    // Display custom deductions from payroll settings
+    const deductions = settings?.taxRates?.customDeductions || [];
+    let totalCustomDeductions = 0;
     
     deductions.forEach(deduction => {
       if (deduction.enabled) {
-        const amount = payroll.deductions.get(deduction.name) || 0;
-        totalDeductions += amount;
-        // Show percentage for percentage-based deductions
+        let amount = 0;
         if (deduction.type === 'percentage') {
+          amount = (payroll.basicSalary * deduction.value) / 100;
           doc.text(`${deduction.name} (${deduction.value}%): KES ${amount.toLocaleString()}`);
         } else {
-          doc.text(`${deduction.name}: KES ${amount.toLocaleString()}`);
+          amount = deduction.value;
+          doc.text(`${deduction.name} (Fixed): KES ${amount.toLocaleString()}`);
         }
+        totalCustomDeductions += amount;
       }
     });
     
@@ -741,8 +774,10 @@ router.get('/download/:payrollId', auth, async (req, res) => {
       .fontSize(12)
       .fillColor('#333')
       .font('Helvetica')
+      .text(`Basic Salary: KES ${(payroll.basicSalary || 0).toLocaleString()}`)
+      .text(`Total Allowances: KES ${totalAllowances.toLocaleString()}`)
       .text(`Gross Salary: KES ${(payroll.grossSalary || 0).toLocaleString()}`)
-      .text(`Total Deductions: KES ${totalDeductions.toLocaleString()}`)
+      .text(`Total Deductions: KES ${(payroll.deductions?.total || 0).toLocaleString()}`)
       .text(`Net Salary: KES ${(payroll.netSalary || 0).toLocaleString()}`)
       .moveDown(1);
 
@@ -768,246 +803,6 @@ router.get('/download/:payrollId', auth, async (req, res) => {
         message: 'Error downloading payslip',
         details: error.message 
       });
-    }
-  }
-});
-
-// View payslip in browser
-router.get('/view/:payrollId', async (req, res) => {
-  let doc;
-  try {
-    // Get token from query parameter
-    const token = req.query.token;
-    if (!token) {
-      return res.status(401).json({ message: 'No token, authorization denied' });
-    }
-
-    // Verify token and get user
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-
-    // Fetch the payroll record with populated business details
-    const payroll = await Payroll.findById(req.params.payrollId)
-      .populate('employeeId', 'firstName lastName position department')
-      .populate('businessId', 'name address');
-
-    if (!payroll) {
-      return res.status(404).json({ message: 'Payroll record not found' });
-    }
-
-    // Convert both IDs to strings for comparison
-    const payrollBusinessId = payroll.businessId._id.toString();
-    const userBusinessId = req.user.businessId.toString();
-    if (payrollBusinessId !== userBusinessId) {
-      return res.status(403).json({ message: 'Not authorized to access this payroll record' });
-    }
-
-    // Get the business details
-    const business = await Business.findById(payrollBusinessId);
-    if (!business) {
-      return res.status(404).json({ message: 'Business not found' });
-    }
-
-    // Fetch payroll settings for tax rates
-    const settings = await PayrollSettings.findOne({ businessId: payrollBusinessId });
-    if (!settings) {
-      return res.status(404).json({ message: 'Payroll settings not found' });
-    }
-
-    console.log('Business details:', {
-      name: business.name,
-      address: business.address
-    });
-
-    // Set response headers for viewing PDF in browser
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="payslip.pdf"');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-
-    // Create a PDF document
-    doc = new PDFDocument({ 
-      margin: 40,
-      bufferPages: true,
-      autoFirstPage: true
-    });
-
-    // Handle PDF generation errors
-    doc.on('error', (err) => {
-      console.error('PDF generation error:', err);
-      if (!res.headersSent) {
-        res.status(500).json({ message: 'Error generating PDF' });
-      }
-    });
-
-    // Pipe the PDF to the response
-    doc.pipe(res);
-
-    try {
-      // Payslip header
-      doc
-        .fontSize(20)
-        .fillColor('#4F8EF7')
-        .font('Helvetica-Bold')
-        .text('PAYSLIP', { align: 'center' })
-        .moveDown(1);
-
-      // Employee Details Section
-      doc
-        .fontSize(14)
-        .fillColor('#1a237e')
-        .font('Helvetica-Bold')
-        .text('Employee Details', { underline: true })
-        .moveDown(0.2)
-        .fontSize(12)
-        .fillColor('#333')
-        .font('Helvetica')
-        .text(`Name: ${payroll.employeeId.firstName} ${payroll.employeeId.lastName}`)
-        .text(`Position: ${payroll.employeeId.position}`)
-        .text(`Department: ${payroll.employeeId.department}`)
-        .moveDown(0.5);
-
-      // Payroll Details Section
-      doc
-        .fontSize(14)
-        .fillColor('#1a237e')
-        .font('Helvetica-Bold')
-        .text('Payroll Details', { underline: true })
-        .moveDown(0.2)
-        .fontSize(12)
-        .fillColor('#333')
-        .font('Helvetica')
-        .text(`Period: ${payroll.month}/${payroll.year}`)
-        .text(`Processed Date: ${new Date(payroll.processedDate).toLocaleDateString()}`)
-        .moveDown(0.5);
-
-      // Tax Rates Section
-      doc
-        .fontSize(14)
-        .fillColor('#1a237e')
-        .font('Helvetica-Bold')
-        .text('Tax Rates and Deductions', { underline: true })
-        .moveDown(0.2)
-        .fontSize(12)
-        .fillColor('#333')
-        .font('Helvetica');
-
-      // Calculate and display actual rates used
-      const payeRate = ((payroll.deductions?.paye || 0) / (payroll.grossSalary || 1)) * 100;
-      const nhifRate = ((payroll.deductions?.nhif || 0) / (payroll.grossSalary || 1)) * 100;
-      const nssfRate = ((payroll.deductions?.nssf || 0) / (payroll.grossSalary || 1)) * 100;
-
-      // Display PAYE rate and amount
-      doc.text(`PAYE Rate: ${payeRate.toFixed(2)}%`);
-      doc.text(`PAYE Amount: KES ${(payroll.deductions?.paye || 0).toLocaleString()}`);
-      doc.moveDown(0.2);
-
-      // Display NHIF rate and amount
-      doc.text(`NHIF Rate: ${nhifRate.toFixed(2)}%`);
-      doc.text(`NHIF Amount: KES ${(payroll.deductions?.nhif || 0).toLocaleString()}`);
-      doc.moveDown(0.2);
-
-      // Display NSSF rate and amount
-      doc.text(`NSSF Rate: ${nssfRate.toFixed(2)}%`);
-      doc.text(`NSSF Amount: KES ${(payroll.deductions?.nssf || 0).toLocaleString()}`);
-      doc.moveDown(0.2);
-
-      // Display other deductions if any
-      if (payroll.deductions?.loans || payroll.deductions?.other) {
-        doc.text('Additional Deductions:');
-        if (payroll.deductions.loans) {
-          doc.text(`  Loans: KES ${payroll.deductions.loans.toLocaleString()}`);
-        }
-        if (payroll.deductions.other) {
-          doc.text(`  Other: KES ${payroll.deductions.other.toLocaleString()}`);
-        }
-      }
-      doc.moveDown(0.5);
-
-      // Earnings Section
-      doc
-        .fontSize(14)
-        .fillColor('#1a237e')
-        .font('Helvetica-Bold')
-        .text('Earnings', { underline: true })
-        .moveDown(0.2)
-        .fontSize(12)
-        .fillColor('#333')
-        .font('Helvetica')
-        .text(`Basic Salary: KES ${(payroll.basicSalary || 0).toLocaleString()}`)
-        .moveDown(0.2);
-
-      // Allowances Section
-      doc
-        .fontSize(14)
-        .fillColor('#1a237e')
-        .font('Helvetica-Bold')
-        .text('Allowances', { underline: true })
-        .moveDown(0.2)
-        .fontSize(12)
-        .fillColor('#333')
-        .font('Helvetica');
-      
-      Object.entries(payroll.allowances || {}).forEach(([key, value]) => {
-        doc.text(`${capitalize(key)}: KES ${(value || 0).toLocaleString()}`);
-      });
-      doc.moveDown(0.5);
-
-      // Summary Section
-      doc
-        .fontSize(14)
-        .fillColor('#1a237e')
-        .font('Helvetica-Bold')
-        .text('Summary', { underline: true })
-        .moveDown(0.2)
-        .fontSize(12)
-        .fillColor('#333')
-        .font('Helvetica')
-        .text(`Gross Salary: KES ${(payroll.grossSalary || 0).toLocaleString()}`)
-        .text(`Total Deductions: KES ${Object.values(payroll.deductions || {}).reduce((a, b) => (a || 0) + (b || 0), 0).toLocaleString()}`)
-        .text(`Net Salary: KES ${(payroll.netSalary || 0).toLocaleString()}`)
-        .moveDown(1);
-
-      // Footer
-      doc
-        .fontSize(10)
-        .fillColor('#666')
-        .font('Helvetica')
-        .text('This is a computer-generated document. No signature is required.', { align: 'center' })
-        .moveDown(0.5)
-        .text('Thank you for your hard work!', { align: 'center' });
-
-    } catch (pdfError) {
-      console.error('Error generating PDF content:', pdfError);
-      if (!res.headersSent) {
-        res.status(500).json({ 
-          message: 'Error generating PDF content',
-          details: pdfError.message 
-        });
-      }
-      return;
-    }
-
-    // End the PDF document
-    doc.end();
-
-  } catch (error) {
-    console.error('Error viewing payslip:', error);
-    if (!res.headersSent) {
-      if (error.name === 'JsonWebTokenError') {
-        return res.status(401).json({ message: 'Invalid token' });
-      }
-      res.status(500).json({ 
-        message: 'Error viewing payslip',
-        details: error.message 
-      });
-    }
-    if (doc) {
-      doc.end();
     }
   }
 });

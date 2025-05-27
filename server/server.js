@@ -832,6 +832,57 @@ app.delete('/api/employees/:id/insurance/:type', authenticateBusiness, async (re
   }
 });
 
+// Add registration endpoint
+app.post('/api/register', async (req, res) => {
+  try {
+    const {
+      businessName,
+      email,
+      password,
+      businessType,
+      applicantName,
+      applicantRole,
+      businessAddress,
+      contactNumber
+    } = req.body;
+
+    // Validate required fields
+    if (!businessName || !email || !password) {
+      return res.status(400).json({ error: 'Business name, email and password are required' });
+    }
+
+    // Check if business already exists
+    const existingBusiness = await Business.findOne({ email: email.toLowerCase() });
+    if (existingBusiness) {
+      return res.status(400).json({ error: 'A business with this email already exists' });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create new business
+    const business = new Business({
+      businessName,
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      businessType: businessType || 'sole',
+      applicantName,
+      applicantRole,
+      businessAddress,
+      contactNumber,
+      status: 'active'
+    });
+
+    await business.save();
+
+    res.status(201).json({ message: 'Registration successful' });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Registration failed. Please try again.' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
