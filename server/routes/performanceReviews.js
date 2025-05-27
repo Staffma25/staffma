@@ -11,8 +11,8 @@ router.post('/employees/:employeeId/performance-reviews', auth, async (req, res)
     const employeeId = req.params.employeeId;
     
     // First check if employee exists
-    const employeeExists = await Employee.exists({ _id: employeeId });
-    if (!employeeExists) {
+    const employee = await Employee.findOne({ _id: employeeId });
+    if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
 
@@ -32,13 +32,17 @@ router.post('/employees/:employeeId/performance-reviews', auth, async (req, res)
 
     const savedReview = await newReview.save();
 
-    // Update employee's performanceReviews array using updateOne
-    await Employee.updateOne(
-      { _id: employeeId },
+    // Update employee's performanceReviews array
+    await Employee.findByIdAndUpdate(
+      employeeId,
       { $push: { performanceReviews: savedReview._id } }
     );
 
-    res.status(201).json(savedReview);
+    // Populate employee details before sending response
+    const populatedReview = await PerformanceReview.findById(savedReview._id)
+      .populate('employeeId', 'firstName lastName');
+
+    res.status(201).json(populatedReview);
   } catch (error) {
     console.error('Error creating performance review:', error);
     res.status(500).json({ message: 'Error creating performance review', error: error.message });
@@ -49,7 +53,8 @@ router.post('/employees/:employeeId/performance-reviews', auth, async (req, res)
 router.get('/performance-reviews', auth, async (req, res) => {
   try {
     const reviews = await PerformanceReview.find({ businessId: req.user.businessId })
-      .populate('employeeId', 'firstName lastName');
+      .populate('employeeId', 'firstName lastName')
+      .sort({ reviewDate: -1 });
     res.json(reviews);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching reviews', error: error.message });

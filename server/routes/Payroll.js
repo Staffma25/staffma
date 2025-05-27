@@ -7,6 +7,9 @@ const Payroll = require('../models/Payroll');
 const mongoose = require('mongoose');
 const Business = require('../models/Business');
 const PayrollSettings = require('../models/PayrollSettings');
+const PDFDocument = require('pdfkit');
+const { capitalize } = require('lodash');
+const jwt = require('jsonwebtoken');
 
 // Import tax calculation functions
 const {
@@ -103,13 +106,34 @@ router.post('/process', auth, async (req, res) => {
       });
     }
 
-    // Check if the payroll period is valid
-    const isValid = await isValidPayrollPeriod(req.user.businessId, Number(month), Number(year));
-    if (!isValid) {
+    // Validate month and year
+    if (month < 1 || month > 12) {
       return res.status(400).json({
-        message: 'Cannot process payroll for this period. You can only process payroll from your registration month onwards.'
+        message: 'Invalid month. Month must be between 1 and 12'
       });
     }
+
+    if (year < 2000 || year > 2100) {
+      return res.status(400).json({
+        message: 'Invalid year. Year must be between 2000 and 2100'
+      });
+    }
+
+    // Get business settings first
+    const settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
+    if (!settings) {
+      return res.status(400).json({
+        message: 'Payroll settings not found',
+        details: 'Please configure your payroll settings before processing payroll'
+      });
+    }
+
+    console.log('Processing payroll with settings:', {
+      businessId: req.user.businessId,
+      month,
+      year,
+      taxRates: settings.taxRates
+    });
 
     // Get all active employees
     const employees = await Employee.find({ 
@@ -119,9 +143,21 @@ router.post('/process', auth, async (req, res) => {
 
     if (!employees.length) {
       return res.status(400).json({
-        message: 'No active employees found'
+        message: 'No active employees found',
+        details: 'Please add employees before processing payroll'
       });
     }
+
+    // Validate employee data
+    const invalidEmployees = employees.filter(emp => !emp.salary?.basic);
+    if (invalidEmployees.length > 0) {
+      return res.status(400).json({
+        message: 'Invalid employee data',
+        details: `The following employees have no basic salary set: ${invalidEmployees.map(emp => `${emp.firstName} ${emp.lastName}`).join(', ')}`
+      });
+    }
+
+    console.log(`Found ${employees.length} active employees`);
 
     // During development, allow reprocessing by deleting existing records
     const existingPayroll = await Payroll.find({
@@ -131,7 +167,7 @@ router.post('/process', auth, async (req, res) => {
     });
 
     if (existingPayroll.length > 0) {
-      // Delete existing payroll records for this period
+      console.log(`Deleting ${existingPayroll.length} existing payroll records for ${month}/${year}`);
       await Payroll.deleteMany({
         businessId: req.user.businessId,
         month: Number(month),
@@ -144,8 +180,29 @@ router.post('/process', auth, async (req, res) => {
 
     for (const employee of employees) {
       try {
+        console.log(`Processing payroll for employee: ${employee.firstName} ${employee.lastName}`);
+        console.log('Employee details:', {
+          id: employee._id,
+          basicSalary: employee.salary?.basic,
+          position: employee.position,
+          department: employee.department
+        });
+
         // Calculate payroll using the async function
         const payrollData = await calculatePayroll(employee, req.user.businessId);
+
+        // Validate payroll calculation results
+        if (!payrollData || typeof payrollData.grossSalary !== 'number' || isNaN(payrollData.grossSalary)) {
+          throw new Error('Invalid payroll calculation results');
+        }
+
+        console.log('Payroll calculation results:', {
+          employeeId: employee._id,
+          basicSalary: payrollData.basicSalary,
+          grossSalary: payrollData.grossSalary,
+          deductions: payrollData.deductions,
+          netSalary: payrollData.netSalary
+        });
 
         // Create payroll record
         const payrollRecord = new Payroll({
@@ -153,34 +210,51 @@ router.post('/process', auth, async (req, res) => {
           businessId: req.user.businessId,
           month: Number(month),
           year: Number(year),
-          ...payrollData,
+          basicSalary: payrollData.basicSalary,
+          grossSalary: payrollData.grossSalary,
+          allowances: payrollData.allowances,
+          deductions: {
+            ...payrollData.deductions,
+            totalDeductions: Object.values(payrollData.deductions).reduce((sum, val) => sum + val, 0)
+          },
+          netSalary: payrollData.netSalary,
           processedDate: new Date()
         });
 
         await payrollRecord.save();
         payrollResults.push(payrollRecord);
+        console.log(`Successfully processed payroll for ${employee.firstName} ${employee.lastName}`);
       } catch (error) {
         console.error(`Error processing payroll for employee ${employee._id}:`, error);
-        errors.push(`Failed to process payroll for ${employee.firstName} ${employee.lastName}: ${error.message}`);
+        errors.push({
+          employee: `${employee.firstName} ${employee.lastName}`,
+          error: error.message
+        });
       }
     }
 
     if (payrollResults.length === 0) {
       return res.status(400).json({
         message: 'No valid payroll records could be generated',
-        errors
+        errors: errors.map(e => `${e.employee}: ${e.error}`)
       });
     }
 
+    console.log('Payroll processing completed:', {
+      totalProcessed: payrollResults.length,
+      errors: errors.length
+    });
+
     res.status(200).json({
       message: `Successfully processed payroll for ${payrollResults.length} employees`,
-      errors: errors.length > 0 ? errors : undefined
+      errors: errors.length > 0 ? errors.map(e => `${e.employee}: ${e.error}`) : undefined
     });
   } catch (error) {
     console.error('Payroll processing error:', error);
     res.status(500).json({
       message: 'Failed to process payroll',
-      error: error.message
+      error: error.message,
+      details: error.stack
     });
   }
 });
@@ -306,12 +380,15 @@ router.get('/settings', auth, async (req, res) => {
         taxRates: {
           paye: {
             rates: [
-              { min: 0, max: 24000, rate: 0 },
-              { min: 24000, max: 32333, rate: 25 },
-              { min: 32333, max: 500000, rate: 30 },
-              { min: 500000, max: 800000, rate: 32.5 },
-              { min: 800000, rate: 35 }
-            ]
+              { min: 0, max: 24000, rate: 10 },
+              { min: 24001, max: 32333, rate: 25 },
+              { min: 32334, max: 500000, rate: 30 },
+              { min: 500001, max: 800000, rate: 32.5 },
+              { min: 800001, rate: 35 }
+            ],
+            personalRelief: 2400,
+            insuranceRelief: 15000,
+            housingRelief: 9000
           },
           nhif: {
             rates: [
@@ -332,19 +409,37 @@ router.get('/settings', auth, async (req, res) => {
               { min: 80000, max: 89999, amount: 1500 },
               { min: 90000, max: 99999, amount: 1600 },
               { min: 100000, amount: 1700 }
-            ]
+            ],
+            employerContribution: 0.5
           },
           nssf: {
-            rate: 6,
-            maxContribution: 1080 // 6% of 18,000
+            employeeRate: 6,
+            employerRate: 6,
+            maxContribution: 1080,
+            tier1Limit: 6000,
+            tier2Limit: 18000
           },
-          customDeductions: []
+          customDeductions: [],
+          allowances: []
         },
-        allowances: {
-          housing: { enabled: true, defaultRate: 15 },
-          transport: { enabled: true, defaultRate: 10 },
-          medical: { enabled: true, defaultRate: 5 },
-          other: { enabled: false, defaultRate: 0 }
+        benefits: {
+          gratuity: {
+            enabled: true,
+            rate: 15,
+            description: "End of service gratuity"
+          },
+          leave: {
+            annualLeave: 21,
+            sickLeave: 14,
+            maternityLeave: 90,
+            paternityLeave: 14
+          }
+        },
+        taxExemptions: {
+          personalRelief: 2400,
+          insuranceRelief: 15000,
+          housingRelief: 9000,
+          disabilityExemption: 150000
         }
       });
       await settings.save();
@@ -400,6 +495,10 @@ router.post('/settings/deductions', auth, async (req, res) => {
       { new: true }
     );
     
+    if (!settings) {
+      return res.status(404).json({ message: 'Payroll settings not found' });
+    }
+    
     res.json(settings);
   } catch (error) {
     console.error('Error adding custom deduction:', error);
@@ -410,19 +509,527 @@ router.post('/settings/deductions', auth, async (req, res) => {
 // Remove custom deduction
 router.delete('/settings/deductions/:index', auth, async (req, res) => {
   try {
-    const settings = await PayrollSettings.findOneAndUpdate(
-      { businessId: req.user.businessId },
-      { 
-        $unset: { [`taxRates.customDeductions.${req.params.index}`]: 1 },
-        $pull: { 'taxRates.customDeductions': null }
-      },
-      { new: true }
-    );
+    const settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
+    
+    if (!settings) {
+      return res.status(404).json({ message: 'Payroll settings not found' });
+    }
+
+    const index = parseInt(req.params.index);
+    if (isNaN(index) || index < 0 || index >= settings.taxRates.customDeductions.length) {
+      return res.status(400).json({ message: 'Invalid deduction index' });
+    }
+
+    settings.taxRates.customDeductions.splice(index, 1);
+    await settings.save();
     
     res.json(settings);
   } catch (error) {
     console.error('Error removing custom deduction:', error);
     res.status(500).json({ message: 'Error removing custom deduction' });
+  }
+});
+
+// Add custom allowance
+router.post('/settings/allowances', auth, async (req, res) => {
+  try {
+    const { name, type, value } = req.body;
+    
+    if (!name || !type || value === undefined) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    
+    const settings = await PayrollSettings.findOneAndUpdate(
+      { businessId: req.user.businessId },
+      { 
+        $push: { 
+          'taxRates.allowances': {
+            name,
+            type,
+            value,
+            enabled: true
+          }
+        }
+      },
+      { new: true }
+    );
+    
+    if (!settings) {
+      return res.status(404).json({ message: 'Payroll settings not found' });
+    }
+    
+    res.json(settings);
+  } catch (error) {
+    console.error('Error adding custom allowance:', error);
+    res.status(500).json({ message: 'Error adding custom allowance' });
+  }
+});
+
+// Remove allowance
+router.delete('/settings/allowances/:index', auth, async (req, res) => {
+  try {
+    const settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
+    
+    if (!settings) {
+      return res.status(404).json({ message: 'Payroll settings not found' });
+    }
+
+    const index = parseInt(req.params.index);
+    if (isNaN(index) || index < 0 || index >= settings.taxRates.allowances.length) {
+      return res.status(400).json({ message: 'Invalid allowance index' });
+    }
+
+    settings.taxRates.allowances.splice(index, 1);
+    await settings.save();
+    
+    res.json(settings);
+  } catch (error) {
+    console.error('Error removing custom allowance:', error);
+    res.status(500).json({ message: 'Error removing custom allowance' });
+  }
+});
+
+// Download payslip as PDF
+router.get('/download/:payrollId', auth, async (req, res) => {
+  let doc;
+  try {
+    const payroll = await Payroll.findById(req.params.payrollId)
+      .populate('employeeId', 'firstName lastName position department')
+      .populate('businessId', 'name address');
+
+    if (!payroll) {
+      return res.status(404).json({ message: 'Payroll record not found' });
+    }
+
+    // Convert both IDs to strings for comparison
+    const payrollBusinessId = payroll.businessId._id.toString();
+    const userBusinessId = req.user.businessId.toString();
+    if (payrollBusinessId !== userBusinessId) {
+      return res.status(403).json({ message: 'Not authorized to access this payroll record' });
+    }
+
+    // Fetch business details from the database
+    const business = await Business.findById(payrollBusinessId);
+    if (!business) {
+      return res.status(404).json({ message: 'Business not found' });
+    }
+
+    // Fetch payroll settings for tax rates
+    const settings = await PayrollSettings.findOne({ businessId: payrollBusinessId });
+    if (!settings) {
+      return res.status(404).json({ message: 'Payroll settings not found' });
+    }
+
+    // Create a PDF document
+    doc = new PDFDocument({ margin: 40 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="payslip-${payroll.employeeId.firstName}-${payroll.employeeId.lastName}-${payroll.month}-${payroll.year}.pdf"`);
+    doc.pipe(res);
+
+    // Payslip header
+    doc
+      .fontSize(20)
+      .fillColor('#4F8EF7')
+      .font('Helvetica-Bold')
+      .text('PAYSLIP', { align: 'center' })
+      .moveDown(1);
+
+    // Employee Details Section
+    doc
+      .fontSize(14)
+      .fillColor('#1a237e')
+      .font('Helvetica-Bold')
+      .text('Employee Details', { underline: true })
+      .moveDown(0.2)
+      .fontSize(12)
+      .fillColor('#333')
+      .font('Helvetica')
+      .text(`Name: ${payroll.employeeId.firstName} ${payroll.employeeId.lastName}`)
+      .text(`Position: ${payroll.employeeId.position}`)
+      .text(`Department: ${payroll.employeeId.department}`)
+      .moveDown(0.5);
+
+    // Payroll Details Section
+    doc
+      .fontSize(14)
+      .fillColor('#1a237e')
+      .font('Helvetica-Bold')
+      .text('Payroll Details', { underline: true })
+      .moveDown(0.2)
+      .fontSize(12)
+      .fillColor('#333')
+      .font('Helvetica')
+      .text(`Period: ${payroll.month}/${payroll.year}`)
+      .text(`Processed Date: ${new Date(payroll.processedDate).toLocaleDateString()}`)
+      .moveDown(0.5);
+
+    // Earnings Section
+    doc
+      .fontSize(14)
+      .fillColor('#1a237e')
+      .font('Helvetica-Bold')
+      .text('Earnings', { underline: true })
+      .moveDown(0.2)
+      .fontSize(12)
+      .fillColor('#333')
+      .font('Helvetica')
+      .text(`Basic Salary: KES ${(payroll.basicSalary || 0).toLocaleString()}`)
+      .moveDown(0.2);
+
+    // Allowances Section
+    doc
+      .fontSize(14)
+      .fillColor('#1a237e')
+      .font('Helvetica-Bold')
+      .text('Allowances', { underline: true })
+      .moveDown(0.2)
+      .fontSize(12)
+      .fillColor('#333')
+      .font('Helvetica');
+
+    // Display custom allowances from settings
+    const allowances = settings.taxRates.allowances || [];
+    let totalAllowances = 0;
+    
+    allowances.forEach(allowance => {
+      if (allowance.enabled) {
+        const amount = payroll.allowances.get(allowance.name) || 0;
+        totalAllowances += amount;
+        doc.text(`${allowance.name}: KES ${amount.toLocaleString()}`);
+      }
+    });
+    
+    doc.moveDown(0.5);
+
+    // Deductions Section
+    doc
+      .fontSize(14)
+      .fillColor('#1a237e')
+      .font('Helvetica-Bold')
+      .text('Deductions', { underline: true })
+      .moveDown(0.2)
+      .fontSize(12)
+      .fillColor('#333')
+      .font('Helvetica');
+
+    // Display custom deductions from settings
+    const deductions = settings.taxRates.customDeductions || [];
+    let totalDeductions = 0;
+    
+    deductions.forEach(deduction => {
+      if (deduction.enabled) {
+        const amount = payroll.deductions.get(deduction.name) || 0;
+        totalDeductions += amount;
+        // Show percentage for percentage-based deductions
+        if (deduction.type === 'percentage') {
+          doc.text(`${deduction.name} (${deduction.value}%): KES ${amount.toLocaleString()}`);
+        } else {
+          doc.text(`${deduction.name}: KES ${amount.toLocaleString()}`);
+        }
+      }
+    });
+    
+    doc.moveDown(0.5);
+
+    // Summary Section
+    doc
+      .fontSize(14)
+      .fillColor('#1a237e')
+      .font('Helvetica-Bold')
+      .text('Summary', { underline: true })
+      .moveDown(0.2)
+      .fontSize(12)
+      .fillColor('#333')
+      .font('Helvetica')
+      .text(`Gross Salary: KES ${(payroll.grossSalary || 0).toLocaleString()}`)
+      .text(`Total Deductions: KES ${totalDeductions.toLocaleString()}`)
+      .text(`Net Salary: KES ${(payroll.netSalary || 0).toLocaleString()}`)
+      .moveDown(1);
+
+    // Footer
+    doc
+      .fontSize(10)
+      .fillColor('#666')
+      .font('Helvetica')
+      .text('This is a computer-generated document. No signature is required.', { align: 'center' })
+      .moveDown(0.5)
+      .text('Thank you for your hard work!', { align: 'center' });
+
+    // End the PDF document
+    doc.end();
+
+  } catch (error) {
+    console.error('Error downloading payslip:', error);
+    if (doc) {
+      doc.end();
+    }
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        message: 'Error downloading payslip',
+        details: error.message 
+      });
+    }
+  }
+});
+
+// View payslip in browser
+router.get('/view/:payrollId', async (req, res) => {
+  let doc;
+  try {
+    // Get token from query parameter
+    const token = req.query.token;
+    if (!token) {
+      return res.status(401).json({ message: 'No token, authorization denied' });
+    }
+
+    // Verify token and get user
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+
+    // Fetch the payroll record with populated business details
+    const payroll = await Payroll.findById(req.params.payrollId)
+      .populate('employeeId', 'firstName lastName position department')
+      .populate('businessId', 'name address');
+
+    if (!payroll) {
+      return res.status(404).json({ message: 'Payroll record not found' });
+    }
+
+    // Convert both IDs to strings for comparison
+    const payrollBusinessId = payroll.businessId._id.toString();
+    const userBusinessId = req.user.businessId.toString();
+    if (payrollBusinessId !== userBusinessId) {
+      return res.status(403).json({ message: 'Not authorized to access this payroll record' });
+    }
+
+    // Get the business details
+    const business = await Business.findById(payrollBusinessId);
+    if (!business) {
+      return res.status(404).json({ message: 'Business not found' });
+    }
+
+    // Fetch payroll settings for tax rates
+    const settings = await PayrollSettings.findOne({ businessId: payrollBusinessId });
+    if (!settings) {
+      return res.status(404).json({ message: 'Payroll settings not found' });
+    }
+
+    console.log('Business details:', {
+      name: business.name,
+      address: business.address
+    });
+
+    // Set response headers for viewing PDF in browser
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="payslip.pdf"');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    // Create a PDF document
+    doc = new PDFDocument({ 
+      margin: 40,
+      bufferPages: true,
+      autoFirstPage: true
+    });
+
+    // Handle PDF generation errors
+    doc.on('error', (err) => {
+      console.error('PDF generation error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Error generating PDF' });
+      }
+    });
+
+    // Pipe the PDF to the response
+    doc.pipe(res);
+
+    try {
+      // Payslip header
+      doc
+        .fontSize(20)
+        .fillColor('#4F8EF7')
+        .font('Helvetica-Bold')
+        .text('PAYSLIP', { align: 'center' })
+        .moveDown(1);
+
+      // Employee Details Section
+      doc
+        .fontSize(14)
+        .fillColor('#1a237e')
+        .font('Helvetica-Bold')
+        .text('Employee Details', { underline: true })
+        .moveDown(0.2)
+        .fontSize(12)
+        .fillColor('#333')
+        .font('Helvetica')
+        .text(`Name: ${payroll.employeeId.firstName} ${payroll.employeeId.lastName}`)
+        .text(`Position: ${payroll.employeeId.position}`)
+        .text(`Department: ${payroll.employeeId.department}`)
+        .moveDown(0.5);
+
+      // Payroll Details Section
+      doc
+        .fontSize(14)
+        .fillColor('#1a237e')
+        .font('Helvetica-Bold')
+        .text('Payroll Details', { underline: true })
+        .moveDown(0.2)
+        .fontSize(12)
+        .fillColor('#333')
+        .font('Helvetica')
+        .text(`Period: ${payroll.month}/${payroll.year}`)
+        .text(`Processed Date: ${new Date(payroll.processedDate).toLocaleDateString()}`)
+        .moveDown(0.5);
+
+      // Tax Rates Section
+      doc
+        .fontSize(14)
+        .fillColor('#1a237e')
+        .font('Helvetica-Bold')
+        .text('Tax Rates and Deductions', { underline: true })
+        .moveDown(0.2)
+        .fontSize(12)
+        .fillColor('#333')
+        .font('Helvetica');
+
+      // Calculate and display actual rates used
+      const payeRate = ((payroll.deductions?.paye || 0) / (payroll.grossSalary || 1)) * 100;
+      const nhifRate = ((payroll.deductions?.nhif || 0) / (payroll.grossSalary || 1)) * 100;
+      const nssfRate = ((payroll.deductions?.nssf || 0) / (payroll.grossSalary || 1)) * 100;
+
+      // Display PAYE rate and amount
+      doc.text(`PAYE Rate: ${payeRate.toFixed(2)}%`);
+      doc.text(`PAYE Amount: KES ${(payroll.deductions?.paye || 0).toLocaleString()}`);
+      doc.moveDown(0.2);
+
+      // Display NHIF rate and amount
+      doc.text(`NHIF Rate: ${nhifRate.toFixed(2)}%`);
+      doc.text(`NHIF Amount: KES ${(payroll.deductions?.nhif || 0).toLocaleString()}`);
+      doc.moveDown(0.2);
+
+      // Display NSSF rate and amount
+      doc.text(`NSSF Rate: ${nssfRate.toFixed(2)}%`);
+      doc.text(`NSSF Amount: KES ${(payroll.deductions?.nssf || 0).toLocaleString()}`);
+      doc.moveDown(0.2);
+
+      // Display other deductions if any
+      if (payroll.deductions?.loans || payroll.deductions?.other) {
+        doc.text('Additional Deductions:');
+        if (payroll.deductions.loans) {
+          doc.text(`  Loans: KES ${payroll.deductions.loans.toLocaleString()}`);
+        }
+        if (payroll.deductions.other) {
+          doc.text(`  Other: KES ${payroll.deductions.other.toLocaleString()}`);
+        }
+      }
+      doc.moveDown(0.5);
+
+      // Earnings Section
+      doc
+        .fontSize(14)
+        .fillColor('#1a237e')
+        .font('Helvetica-Bold')
+        .text('Earnings', { underline: true })
+        .moveDown(0.2)
+        .fontSize(12)
+        .fillColor('#333')
+        .font('Helvetica')
+        .text(`Basic Salary: KES ${(payroll.basicSalary || 0).toLocaleString()}`)
+        .moveDown(0.2);
+
+      // Allowances Section
+      doc
+        .fontSize(14)
+        .fillColor('#1a237e')
+        .font('Helvetica-Bold')
+        .text('Allowances', { underline: true })
+        .moveDown(0.2)
+        .fontSize(12)
+        .fillColor('#333')
+        .font('Helvetica');
+      
+      Object.entries(payroll.allowances || {}).forEach(([key, value]) => {
+        doc.text(`${capitalize(key)}: KES ${(value || 0).toLocaleString()}`);
+      });
+      doc.moveDown(0.5);
+
+      // Summary Section
+      doc
+        .fontSize(14)
+        .fillColor('#1a237e')
+        .font('Helvetica-Bold')
+        .text('Summary', { underline: true })
+        .moveDown(0.2)
+        .fontSize(12)
+        .fillColor('#333')
+        .font('Helvetica')
+        .text(`Gross Salary: KES ${(payroll.grossSalary || 0).toLocaleString()}`)
+        .text(`Total Deductions: KES ${Object.values(payroll.deductions || {}).reduce((a, b) => (a || 0) + (b || 0), 0).toLocaleString()}`)
+        .text(`Net Salary: KES ${(payroll.netSalary || 0).toLocaleString()}`)
+        .moveDown(1);
+
+      // Footer
+      doc
+        .fontSize(10)
+        .fillColor('#666')
+        .font('Helvetica')
+        .text('This is a computer-generated document. No signature is required.', { align: 'center' })
+        .moveDown(0.5)
+        .text('Thank you for your hard work!', { align: 'center' });
+
+    } catch (pdfError) {
+      console.error('Error generating PDF content:', pdfError);
+      if (!res.headersSent) {
+        res.status(500).json({ 
+          message: 'Error generating PDF content',
+          details: pdfError.message 
+        });
+      }
+      return;
+    }
+
+    // End the PDF document
+    doc.end();
+
+  } catch (error) {
+    console.error('Error viewing payslip:', error);
+    if (!res.headersSent) {
+      if (error.name === 'JsonWebTokenError') {
+        return res.status(401).json({ message: 'Invalid token' });
+      }
+      res.status(500).json({ 
+        message: 'Error viewing payslip',
+        details: error.message 
+      });
+    }
+    if (doc) {
+      doc.end();
+    }
+  }
+});
+
+// Health check endpoint
+router.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+// Delete payroll settings
+router.delete('/settings', auth, async (req, res) => {
+  try {
+    const settings = await PayrollSettings.findOneAndDelete({ businessId: req.user.businessId });
+    
+    if (!settings) {
+      return res.status(404).json({ message: 'Payroll settings not found' });
+    }
+    
+    res.json({ message: 'Payroll settings deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting payroll settings:', error);
+    res.status(500).json({ message: 'Error deleting payroll settings' });
   }
 });
 

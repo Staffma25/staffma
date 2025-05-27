@@ -30,18 +30,14 @@ const PayrollSchema = new mongoose.Schema({
     min: 0
   },
   allowances: {
-    housing: { type: Number, default: 0 },
-    transport: { type: Number, default: 0 },
-    medical: { type: Number, default: 0 },
-    other: { type: Number, default: 0 }
+    type: Map,
+    of: Number,
+    default: {}
   },
   deductions: {
-    paye: { type: Number, required: true },
-    nhif: { type: Number, required: true },
-    nssf: { type: Number, required: true },
-    loans: { type: Number, default: 0 },
-    other: { type: Number, default: 0 },
-    totalDeductions: { type: Number, required: true }
+    type: Map,
+    of: Number,
+    default: {}
   },
   netSalary: {
     type: Number,

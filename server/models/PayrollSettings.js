@@ -7,90 +7,74 @@ const payrollSettingsSchema = new mongoose.Schema({
     required: true
   },
   taxRates: {
-    paye: {
-      rate: {
-        type: Number,
-        default: 30, // Default 30% flat rate
-        min: 0,
-        max: 100
-      }
-    },
-    nhif: {
-      rate: {
-        type: Number,
-        default: 1.7, // Default 1.7% flat rate
-        min: 0,
-        max: 100
-      }
-    },
-    nssf: {
-      rate: {
-        type: Number,
-        default: 6, // Default 6% flat rate
-        min: 0,
-        max: 100
-      }
-    },
     customDeductions: [{
-      name: String,
+      name: {
+        type: String,
+        required: true
+      },
       type: {
         type: String,
         enum: ['percentage', 'fixed'],
         required: true
       },
-      value: Number,
+      value: {
+        type: Number,
+        required: true,
+        min: 0
+      },
+      enabled: {
+        type: Boolean,
+        default: true
+      }
+    }],
+    allowances: [{
+      name: {
+        type: String,
+        required: true
+      },
+      type: {
+        type: String,
+        enum: ['percentage', 'fixed'],
+        required: true
+      },
+      value: {
+        type: Number,
+        required: true,
+        min: 0
+      },
       enabled: {
         type: Boolean,
         default: true
       }
     }]
   },
-  allowances: {
-    housing: {
-      enabled: {
-        type: Boolean,
-        default: true
-      },
-      rate: {
-        type: Number,
-        default: 15, // Default 15% of basic salary
-        min: 0,
-        max: 100
-      }
-    },
-    transport: {
-      enabled: {
-        type: Boolean,
-        default: true
-      },
-      rate: {
-        type: Number,
-        default: 10, // Default 10% of basic salary
-        min: 0,
-        max: 100
-      }
-    },
-    medical: {
-      enabled: {
-        type: Boolean,
-        default: true
-      },
-      rate: {
-        type: Number,
-        default: 5, // Default 5% of basic salary
-        min: 0,
-        max: 100
-      }
-    }
-  },
   lastUpdated: {
     type: Date,
     default: Date.now
   }
+}, {
+  timestamps: true
 });
 
-// Add indexes for better query performance
 payrollSettingsSchema.index({ businessId: 1 });
+
+payrollSettingsSchema.pre('save', function(next) {
+  const validatePercentage = (item) => {
+    if (item.type === 'percentage' && item.value > 100) {
+      throw new Error('Percentage value cannot exceed 100%');
+    }
+  };
+
+  if (this.taxRates) {
+    if (this.taxRates.allowances) {
+      this.taxRates.allowances.forEach(validatePercentage);
+    }
+    if (this.taxRates.customDeductions) {
+      this.taxRates.customDeductions.forEach(validatePercentage);
+    }
+  }
+  next();
+});
 
 const PayrollSettings = mongoose.model('PayrollSettings', payrollSettingsSchema);
 

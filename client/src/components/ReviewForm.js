@@ -68,9 +68,8 @@ const ReviewForm = ({ onSubmitSuccess, onCancel }) => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `http://localhost:5001/api/employees/${review.employeeId}/performance-reviews`,
+        `http://localhost:5001/api/performance-reviews/employees/${review.employeeId}/performance-reviews`,
         {
-          employeeId: review.employeeId,
           reviewerName: review.reviewerName,
           rating: review.rating,
           comments: review.comments,

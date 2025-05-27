@@ -17,6 +17,11 @@ const PayrollSettings = () => {
     type: 'percentage',
     value: 0
   });
+  const [newAllowance, setNewAllowance] = useState({
+    name: '',
+    type: 'percentage',
+    value: 0
+  });
 
   useEffect(() => {
     fetchSettings();
@@ -36,6 +41,16 @@ const PayrollSettings = () => {
       
       if (!response.data) {
         throw new Error('No settings data received');
+      }
+
+      // Ensure taxRates and allowances exist
+      if (!response.data.taxRates) {
+        response.data.taxRates = {
+          allowances: [],
+          customDeductions: []
+        };
+      } else if (!response.data.taxRates.allowances) {
+        response.data.taxRates.allowances = [];
       }
 
       setSettings(response.data);
@@ -101,16 +116,118 @@ const PayrollSettings = () => {
 
   const handleRemoveDeduction = async (index) => {
     try {
+      setLoading(true);
       const token = getToken();
-      await axios.delete(`${API_BASE_URL}/payroll/settings/deductions/${index}`, {
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.delete(`${API_BASE_URL}/payroll/settings/deductions/${index}`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.data) {
+        throw new Error('No response data received');
+      }
+
+      setSettings(response.data);
+      setSuccess('Deduction removed successfully');
+      setError(null);
+    } catch (error) {
+      console.error('Error removing deduction:', error);
+      setError(error.response?.data?.message || 'Failed to remove custom deduction');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setSuccess(null), 3000);
+    }
+  };
+
+  const handleAddAllowance = async () => {
+    try {
+      const token = getToken();
+      await axios.post(`${API_BASE_URL}/payroll/settings/allowances`, newAllowance, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      setNewAllowance({ name: '', type: 'percentage', value: 0 });
       fetchSettings();
-      setSuccess('Custom deduction removed successfully');
+      setSuccess('Custom allowance added successfully');
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
-      setError('Failed to remove custom deduction');
+      setError('Failed to add custom allowance');
       setTimeout(() => setError(null), 3000);
+    }
+  };
+
+  const handleRemoveAllowance = async (index) => {
+    try {
+      setLoading(true);
+      const token = getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.delete(`${API_BASE_URL}/payroll/settings/allowances/${index}`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.data) {
+        throw new Error('No response data received');
+      }
+
+      setSettings(response.data);
+      setSuccess('Allowance removed successfully');
+      setError(null);
+    } catch (error) {
+      console.error('Error removing allowance:', error);
+      setError(error.response?.data?.message || 'Failed to remove custom allowance');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setSuccess(null), 3000);
+    }
+  };
+
+  const handleResetSettings = async () => {
+    if (!window.confirm('Are you sure you want to reset all payroll settings? This will remove all custom allowances and deductions.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      const token = getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.put(`${API_BASE_URL}/payroll/settings`, {
+        taxRates: {
+          allowances: [],
+          customDeductions: []
+        }
+      }, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.data) {
+        throw new Error('Failed to reset payroll settings');
+      }
+
+      setSettings(response.data);
+      setSuccess('Payroll settings reset successfully');
+    } catch (error) {
+      setError(error.response?.data?.message || 'Failed to reset payroll settings');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setSuccess(null), 3000);
     }
   };
 
@@ -125,9 +242,18 @@ const PayrollSettings = () => {
           style={styles.backButton}
           onClick={() => navigate('/payroll')}
         >
-          ← Back
+          ← Back to Payroll
         </button>
         <h1 style={styles.title}>Payroll Settings</h1>
+        <div style={styles.headerActions}>
+          <button
+            style={styles.resetButton}
+            onClick={handleResetSettings}
+            disabled={loading}
+          >
+            Reset Settings
+          </button>
+        </div>
       </div>
 
       {error && <div style={styles.error}>{error}</div>}
@@ -135,122 +261,89 @@ const PayrollSettings = () => {
 
       {settings && (
         <div style={styles.settingsContainer}>
-          {/* Tax Rates */}
-          <section style={styles.section}>
-            <h2 style={styles.sectionTitle}>Tax Rates</h2>
-            <div style={styles.rateContainer}>
-              <div style={styles.rateGroup}>
-                <label>PAYE Rate (%)</label>
-                <input
-                  type="number"
-                  value={settings.taxRates.paye.rate}
-                  onChange={(e) => {
-                    setSettings({
-                      ...settings,
-                      taxRates: {
-                        ...settings.taxRates,
-                        paye: { rate: Number(e.target.value) }
-                      }
-                    });
-                  }}
-                  style={styles.input}
-                  min="0"
-                  max="100"
-                />
-              </div>
-
-              <div style={styles.rateGroup}>
-                <label>NHIF Rate (%)</label>
-                <input
-                  type="number"
-                  value={settings.taxRates.nhif.rate}
-                  onChange={(e) => {
-                    setSettings({
-                      ...settings,
-                      taxRates: {
-                        ...settings.taxRates,
-                        nhif: { rate: Number(e.target.value) }
-                      }
-                    });
-                  }}
-                  style={styles.input}
-                  min="0"
-                  max="100"
-                />
-              </div>
-
-              <div style={styles.rateGroup}>
-                <label>NSSF Rate (%)</label>
-                <input
-                  type="number"
-                  value={settings.taxRates.nssf.rate}
-                  onChange={(e) => {
-                    setSettings({
-                      ...settings,
-                      taxRates: {
-                        ...settings.taxRates,
-                        nssf: { rate: Number(e.target.value) }
-                      }
-                    });
-                  }}
-                  style={styles.input}
-                  min="0"
-                  max="100"
-                />
-              </div>
-            </div>
-          </section>
-
           {/* Allowances */}
           <section style={styles.section}>
             <h2 style={styles.sectionTitle}>Allowances</h2>
-            <div style={styles.allowanceContainer}>
-              {Object.entries(settings.allowances).map(([type, config]) => (
-                <div key={type} style={styles.allowanceGroup}>
-                  <label style={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={config.enabled}
-                      onChange={(e) => {
-                        setSettings({
-                          ...settings,
-                          allowances: {
-                            ...settings.allowances,
-                            [type]: {
-                              ...config,
-                              enabled: e.target.checked
-                            }
-                          }
-                        });
-                      }}
-                      style={styles.checkbox}
-                    />
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </label>
-                  <input
-                    type="number"
-                    value={config.rate}
-                    onChange={(e) => {
-                      setSettings({
-                        ...settings,
-                        allowances: {
-                          ...settings.allowances,
-                          [type]: {
-                            ...config,
-                            rate: Number(e.target.value)
-                          }
-                        }
-                      });
-                    }}
-                    style={styles.input}
-                    placeholder="Rate (%)"
-                    disabled={!config.enabled}
-                    min="0"
-                    max="100"
-                  />
-                </div>
-              ))}
+            <div style={styles.deductionForm}>
+              <input
+                type="text"
+                value={newAllowance.name}
+                onChange={(e) => setNewAllowance({ ...newAllowance, name: e.target.value })}
+                placeholder="Allowance Name"
+                style={styles.input}
+              />
+              <select
+                value={newAllowance.type}
+                onChange={(e) => setNewAllowance({ ...newAllowance, type: e.target.value })}
+                style={styles.select}
+              >
+                <option value="percentage">Percentage</option>
+                <option value="fixed">Fixed Amount</option>
+              </select>
+              <input
+                type="number"
+                value={newAllowance.value}
+                onChange={(e) => setNewAllowance({ ...newAllowance, value: Number(e.target.value) })}
+                placeholder={newAllowance.type === 'percentage' ? 'Rate (%)' : 'Amount'}
+                style={styles.input}
+                min="0"
+                max={newAllowance.type === 'percentage' ? "100" : undefined}
+              />
+              <button
+                onClick={handleAddAllowance}
+                style={styles.addButton}
+              >
+                Add Allowance
+              </button>
             </div>
+
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Value</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {settings?.taxRates?.allowances?.map((allowance, index) => (
+                  <tr key={index}>
+                    <td>{allowance.name}</td>
+                    <td>{allowance.type}</td>
+                    <td>
+                      {allowance.value}
+                      {allowance.type === 'percentage' ? '%' : ' KES'}
+                    </td>
+                    <td>
+                      <span style={{
+                        color: allowance.enabled ? '#4caf50' : '#f44336',
+                        fontWeight: 'bold'
+                      }}>
+                        {allowance.enabled ? 'Active' : 'Disabled'}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        onClick={() => handleRemoveAllowance(index)}
+                        style={styles.removeButton}
+                        disabled={loading}
+                      >
+                        {loading ? 'Removing...' : 'Remove'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {(!settings?.taxRates?.allowances || settings.taxRates.allowances.length === 0) && (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>
+                      No allowances added yet
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </section>
 
           {/* Custom Deductions */}
@@ -295,6 +388,7 @@ const PayrollSettings = () => {
                   <th>Name</th>
                   <th>Type</th>
                   <th>Value</th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -308,15 +402,31 @@ const PayrollSettings = () => {
                       {deduction.type === 'percentage' ? '%' : ' KES'}
                     </td>
                     <td>
+                      <span style={{
+                        color: deduction.enabled ? '#4caf50' : '#f44336',
+                        fontWeight: 'bold'
+                      }}>
+                        {deduction.enabled ? 'Active' : 'Disabled'}
+                      </span>
+                    </td>
+                    <td>
                       <button
                         onClick={() => handleRemoveDeduction(index)}
                         style={styles.removeButton}
+                        disabled={loading}
                       >
-                        Remove
+                        {loading ? 'Removing...' : 'Remove'}
                       </button>
                     </td>
                   </tr>
                 ))}
+                {settings.taxRates.customDeductions.length === 0 && (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>
+                      No custom deductions added yet
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </section>
@@ -336,135 +446,312 @@ const PayrollSettings = () => {
 const styles = {
   container: {
     padding: '20px',
-    maxWidth: '1200px',
-    margin: '0 auto'
+    maxWidth: '1400px',
+    margin: '0 auto',
+    minHeight: '100vh',
+    backgroundColor: '#f5f7fa'
   },
   header: {
     display: 'flex',
     alignItems: 'center',
-    marginBottom: '20px'
+    marginBottom: '30px',
+    padding: '20px',
+    backgroundColor: 'white',
+    borderRadius: '12px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
   },
   backButton: {
-    padding: '8px 16px',
+    padding: '10px 20px',
     backgroundColor: '#f0f0f0',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '8px',
     cursor: 'pointer',
-    marginRight: '20px'
+    marginRight: '20px',
+    fontSize: '14px',
+    fontWeight: '500',
+    transition: 'all 0.2s ease',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+    '&:hover': {
+      backgroundColor: '#e0e0e0'
+    }
   },
   title: {
-    fontSize: '24px',
-    margin: 0
+    fontSize: '28px',
+    margin: 0,
+    color: '#2c3e50',
+    fontWeight: '600'
   },
   error: {
     backgroundColor: '#ffebee',
     color: '#c62828',
-    padding: '10px',
-    borderRadius: '4px',
-    marginBottom: '20px'
+    padding: '15px',
+    borderRadius: '8px',
+    marginBottom: '20px',
+    fontSize: '14px',
+    fontWeight: '500'
   },
   success: {
     backgroundColor: '#e8f5e9',
     color: '#2e7d32',
-    padding: '10px',
-    borderRadius: '4px',
-    marginBottom: '20px'
+    padding: '15px',
+    borderRadius: '8px',
+    marginBottom: '20px',
+    fontSize: '14px',
+    fontWeight: '500'
   },
   settingsContainer: {
     backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '20px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    borderRadius: '12px',
+    padding: '30px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
   },
   section: {
-    marginBottom: '30px'
+    marginBottom: '40px',
+    backgroundColor: '#ffffff',
+    borderRadius: '12px',
+    padding: '25px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
   },
   sectionTitle: {
-    fontSize: '20px',
-    marginBottom: '15px',
-    color: '#333'
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    marginBottom: '20px'
+    fontSize: '22px',
+    marginBottom: '25px',
+    color: '#2c3e50',
+    fontWeight: '600',
+    borderBottom: '2px solid #f0f0f0',
+    paddingBottom: '10px'
   },
   input: {
+    padding: '12px',
+    border: '1px solid #e0e0e0',
+    borderRadius: '8px',
+    fontSize: '14px',
     width: '100%',
-    padding: '8px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '14px'
+    transition: 'border-color 0.2s ease',
+    '&:focus': {
+      borderColor: '#2196f3',
+      outline: 'none'
+    }
   },
   inputGroup: {
-    marginBottom: '15px'
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    flex: 1
+  },
+  allowanceContainer: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: '25px',
+    padding: '10px'
   },
   allowanceGroup: {
     display: 'flex',
-    alignItems: 'center',
-    marginBottom: '10px'
+    flexDirection: 'column',
+    gap: '15px',
+    padding: '20px',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '10px',
+    border: '1px solid #e9ecef',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+    '&:hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+    }
   },
   checkboxLabel: {
     display: 'flex',
     alignItems: 'center',
-    marginRight: '15px',
-    minWidth: '120px'
+    fontSize: '16px',
+    fontWeight: '500',
+    color: '#2c3e50',
+    marginBottom: '10px'
   },
   checkbox: {
-    marginRight: '8px'
+    marginRight: '10px',
+    width: '18px',
+    height: '18px'
   },
   deductionForm: {
-    display: 'flex',
-    gap: '10px',
-    marginBottom: '20px'
+    display: 'grid',
+    gridTemplateColumns: '2fr 1fr 1fr auto',
+    gap: '15px',
+    marginBottom: '30px',
+    padding: '20px',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '10px'
   },
   select: {
-    padding: '8px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '14px'
+    padding: '12px',
+    border: '1px solid #e0e0e0',
+    borderRadius: '8px',
+    fontSize: '14px',
+    backgroundColor: 'white',
+    cursor: 'pointer',
+    minWidth: '120px',
+    '&:focus': {
+      borderColor: '#2196f3',
+      outline: 'none',
+      boxShadow: '0 0 0 2px rgba(33, 150, 243, 0.1)'
+    }
   },
   addButton: {
-    padding: '8px 16px',
+    padding: '12px 24px',
     backgroundColor: '#4caf50',
     color: 'white',
     border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+    transition: 'background-color 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#43a047'
+    }
   },
   removeButton: {
-    padding: '4px 8px',
+    padding: '8px 16px',
     backgroundColor: '#f44336',
     color: 'white',
     border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '500',
+    transition: 'background-color 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#e53935'
+    }
   },
   saveButton: {
-    padding: '12px 24px',
+    padding: '14px 28px',
     backgroundColor: '#2196f3',
     color: 'white',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '8px',
     cursor: 'pointer',
     fontSize: '16px',
-    marginTop: '20px'
+    fontWeight: '500',
+    marginTop: '30px',
+    transition: 'background-color 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#1976d2'
+    }
   },
-  rateContainer: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '20px',
-    marginBottom: '20px'
+  table: {
+    width: '100%',
+    borderCollapse: 'separate',
+    borderSpacing: '0',
+    marginBottom: '20px',
+    backgroundColor: 'white',
+    borderRadius: '10px',
+    overflow: 'hidden',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
   },
-  rateGroup: {
+  tableHeader: {
+    backgroundColor: '#f8f9fa',
+    padding: '15px',
+    textAlign: 'left',
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#2c3e50',
+    borderBottom: '2px solid #e9ecef'
+  },
+  tableRow: {
+    '&:hover': {
+      backgroundColor: '#f8f9fa'
+    }
+  },
+  tableCell: {
+    padding: '15px',
+    fontSize: '14px',
+    color: '#2c3e50',
+    borderBottom: '1px solid #e9ecef'
+  },
+  amountInput: {
     display: 'flex',
     flexDirection: 'column',
     gap: '8px'
   },
-  allowanceContainer: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '20px'
+  inputLabel: {
+    fontSize: '14px',
+    color: '#666',
+    fontWeight: '500'
+  },
+  toggleButton: {
+    padding: '8px 16px',
+    backgroundColor: '#2196f3',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '500',
+    transition: 'background-color 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#1976d2'
+    }
+  },
+  actionButtons: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center'
+  },
+  previewBox: {
+    backgroundColor: '#f8f9fa',
+    padding: '15px',
+    borderRadius: '8px',
+    border: '1px solid #e9ecef',
+    minWidth: '200px'
+  },
+  previewTitle: {
+    fontSize: '14px',
+    color: '#2c3e50',
+    marginBottom: '10px',
+    fontWeight: '600'
+  },
+  previewItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginBottom: '5px',
+    fontSize: '14px'
+  },
+  previewLabel: {
+    color: '#666',
+    fontWeight: '500'
+  },
+  previewValue: {
+    color: '#2c3e50',
+    fontWeight: '600'
+  },
+  headerActions: {
+    display: 'flex',
+    gap: '10px'
+  },
+  resetButton: {
+    padding: '8px 16px',
+    backgroundColor: '#f0ad4e',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    transition: 'background-color 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#ec971f'
+    },
+    '&:disabled': {
+      backgroundColor: '#ccc',
+      cursor: 'not-allowed'
+    }
+  },
+  success: {
+    backgroundColor: '#dff0d8',
+    color: '#3c763d',
+    padding: '10px',
+    borderRadius: '4px',
+    marginBottom: '20px'
   }
 };
 

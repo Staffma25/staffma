@@ -17,7 +17,7 @@ function PerformanceReviews() {
   const fetchReviews = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5001/api/performance-reviews', {
+      const response = await fetch('http://localhost:5001/api/performance-reviews/performance-reviews', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
