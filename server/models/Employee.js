@@ -1,5 +1,50 @@
 const mongoose = require('mongoose');
 
+const insuranceSchema = new mongoose.Schema({
+    nhif: {
+        number: String,
+        url: String,
+        uploadDate: Date,
+        status: {
+            type: String,
+            enum: ['active', 'inactive', 'pending'],
+            default: 'inactive'
+        }
+    },
+    medical: {
+        provider: String,
+        policyNumber: String,
+        coverage: {
+            type: String,
+            enum: ['basic', 'standard', 'premium'],
+            default: 'basic'
+        },
+        url: String,
+        uploadDate: Date,
+        status: {
+            type: String,
+            enum: ['active', 'inactive', 'pending'],
+            default: 'inactive'
+        }
+    },
+    life: {
+        provider: String,
+        policyNumber: String,
+        coverage: {
+            type: String,
+            enum: ['basic', 'standard', 'premium'],
+            default: 'basic'
+        },
+        url: String,
+        uploadDate: Date,
+        status: {
+            type: String,
+            enum: ['active', 'inactive', 'pending'],
+            default: 'inactive'
+        }
+    }
+});
+
 const employeeSchema = new mongoose.Schema({
     businessId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -37,70 +82,34 @@ const employeeSchema = new mongoose.Schema({
         required: true
     },
     documents: {
-        employmentContract: {
+        idCard: {
             url: String,
-            uploadDate: Date,
-            expiryDate: Date
+            uploadedAt: Date
         },
-        idDocument: {
-            type: String,
+        passport: {
             url: String,
-            uploadDate: Date,
-            expiryDate: Date
+            uploadedAt: Date
         },
-        taxPin: {
-            number: String,
+        resume: {
             url: String,
-            uploadDate: Date,
-            expiryDate: Date
+            uploadedAt: Date
+        },
+        contract: {
+            url: String,
+            uploadedAt: Date
+        },
+        certificates: {
+            url: String,
+            uploadedAt: Date
+        },
+        other: {
+            url: String,
+            uploadedAt: Date
         }
     },
     insurance: {
-        nhif: {
-            number: String,
-            url: String,
-            uploadDate: Date,
-            expiryDate: Date,
-            status: {
-                type: String,
-                enum: ['active', 'inactive', 'pending'],
-                default: 'pending'
-            }
-        },
-        medical: {
-            provider: String,
-            policyNumber: String,
-            coverage: {
-                type: String,
-                enum: ['basic', 'standard', 'premium'],
-                default: 'basic'
-            },
-            url: String,
-            uploadDate: Date,
-            expiryDate: Date,
-            status: {
-                type: String,
-                enum: ['active', 'inactive', 'pending'],
-                default: 'pending'
-            }
-        },
-        life: {
-            provider: String,
-            policyNumber: String,
-            coverage: {
-                type: String,
-                enum: ['basic', 'standard', 'premium'],
-                default: 'basic'
-            },
-            url: String,
-            uploadDate: Date,
-            expiryDate: Date,
-            status: {
-                type: String,
-                enum: ['active', 'inactive', 'pending'],
-                default: 'pending'
-            }
-        }
+        type: insuranceSchema,
+        default: () => ({})
     },
     salary: {
         basic: {

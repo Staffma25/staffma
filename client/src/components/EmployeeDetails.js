@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import DocumentUpload from './DocumentUpload';
+import InsuranceDocumentUpload from './InsuranceDocumentUpload';
 
 function EmployeeDetails() {
   const { id } = useParams();
@@ -214,6 +216,19 @@ function EmployeeDetails() {
     }
   };
 
+  const handleDocumentUpdate = (documentType, fileUrl) => {
+    setEmployee(prev => ({
+      ...prev,
+      documents: {
+        ...prev.documents,
+        [documentType]: fileUrl ? {
+          url: fileUrl,
+          uploadedAt: new Date()
+        } : null
+      }
+    }));
+  };
+
   if (loading) {
     return (
       <div style={styles.container}>
@@ -360,272 +375,157 @@ function EmployeeDetails() {
           <div style={styles.card}>
             <h2 style={styles.subtitle}>Employee Documents</h2>
             
-            {/* Employment Contract Section */}
-            <div style={styles.documentSection}>
-              <h3 style={styles.documentTitle}>Employment Contract</h3>
-              {employee.documents?.employmentContract?.url ? (
-                <div style={styles.documentInfo}>
-                  <p>Uploaded: {new Date(employee.documents.employmentContract.uploadDate).toLocaleDateString()}</p>
-                  <p>Expires: {new Date(employee.documents.employmentContract.expiryDate).toLocaleDateString()}</p>
-                  <a 
-                    href={employee.documents.employmentContract.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={styles.downloadLink}
-                  >
-                    View Contract
-                  </a>
-                </div>
-              ) : (
-                <p>No contract uploaded</p>
-              )}
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx"
-                onChange={(e) => handleDocumentUpload('employmentContract', e.target.files[0])}
-                style={styles.fileInput}
-                disabled={uploading}
-              />
-            </div>
-
-            {/* ID Document Section */}
-            <div style={styles.documentSection}>
-              <h3 style={styles.documentTitle}>ID Document</h3>
-              {employee.documents?.idDocument?.url ? (
-                <div style={styles.documentInfo}>
-                  <p>Type: {employee.documents.idDocument.type}</p>
-                  <p>Uploaded: {new Date(employee.documents.idDocument.uploadDate).toLocaleDateString()}</p>
-                  <p>Expires: {new Date(employee.documents.idDocument.expiryDate).toLocaleDateString()}</p>
-                  <a 
-                    href={employee.documents.idDocument.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={styles.downloadLink}
-                  >
-                    View ID Document
-                  </a>
-                </div>
-              ) : (
-                <p>No ID document uploaded</p>
-              )}
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={(e) => handleDocumentUpload('idDocument', e.target.files[0])}
-                style={styles.fileInput}
-                disabled={uploading}
-              />
-            </div>
-
-            {/* Tax PIN Section */}
-            <div style={styles.documentSection}>
-              <h3 style={styles.documentTitle}>Tax PIN</h3>
-              {employee.documents?.taxPin?.url ? (
-                <div style={styles.documentInfo}>
-                  <p>PIN Number: {employee.documents.taxPin.number}</p>
-                  <p>Uploaded: {new Date(employee.documents.taxPin.uploadDate).toLocaleDateString()}</p>
-                  <p>Expires: {new Date(employee.documents.taxPin.expiryDate).toLocaleDateString()}</p>
-                  <a 
-                    href={employee.documents.taxPin.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={styles.downloadLink}
-                  >
-                    View Tax PIN Document
-                  </a>
-                </div>
-              ) : (
-                <p>No tax PIN document uploaded</p>
-              )}
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={(e) => handleDocumentUpload('taxPin', e.target.files[0])}
-                style={styles.fileInput}
-                disabled={uploading}
-              />
+            <div className="documents-section">
+              <h3>Documents</h3>
+              <div className="documents-grid">
+                <DocumentUpload
+                  employeeId={employee._id}
+                  documentType="idCard"
+                  currentDocument={employee.documents?.idCard}
+                  onDocumentUpdate={handleDocumentUpdate}
+                />
+                <DocumentUpload
+                  employeeId={employee._id}
+                  documentType="passport"
+                  currentDocument={employee.documents?.passport}
+                  onDocumentUpdate={handleDocumentUpdate}
+                />
+                <DocumentUpload
+                  employeeId={employee._id}
+                  documentType="resume"
+                  currentDocument={employee.documents?.resume}
+                  onDocumentUpdate={handleDocumentUpdate}
+                />
+                <DocumentUpload
+                  employeeId={employee._id}
+                  documentType="contract"
+                  currentDocument={employee.documents?.contract}
+                  onDocumentUpdate={handleDocumentUpdate}
+                />
+                <DocumentUpload
+                  employeeId={employee._id}
+                  documentType="certificates"
+                  currentDocument={employee.documents?.certificates}
+                  onDocumentUpdate={handleDocumentUpdate}
+                />
+                <DocumentUpload
+                  employeeId={employee._id}
+                  documentType="other"
+                  currentDocument={employee.documents?.other}
+                  onDocumentUpdate={handleDocumentUpdate}
+                />
+              </div>
             </div>
           </div>
         )}
 
         {activeTab === 'insurance' && (
           <div style={styles.card}>
-            <h2 style={styles.subtitle}>Insurance Information</h2>
+            <h2 style={styles.subtitle}>Insurance Documents</h2>
             
-            {/* NHIF Section */}
-            <div style={styles.insuranceSection}>
-              <h3 style={styles.insuranceTitle}>NHIF</h3>
-              {employee.insurance?.nhif?.url ? (
-                <div style={styles.insuranceInfo}>
-                  <p><strong>Number:</strong> {employee.insurance.nhif.number}</p>
-                  <p><strong>Status:</strong> 
-                    <span style={{
-                      color: employee.insurance.nhif.status === 'active' ? '#2ecc71' : 
-                             employee.insurance.nhif.status === 'pending' ? '#f1c40f' : '#e74c3c'
-                    }}>
-                      {employee.insurance.nhif.status.charAt(0).toUpperCase() + 
-                       employee.insurance.nhif.status.slice(1)}
-                    </span>
-                  </p>
-                  <p><strong>Uploaded:</strong> {new Date(employee.insurance.nhif.uploadDate).toLocaleDateString()}</p>
-                  <p><strong>Expires:</strong> {new Date(employee.insurance.nhif.expiryDate).toLocaleDateString()}</p>
-                  <a 
-                    href={employee.insurance.nhif.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={styles.downloadLink}
-                  >
-                    View NHIF Card
-                  </a>
+            <div className="insurance-section">
+              {/* NHIF Section */}
+              <div style={styles.insuranceSection}>
+                <h3 style={styles.insuranceTitle}>NHIF</h3>
+                <div style={styles.uploadSection}>
+                  <input
+                    type="text"
+                    placeholder="NHIF Number"
+                    value={employee.insurance?.nhif?.number || ''}
+                    onChange={(e) => handleInsuranceUpdate('nhif', 'number', e.target.value)}
+                    style={styles.input}
+                  />
+                  <InsuranceDocumentUpload
+                    employeeId={employee._id}
+                    insuranceType="nhif"
+                    currentDocument={employee.insurance?.nhif}
+                    onDocumentUpdate={(type, data) => {
+                      const updatedEmployee = { ...employee };
+                      updatedEmployee.insurance[type] = data;
+                      setEmployee(updatedEmployee);
+                    }}
+                  />
                 </div>
-              ) : (
-                <p>No NHIF information available</p>
-              )}
-              <div style={styles.uploadSection}>
-                <input
-                  type="text"
-                  placeholder="NHIF Number"
-                  value={employee.insurance?.nhif?.number || ''}
-                  onChange={(e) => handleInsuranceUpdate('nhif', 'number', e.target.value)}
-                  style={styles.input}
-                />
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleDocumentUpload('nhif', e.target.files[0])}
-                  style={styles.fileInput}
-                  disabled={uploading}
-                />
               </div>
-            </div>
 
-            {/* Medical Insurance Section */}
-            <div style={styles.insuranceSection}>
-              <h3 style={styles.insuranceTitle}>Medical Insurance</h3>
-              {employee.insurance?.medical?.url ? (
-                <div style={styles.insuranceInfo}>
-                  <p><strong>Provider:</strong> {employee.insurance.medical.provider}</p>
-                  <p><strong>Policy Number:</strong> {employee.insurance.medical.policyNumber}</p>
-                  <p><strong>Coverage:</strong> {employee.insurance.medical.coverage}</p>
-                  <p><strong>Status:</strong> 
-                    <span style={{
-                      color: employee.insurance.medical.status === 'active' ? '#2ecc71' : 
-                             employee.insurance.medical.status === 'pending' ? '#f1c40f' : '#e74c3c'
-                    }}>
-                      {employee.insurance.medical.status.charAt(0).toUpperCase() + 
-                       employee.insurance.medical.status.slice(1)}
-                    </span>
-                  </p>
-                  <p><strong>Uploaded:</strong> {new Date(employee.insurance.medical.uploadDate).toLocaleDateString()}</p>
-                  <p><strong>Expires:</strong> {new Date(employee.insurance.medical.expiryDate).toLocaleDateString()}</p>
-                  <a 
-                    href={employee.insurance.medical.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={styles.downloadLink}
+              {/* Medical Insurance Section */}
+              <div style={styles.insuranceSection}>
+                <h3 style={styles.insuranceTitle}>Medical Insurance</h3>
+                <div style={styles.uploadSection}>
+                  <input
+                    type="text"
+                    placeholder="Provider"
+                    value={employee.insurance?.medical?.provider || ''}
+                    onChange={(e) => handleInsuranceUpdate('medical', 'provider', e.target.value)}
+                    style={styles.input}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Policy Number"
+                    value={employee.insurance?.medical?.policyNumber || ''}
+                    onChange={(e) => handleInsuranceUpdate('medical', 'policyNumber', e.target.value)}
+                    style={styles.input}
+                  />
+                  <select
+                    value={employee.insurance?.medical?.coverage || 'basic'}
+                    onChange={(e) => handleInsuranceUpdate('medical', 'coverage', e.target.value)}
+                    style={styles.select}
                   >
-                    View Medical Insurance
-                  </a>
+                    <option value="basic">Basic Coverage</option>
+                    <option value="standard">Standard Coverage</option>
+                    <option value="premium">Premium Coverage</option>
+                  </select>
+                  <InsuranceDocumentUpload
+                    employeeId={employee._id}
+                    insuranceType="medical"
+                    currentDocument={employee.insurance?.medical}
+                    onDocumentUpdate={(type, data) => {
+                      const updatedEmployee = { ...employee };
+                      updatedEmployee.insurance[type] = data;
+                      setEmployee(updatedEmployee);
+                    }}
+                  />
                 </div>
-              ) : (
-                <p>No medical insurance information available</p>
-              )}
-              <div style={styles.uploadSection}>
-                <input
-                  type="text"
-                  placeholder="Provider"
-                  value={employee.insurance?.medical?.provider || ''}
-                  onChange={(e) => handleInsuranceUpdate('medical', 'provider', e.target.value)}
-                  style={styles.input}
-                />
-                <input
-                  type="text"
-                  placeholder="Policy Number"
-                  value={employee.insurance?.medical?.policyNumber || ''}
-                  onChange={(e) => handleInsuranceUpdate('medical', 'policyNumber', e.target.value)}
-                  style={styles.input}
-                />
-                <select
-                  value={employee.insurance?.medical?.coverage || 'basic'}
-                  onChange={(e) => handleInsuranceUpdate('medical', 'coverage', e.target.value)}
-                  style={styles.select}
-                >
-                  <option value="basic">Basic Coverage</option>
-                  <option value="standard">Standard Coverage</option>
-                  <option value="premium">Premium Coverage</option>
-                </select>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleDocumentUpload('medical', e.target.files[0])}
-                  style={styles.fileInput}
-                  disabled={uploading}
-                />
               </div>
-            </div>
 
-            {/* Life Insurance Section */}
-            <div style={styles.insuranceSection}>
-              <h3 style={styles.insuranceTitle}>Life Insurance</h3>
-              {employee.insurance?.life?.url ? (
-                <div style={styles.insuranceInfo}>
-                  <p><strong>Provider:</strong> {employee.insurance.life.provider}</p>
-                  <p><strong>Policy Number:</strong> {employee.insurance.life.policyNumber}</p>
-                  <p><strong>Coverage:</strong> {employee.insurance.life.coverage}</p>
-                  <p><strong>Status:</strong> 
-                    <span style={{
-                      color: employee.insurance.life.status === 'active' ? '#2ecc71' : 
-                             employee.insurance.life.status === 'pending' ? '#f1c40f' : '#e74c3c'
-                    }}>
-                      {employee.insurance.life.status.charAt(0).toUpperCase() + 
-                       employee.insurance.life.status.slice(1)}
-                    </span>
-                  </p>
-                  <p><strong>Uploaded:</strong> {new Date(employee.insurance.life.uploadDate).toLocaleDateString()}</p>
-                  <p><strong>Expires:</strong> {new Date(employee.insurance.life.expiryDate).toLocaleDateString()}</p>
-                  <a 
-                    href={employee.insurance.life.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={styles.downloadLink}
+              {/* Life Insurance Section */}
+              <div style={styles.insuranceSection}>
+                <h3 style={styles.insuranceTitle}>Life Insurance</h3>
+                <div style={styles.uploadSection}>
+                  <input
+                    type="text"
+                    placeholder="Provider"
+                    value={employee.insurance?.life?.provider || ''}
+                    onChange={(e) => handleInsuranceUpdate('life', 'provider', e.target.value)}
+                    style={styles.input}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Policy Number"
+                    value={employee.insurance?.life?.policyNumber || ''}
+                    onChange={(e) => handleInsuranceUpdate('life', 'policyNumber', e.target.value)}
+                    style={styles.input}
+                  />
+                  <select
+                    value={employee.insurance?.life?.coverage || 'basic'}
+                    onChange={(e) => handleInsuranceUpdate('life', 'coverage', e.target.value)}
+                    style={styles.select}
                   >
-                    View Life Insurance
-                  </a>
+                    <option value="basic">Basic Coverage</option>
+                    <option value="standard">Standard Coverage</option>
+                    <option value="premium">Premium Coverage</option>
+                  </select>
+                  <InsuranceDocumentUpload
+                    employeeId={employee._id}
+                    insuranceType="life"
+                    currentDocument={employee.insurance?.life}
+                    onDocumentUpdate={(type, data) => {
+                      const updatedEmployee = { ...employee };
+                      updatedEmployee.insurance[type] = data;
+                      setEmployee(updatedEmployee);
+                    }}
+                  />
                 </div>
-              ) : (
-                <p>No life insurance information available</p>
-              )}
-              <div style={styles.uploadSection}>
-                <input
-                  type="text"
-                  placeholder="Provider"
-                  value={employee.insurance?.life?.provider || ''}
-                  onChange={(e) => handleInsuranceUpdate('life', 'provider', e.target.value)}
-                  style={styles.input}
-                />
-                <input
-                  type="text"
-                  placeholder="Policy Number"
-                  value={employee.insurance?.life?.policyNumber || ''}
-                  onChange={(e) => handleInsuranceUpdate('life', 'policyNumber', e.target.value)}
-                  style={styles.input}
-                />
-                <select
-                  value={employee.insurance?.life?.coverage || 'basic'}
-                  onChange={(e) => handleInsuranceUpdate('life', 'coverage', e.target.value)}
-                  style={styles.select}
-                >
-                  <option value="basic">Basic Coverage</option>
-                  <option value="standard">Standard Coverage</option>
-                  <option value="premium">Premium Coverage</option>
-                </select>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleDocumentUpload('life', e.target.files[0])}
-                  style={styles.fileInput}
-                  disabled={uploading}
-                />
               </div>
             </div>
           </div>
@@ -998,6 +898,22 @@ const styles = {
   deleteButton: {
     backgroundColor: '#e74c3c',
     color: 'white',
+  },
+  documentsSection: {
+    marginTop: '2rem',
+    padding: '1rem',
+    background: 'white',
+    borderRadius: '0.5rem',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+  },
+  documentsSectionH3: {
+    marginBottom: '1.5rem',
+    color: '#2d3748',
+  },
+  documentsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+    gap: '1rem',
   },
 };
 

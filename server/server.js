@@ -8,6 +8,8 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const { ObjectId } = mongoose.Types;
+const { GetObjectCommand, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 // Import models
 const Business = require('./models/Business');
@@ -47,8 +49,11 @@ const upload = multer({
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001'],
-  credentials: true
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001', 'http://localhost:5000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-refresh-token'],
+  exposedHeaders: ['x-new-token']
 }));
 
 app.use(express.json());
@@ -922,6 +927,252 @@ app.get('/api/employees/:id/performance-reviews', authenticateBusiness, async (r
 
 app.use('/api', performanceReviewsRouter);
 app.use('/api/payroll', payrollRoutes);
+
+// Add health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+// Get pre-signed URL for S3 upload
+app.post('/api/employees/:id/upload-url', authenticateBusiness, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { fileName, fileType, documentType } = req.body;
+
+    // Validate required fields
+    if (!fileName || !fileType || !documentType) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Verify employee belongs to this business
+    const employee = await Employee.findOne({
+      _id: id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    if (!allowedTypes.includes(fileType)) {
+      return res.status(400).json({ error: 'Invalid file type' });
+    }
+
+    // Generate a unique file key
+    const fileKey = `employees/${req.businessId}/${id}/${documentType}/${Date.now()}-${fileName}`;
+
+    // Generate pre-signed URL
+    const command = new PutObjectCommand({
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: fileKey,
+      ContentType: fileType
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
+
+    res.json({ uploadUrl, fileUrl });
+  } catch (error) {
+    console.error('Error generating upload URL:', error);
+    if (error.name === 'CredentialsProviderError') {
+      return res.status(500).json({ error: 'AWS credentials not properly configured' });
+    }
+    res.status(500).json({ error: 'Failed to generate upload URL' });
+  }
+});
+
+// Update employee documents
+app.put('/api/employees/:id/documents', authenticateBusiness, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { documentType, fileUrl } = req.body;
+
+    // Verify employee belongs to this business
+    const employee = await Employee.findOne({
+      _id: id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    // Update the document URL
+    const update = {};
+    update[`documents.${documentType}.url`] = fileUrl;
+    update[`documents.${documentType}.uploadedAt`] = new Date();
+
+    const updatedEmployee = await Employee.findByIdAndUpdate(
+      id,
+      { $set: update },
+      { new: true }
+    );
+
+    res.json(updatedEmployee);
+  } catch (error) {
+    console.error('Error updating employee documents:', error);
+    res.status(500).json({ error: 'Failed to update employee documents' });
+  }
+});
+
+// Delete employee document
+app.delete('/api/employees/:id/documents/:documentType', authenticateBusiness, async (req, res) => {
+  try {
+    const { id, documentType } = req.params;
+
+    // Verify employee belongs to this business
+    const employee = await Employee.findOne({
+      _id: id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    // Get the current document URL
+    const currentDoc = employee.documents?.[documentType];
+    if (currentDoc?.url) {
+      // Extract the key from the URL
+      const urlParts = currentDoc.url.split('/');
+      const key = urlParts.slice(3).join('/');
+
+      // Delete from S3
+      await s3Client.send(new DeleteObjectCommand({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: key
+      }));
+    }
+
+    // Remove the document reference from the employee record
+    const update = {};
+    update[`documents.${documentType}`] = null;
+
+    const updatedEmployee = await Employee.findByIdAndUpdate(
+      id,
+      { $unset: update },
+      { new: true }
+    );
+
+    res.json(updatedEmployee);
+  } catch (error) {
+    console.error('Error deleting employee document:', error);
+    res.status(500).json({ error: 'Failed to delete employee document' });
+  }
+});
+
+// Update employee insurance documents
+app.put('/api/employees/:id/insurance/:type', authenticateBusiness, async (req, res) => {
+  try {
+    const { id, type } = req.params;
+    const { fileUrl, provider, policyNumber, coverage, number } = req.body;
+
+    // Verify employee belongs to this business
+    const employee = await Employee.findOne({
+      _id: id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    // Validate insurance type
+    const validTypes = ['nhif', 'medical', 'life'];
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({ error: 'Invalid insurance type' });
+    }
+
+    // Prepare update data based on insurance type
+    let updateData = {
+      uploadDate: new Date(),
+      status: 'active'
+    };
+
+    // Add type-specific fields
+    if (type === 'nhif') {
+      updateData.number = number;
+    } else {
+      updateData.provider = provider;
+      updateData.policyNumber = policyNumber;
+      updateData.coverage = coverage;
+    }
+
+    // Add file URL if provided
+    if (fileUrl) {
+      updateData.url = fileUrl;
+    }
+
+    // Update the insurance data
+    const update = {
+      [`insurance.${type}`]: updateData
+    };
+
+    const updatedEmployee = await Employee.findByIdAndUpdate(
+      id,
+      { $set: update },
+      { new: true }
+    );
+
+    res.json(updatedEmployee);
+  } catch (error) {
+    console.error('Error updating insurance document:', error);
+    res.status(500).json({ error: 'Failed to update insurance document' });
+  }
+});
+
+// Delete insurance document
+app.delete('/api/employees/:id/insurance/:type', authenticateBusiness, async (req, res) => {
+  try {
+    const { id, type } = req.params;
+
+    // Verify employee belongs to this business
+    const employee = await Employee.findOne({
+      _id: id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    // Get the current document URL
+    const currentDoc = employee.insurance?.[type];
+    if (currentDoc?.url) {
+      // Extract the key from the URL
+      const urlParts = currentDoc.url.split('/');
+      const key = urlParts.slice(3).join('/');
+
+      // Delete from S3
+      await s3Client.send(new DeleteObjectCommand({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: key
+      }));
+    }
+
+    // Remove the document reference from the employee record
+    const update = {};
+    update[`insurance.${type}`] = {
+      ...employee.insurance[type],
+      url: null,
+      uploadDate: null,
+      status: 'inactive'
+    };
+
+    const updatedEmployee = await Employee.findByIdAndUpdate(
+      id,
+      { $set: update },
+      { new: true }
+    );
+
+    res.json(updatedEmployee);
+  } catch (error) {
+    console.error('Error deleting insurance document:', error);
+    res.status(500).json({ error: 'Failed to delete insurance document' });
+  }
+});
 
 // Start server
 app.listen(PORT, () => {
