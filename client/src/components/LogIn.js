@@ -9,14 +9,15 @@ function LogIn() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
 
   useEffect(() => {
     // If already logged in, redirect to dashboard
-    if (localStorage.getItem('token')) {
-      navigate('/dashboard');
+    if (isAuthenticated()) {
+      const from = location.state?.from?.pathname || '/dashboard';
+      navigate(from, { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, location, isAuthenticated]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,9 +26,10 @@ function LogIn() {
 
     try {
       const result = await login(email, password);
-      
+
       if (result.success) {
-        navigate('/dashboard');
+        const from = location.state?.from?.pathname || '/dashboard';
+        navigate(from, { replace: true });
       } else {
         setError(result.error || 'Failed to login. Please try again.');
       }

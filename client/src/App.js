@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
 import LogIn from './components/LogIn';
 import Register from './components/Register';
@@ -11,52 +11,62 @@ import PerformanceReviews from './components/PerformanceReviews';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './components/LandingPage';
 import { AuthProvider } from './contexts/AuthContext';
+import UserManagement from './components/UserManagement';
+import EmailVerification from './components/EmailVerification';
+import ResetPassword from './components/ResetPassword';
 
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <div style={styles.app}>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LogIn />} />
-            <Route path="/register" element={<Register />} />
+    <Router>
+      <div style={styles.app}>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LogIn />} />
+          <Route path="/register" element={<Register />} />
+            <Route path="/verify-email/:token" element={<EmailVerification />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-            {/* Protected routes */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/employees" element={
-              <ProtectedRoute>
-                <EmployeesList />
-              </ProtectedRoute>
-            } />
-            <Route path="/employee/:id" element={
-              <ProtectedRoute>
-                <EmployeeDetails />
-              </ProtectedRoute>
-            } />
-            <Route path="/payroll" element={
-              <ProtectedRoute>
-                <PayrollManagement />
-              </ProtectedRoute>
-            } />
+          {/* Protected routes */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/employees" element={
+            <ProtectedRoute>
+              <EmployeesList />
+            </ProtectedRoute>
+          } />
+          <Route path="/employee/:id" element={
+            <ProtectedRoute>
+              <EmployeeDetails />
+            </ProtectedRoute>
+          } />
+          <Route path="/payroll" element={
+            <ProtectedRoute>
+              <PayrollManagement />
+            </ProtectedRoute>
+          } />
             <Route path="/payroll/settings" element={
               <ProtectedRoute>
                 <PayrollSettings />
-              </ProtectedRoute>
-            } />
-            <Route path="/performance-reviews" element={
-              <ProtectedRoute>
-                <PerformanceReviews />
-              </ProtectedRoute>
-            } />
-          </Routes>
-        </div>
-      </Router>
+            </ProtectedRoute>
+          } />
+          <Route path="/performance-reviews" element={
+            <ProtectedRoute>
+              <PerformanceReviews />
+            </ProtectedRoute>
+          } />
+          <Route path="/user-management" element={
+            <ProtectedRoute>
+              <UserManagement />
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </div>
+    </Router>
     </AuthProvider>
   );
 }

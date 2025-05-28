@@ -76,6 +76,29 @@ payrollSettingsSchema.pre('save', function(next) {
   next();
 });
 
+// Add findOrCreate static method
+payrollSettingsSchema.statics.findOrCreate = async function(businessId) {
+  try {
+    let settings = await this.findOne({ businessId });
+    
+    if (!settings) {
+      settings = new this({
+        businessId,
+        taxRates: {
+          allowances: [],
+          customDeductions: []
+        }
+      });
+      await settings.save();
+    }
+    
+    return settings;
+  } catch (error) {
+    console.error('Error in findOrCreate:', error);
+    throw error;
+  }
+};
+
 const PayrollSettings = mongoose.model('PayrollSettings', payrollSettingsSchema);
 
 module.exports = PayrollSettings; 

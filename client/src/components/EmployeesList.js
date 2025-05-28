@@ -15,7 +15,19 @@ function EmployeesList() {
     email: '',
     department: '',
     position: '',
-    salary: '',
+    salary: {
+      basic: '',
+      allowances: {
+        housing: 0,
+        transport: 0,
+        medical: 0,
+        other: 0
+      },
+      deductions: {
+        loans: 0,
+        other: 0
+      }
+    },
     joiningDate: '',
     startDate: '',
     offerLetter: null
@@ -63,9 +75,10 @@ function EmployeesList() {
     try {
       const token = localStorage.getItem('token');
       
-      const salary = Number(newEmployee.salary);
-      if (isNaN(salary) || salary <= 0) {
-        alert('Please enter a valid salary amount');
+      // Validate salary
+      const salaryValue = parseFloat(newEmployee.salary.basic);
+      if (isNaN(salaryValue) || salaryValue <= 0) {
+        setError('Please enter a valid salary amount (must be greater than 0)');
         return;
       }
 
@@ -75,7 +88,19 @@ function EmployeesList() {
         email: newEmployee.email,
         department: newEmployee.department,
         position: newEmployee.position,
-        salary: salary,
+        salary: {
+          basic: salaryValue,
+          allowances: {
+            housing: 0,
+            transport: 0,
+            medical: 0,
+            other: 0
+          },
+          deductions: {
+            loans: 0,
+            other: 0
+          }
+        },
         startDate: newEmployee.startDate,
         joiningDate: newEmployee.joiningDate
       };
@@ -106,18 +131,31 @@ function EmployeesList() {
         email: '',
         department: '',
         position: '',
-        salary: '',
+        salary: {
+          basic: '',
+          allowances: {
+            housing: 0,
+            transport: 0,
+            medical: 0,
+            other: 0
+          },
+          deductions: {
+            loans: 0,
+            other: 0
+          }
+        },
         joiningDate: '',
         startDate: '',
         offerLetter: null
       });
 
+      setError(null);
       alert('Employee added successfully!');
       await fetchEmployees();
 
     } catch (error) {
       console.error('Error adding employee:', error);
-      alert(error.message);
+      setError(error.message);
     }
   };
 
@@ -276,11 +314,15 @@ function EmployeesList() {
                   <input
                     style={styles.input}
                     type="number"
-                    min="1"
-                    value={newEmployee.salary}
+                    min="0"
+                    step="0.01"
+                    value={newEmployee.salary.basic}
                     onChange={(e) => setNewEmployee({
-                      ...newEmployee, 
-                      salary: e.target.value
+                      ...newEmployee,
+                      salary: {
+                        ...newEmployee.salary,
+                        basic: e.target.value
+                      }
                     })}
                     required
                     placeholder="Enter basic salary amount"
@@ -418,11 +460,15 @@ function EmployeesList() {
                 <input
                   style={styles.input}
                   type="number"
-                  min="1"
-                  value={newEmployee.salary}
+                  min="0"
+                  step="0.01"
+                  value={newEmployee.salary.basic}
                   onChange={(e) => setNewEmployee({
-                    ...newEmployee, 
-                    salary: e.target.value
+                    ...newEmployee,
+                    salary: {
+                      ...newEmployee.salary,
+                      basic: e.target.value
+                    }
                   })}
                   required
                   placeholder="Enter basic salary amount"

@@ -44,17 +44,24 @@ function PayrollManagement() {
     try {
       const token = localStorage.getItem('token');
       
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
       console.log('Fetching payroll history with params:', {
         month: selectedMonth,
         year: selectedYear
       });
 
       const response = await fetch(
-        `http://localhost:5001/api/payroll/history?month=${selectedMonth}&year=${selectedYear}`,
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/payroll/history?month=${selectedMonth}&year=${selectedYear}`,
         {
           headers: {
-            'Authorization': `Bearer ${token}`
-          }
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include'
         }
       );
 
@@ -67,6 +74,13 @@ function PayrollManagement() {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Token expired or invalid
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          navigate('/login');
+          return;
+        }
         throw new Error(data.message || data.error || 'Failed to fetch payroll history');
       }
 
@@ -128,7 +142,7 @@ function PayrollManagement() {
       if (!payrollSettings) {
         throw new Error('Please configure your payroll settings before processing payroll');
       }
-
+      
       const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:5001/api/payroll/process', {
         method: 'POST',
@@ -335,78 +349,78 @@ function PayrollManagement() {
       
       <div style={styles.controls}>
         <div style={styles.dateControls}>
-          <select 
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            style={styles.select}
-          >
-            {Array.from({ length: 12 }, (_, i) => {
-              const month = i + 1;
-              const isValid = isValidPayrollPeriod(month, selectedYear);
-              return (
-                <option 
-                  key={month} 
-                  value={month}
-                  disabled={!isValid}
-                >
-                  {new Date(2000, i).toLocaleString('default', { month: 'long' })}
-                  {!isValid ? ' (Not Available)' : ''}
-                </option>
-              );
-            })}
-          </select>
-          
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            style={styles.select}
-          >
-            {Array.from({ length: 5 }, (_, i) => {
-              const year = new Date().getFullYear() - i;
-              const isValid = isValidPayrollPeriod(selectedMonth, year);
-              return (
-                <option 
-                  key={year} 
-                  value={year}
-                  disabled={!isValid}
-                >
-                  {year}
-                  {!isValid ? ' (Not Available)' : ''}
-                </option>
-              );
-            })}
-          </select>
+        <select 
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(Number(e.target.value))}
+          style={styles.select}
+        >
+          {Array.from({ length: 12 }, (_, i) => {
+            const month = i + 1;
+            const isValid = isValidPayrollPeriod(month, selectedYear);
+            return (
+              <option 
+                key={month} 
+                value={month}
+                disabled={!isValid}
+              >
+                {new Date(2000, i).toLocaleString('default', { month: 'long' })}
+                {!isValid ? ' (Not Available)' : ''}
+              </option>
+            );
+          })}
+        </select>
+        
+        <select
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(Number(e.target.value))}
+          style={styles.select}
+        >
+          {Array.from({ length: 5 }, (_, i) => {
+            const year = new Date().getFullYear() - i;
+            const isValid = isValidPayrollPeriod(selectedMonth, year);
+            return (
+              <option 
+                key={year} 
+                value={year}
+                disabled={!isValid}
+              >
+                {year}
+                {!isValid ? ' (Not Available)' : ''}
+              </option>
+            );
+          })}
+        </select>
         </div>
       </div>
 
       {/* Updated Payroll Summary */}
-      <div style={styles.summaryContainer}>
+        <div style={styles.summaryContainer}>
         <h3 style={styles.summaryTitle}>
           Payroll Summary
           {searchTerm && <span style={styles.filteredLabel}> (Filtered Results)</span>}
         </h3>
-        <div style={styles.summaryGrid}>
-          <div style={styles.summaryCard}>
-            <div style={styles.cardIcon}>👥</div>
-            <span style={styles.cardLabel}>Total Employees</span>
+          <div style={styles.summaryGrid}>
+            <div style={styles.summaryCard}>
+              <div style={styles.cardIcon}>👥</div>
+              <span style={styles.cardLabel}>Total Employees</span>
             <span style={styles.cardValue}>{currentSummary.totalEmployees}</span>
-          </div>
-          <div style={styles.summaryCard}>
-            <div style={styles.cardIcon}>💰</div>
-            <span style={styles.cardLabel}>Total Gross Salary</span>
+            </div>
+            <div style={styles.summaryCard}>
+              <div style={styles.cardIcon}>💰</div>
+              <span style={styles.cardLabel}>Total Gross Salary</span>
             <span style={styles.cardValue}>KES {currentSummary.totalGrossSalary?.toLocaleString()}</span>
-          </div>
-          <div style={styles.summaryCard}>
-            <div style={styles.cardIcon}>💵</div>
-            <span style={styles.cardLabel}>Total Net Salary</span>
+            </div>
+            <div style={styles.summaryCard}>
+              <div style={styles.cardIcon}>💵</div>
+              <span style={styles.cardLabel}>Total Net Salary</span>
             <span style={styles.cardValue}>KES {currentSummary.totalNetSalary?.toLocaleString()}</span>
           </div>
           <div style={styles.summaryCard}>
             <div style={styles.cardIcon}>➕</div>
             <span style={styles.cardLabel}>Total Allowances</span>
             <span style={styles.cardValue}>KES {currentSummary.totalAllowances?.toLocaleString()}</span>
-          </div>
-          <div style={styles.summaryCard}>
+            </div>
+            <div style={styles.summaryCard}>
             <div style={styles.cardIcon}>➖</div>
             <span style={styles.cardLabel}>Total Deductions</span>
             <span style={styles.cardValue}>KES {currentSummary.totalDeductions?.toLocaleString()}</span>
@@ -440,7 +454,7 @@ function PayrollManagement() {
           >
             Clear
           </button>
-        )}
+      )}
       </div>
 
       <div style={styles.tableContainer}>
@@ -510,12 +524,12 @@ function PayrollManagement() {
                   <td style={styles.tableCell}>KES {record.netSalary?.toLocaleString()}</td>
                   <td style={styles.tableCell}>
                     <div style={styles.actionButtons}>
-                      <button 
-                        onClick={() => downloadPayslip(record._id)}
-                        style={styles.downloadButton}
-                      >
-                        Download Payslip
-                      </button>
+                    <button 
+                      onClick={() => downloadPayslip(record._id)}
+                      style={styles.downloadButton}
+                    >
+                      Download Payslip
+                    </button>
                     </div>
                   </td>
                 </tr>

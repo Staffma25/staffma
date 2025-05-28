@@ -3,15 +3,32 @@ import { useNavigate } from 'react-router-dom';
 import EmployeeDetails from './EmployeeDetails';
 import PayrollCard from './PayrollCard';
 import { getDashboardData } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 function Dashboard() {
-  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardData, setDashboardData] = useState({
+    business: null,
+    metrics: {
+      employeeCount: { total: 0, remaining: 100 },
+      userCount: { total: 0, active: 0 }
+    },
+    payrollSummary: { totalGrossSalary: 0, totalNetSalary: 0 },
+    performanceReviewsStats: { pendingReviews: 0, completedReviews: 0 },
+    employees: [],
+    users: []
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { getToken, logout } = useAuth();
   const [showAddEmployee, setShowAddEmployee] = useState(false);
+  const [showAddUser, setShowAddUser] = useState(false);
   const [employeeCount, setEmployeeCount] = useState({ total: 0, remaining: 100 });
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [userManagementStats, setUserManagementStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0
+  });
 
   const [newEmployee, setNewEmployee] = useState({
     firstName: '',
@@ -25,6 +42,64 @@ function Dashboard() {
     offerLetter: null
   });
 
+  const [newUser, setNewUser] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    type: 'employee',
+    permissions: {
+      employeeManagement: {
+        add: false,
+        edit: false,
+        delete: false,
+        view: false,
+        manageOnboarding: false,
+        manageDocuments: false,
+        setStatus: false
+      },
+      payrollManagement: {
+        processPayroll: false,
+        configureSalary: false,
+        manageAllowances: false,
+        manageDeductions: false,
+        generatePayslips: false,
+        bulkPayments: false,
+        viewReports: false
+      },
+      performanceManagement: {
+        createReviews: false,
+        viewAllReviews: false,
+        editTemplates: false,
+        generateReports: false,
+        manageTraining: false,
+        trackDevelopment: false
+      },
+      userManagement: {
+        createUsers: false,
+        assignRoles: false,
+        modifyPermissions: false,
+        manageAccounts: false,
+        resetPasswords: false,
+        manageSecurity: false
+      },
+      financialServices: {
+        configureAdvances: false,
+        approveAdvances: false,
+        manageWallet: false,
+        viewTransactions: false,
+        configurePayments: false
+      },
+      systemAdministration: {
+        configureSettings: false,
+        manageIntegrations: false,
+        handleBackups: false,
+        viewAuditTrail: false,
+        manageNotifications: false
+      }
+    }
+  });
+
   const [isEditing, setIsEditing] = useState(false);
   const [editedBusiness, setEditedBusiness] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -36,9 +111,20 @@ function Dashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        const token = getToken();
+        if (!token) {
+          console.error('No authentication token found');
+          navigate('/login');
+          return;
+        }
+
         const data = await getDashboardData();
         console.log('Dashboard data received:', data);
-        setDashboardData(data);
+        setDashboardData(prevData => ({
+          ...prevData,
+          ...data,
+          users: data.users || []
+        }));
         setEmployeeCount({
           total: data.metrics?.employeeCount?.total || 0,
           remaining: data.metrics?.employeeCount?.remaining || 100
@@ -51,10 +137,15 @@ function Dashboard() {
           pendingReviews: 0,
           completedReviews: 0
         });
+        setUserManagementStats({
+          totalUsers: data.metrics?.userCount?.total || 0,
+          activeUsers: data.metrics?.userCount?.active || 0
+        });
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         setError(error.message);
-        if (error.message.includes('Failed to fetch')) {
+        if (error.message.includes('Failed to fetch') || error.message.includes('No authentication token found')) {
+          logout();
           navigate('/login');
         }
       } finally {
@@ -63,12 +154,15 @@ function Dashboard() {
     };
 
     fetchDashboardData();
-  }, [navigate]);
+  }, [navigate, getToken, logout]);
 
   const handleAddEmployee = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
+      const token = getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
       
       const employeeData = {
         firstName: newEmployee.firstName,
@@ -123,13 +217,22 @@ function Dashboard() {
 
     } catch (error) {
       console.error('Error adding employee:', error);
+      if (error.message.includes('No authentication token found')) {
+        logout();
+        navigate('/login');
+      } else {
       alert(error.message || 'Failed to add employee. Please try again.');
+      }
     }
   };
 
   const handleEditBusiness = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch('http://localhost:5001/api/business/update', {
         method: 'PUT',
         headers: {
@@ -149,22 +252,157 @@ function Dashboard() {
         business: updatedBusiness
       }));
       setIsEditing(false);
-      
-      // Update localStorage
-      localStorage.setItem('user', JSON.stringify(updatedBusiness));
-    } catch (err) {
-      setError(err.message);
+    } catch (error) {
+      console.error('Error updating business:', error);
+      if (error.message.includes('No authentication token found')) {
+        logout();
+        navigate('/login');
+      } else {
+        setError(error.message);
+      }
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    logout();
     navigate('/login');
   };
 
   const handleViewEmployee = (employee) => {
     setSelectedEmployee(employee);
+  };
+
+  const handleAddUser = async (e) => {
+    e.preventDefault();
+    try {
+      const token = getToken();
+      
+      // Format the user data according to the server's expectations
+      const userData = {
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        email: newUser.email,
+        password: newUser.password,
+        type: newUser.type,
+        // The server will handle setting default permissions based on type
+      };
+
+      console.log('Sending user data:', userData);
+
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/users`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(userData)
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('Server response:', responseData);
+        throw new Error(responseData.error || responseData.message || 'Failed to add user');
+      }
+
+      // Update the dashboard data with the new user
+      setDashboardData(prevData => ({
+        ...prevData,
+        users: [...prevData.users, responseData.user]
+      }));
+      
+      // Reset form
+      setShowAddUser(false);
+      setNewUser({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        type: 'employee',
+        permissions: {
+          employeeManagement: {
+            add: false, edit: false, delete: false, view: false,
+            manageOnboarding: false, manageDocuments: false, setStatus: false
+          },
+          payrollManagement: {
+            processPayroll: false, configureSalary: false, manageAllowances: false,
+            manageDeductions: false, generatePayslips: false, bulkPayments: false,
+            viewReports: false
+          },
+          performanceManagement: {
+            createReviews: false, viewAllReviews: false, editTemplates: false,
+            generateReports: false, manageTraining: false, trackDevelopment: false
+          },
+          userManagement: {
+            createUsers: false, assignRoles: false, modifyPermissions: false,
+            manageAccounts: false, resetPasswords: false, manageSecurity: false
+          },
+          financialServices: {
+            configureAdvances: false, approveAdvances: false, manageWallet: false,
+            viewTransactions: false, configurePayments: false
+          },
+          systemAdministration: {
+            configureSettings: false, manageIntegrations: false, handleBackups: false,
+            viewAuditTrail: false, manageNotifications: false
+          }
+        }
+      });
+
+      alert('User added successfully!');
+
+    } catch (error) {
+      console.error('Error adding user:', error);
+      console.error('Error details:', error.message);
+      alert(error.message || 'Failed to add user. Please try again.');
+    }
+  };
+
+  const handleRoleChange = (type) => {
+    const rolePermissions = {
+      admin: {
+        employeeManagement: { add: true, edit: true, delete: true, view: true, manageOnboarding: true, manageDocuments: true, setStatus: true },
+        payrollManagement: { processPayroll: true, configureSalary: true, manageAllowances: true, manageDeductions: true, generatePayslips: true, bulkPayments: true, viewReports: true },
+        performanceManagement: { createReviews: true, viewAllReviews: true, editTemplates: true, generateReports: true, manageTraining: true, trackDevelopment: true },
+        userManagement: { createUsers: true, assignRoles: true, modifyPermissions: true, manageAccounts: true, resetPasswords: true, manageSecurity: true },
+        financialServices: { configureAdvances: true, approveAdvances: true, manageWallet: true, viewTransactions: true, configurePayments: true },
+        systemAdministration: { configureSettings: true, manageIntegrations: true, handleBackups: true, viewAuditTrail: true, manageNotifications: true }
+      },
+      hr_manager: {
+        employeeManagement: { add: true, edit: true, delete: false, view: true, manageOnboarding: true, manageDocuments: true, setStatus: true },
+        payrollManagement: { processPayroll: true, configureSalary: false, manageAllowances: true, manageDeductions: true, generatePayslips: true, bulkPayments: false, viewReports: true },
+        performanceManagement: { createReviews: true, viewAllReviews: true, editTemplates: true, generateReports: true, manageTraining: true, trackDevelopment: true },
+        userManagement: { createUsers: true, assignRoles: false, modifyPermissions: false, manageAccounts: true, resetPasswords: true, manageSecurity: false },
+        financialServices: { configureAdvances: false, approveAdvances: true, manageWallet: false, viewTransactions: true, configurePayments: false },
+        systemAdministration: { configureSettings: false, manageIntegrations: false, handleBackups: false, viewAuditTrail: true, manageNotifications: false }
+      },
+      employee: {
+        employeeManagement: { add: false, edit: false, delete: false, view: false, manageOnboarding: false, manageDocuments: false, setStatus: false },
+        payrollManagement: { processPayroll: false, configureSalary: false, manageAllowances: false, manageDeductions: false, generatePayslips: false, bulkPayments: false, viewReports: false },
+        performanceManagement: { createReviews: false, viewAllReviews: false, editTemplates: false, generateReports: false, manageTraining: false, trackDevelopment: false },
+        userManagement: { createUsers: false, assignRoles: false, modifyPermissions: false, manageAccounts: false, resetPasswords: false, manageSecurity: false },
+        financialServices: { configureAdvances: false, approveAdvances: false, manageWallet: false, viewTransactions: false, configurePayments: false },
+        systemAdministration: { configureSettings: false, manageIntegrations: false, handleBackups: false, viewAuditTrail: false, manageNotifications: false }
+      }
+    };
+
+    setNewUser(prev => ({
+      ...prev,
+      type,
+      permissions: rolePermissions[type]
+    }));
+  };
+
+  const handlePermissionChange = (module, action, value) => {
+    setNewUser(prev => ({
+      ...prev,
+      permissions: {
+        ...prev.permissions,
+        [module]: {
+          ...prev.permissions[module],
+          [action]: value
+        }
+      }
+    }));
   };
 
   if (loading) return <div style={styles.loading}>Loading...</div>;
@@ -343,6 +581,37 @@ function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* User Management Card */}
+        <div style={styles.card}>
+          <h2 style={styles.cardTitle}>User Management</h2>
+          <div style={styles.cardContent}>
+            <div style={styles.cardStats}>
+              <div style={styles.stat}>
+                <span>Total Users</span>
+                <h3>{userManagementStats.totalUsers}</h3>
+              </div>
+              <div style={styles.stat}>
+                <span>Active Users</span>
+                <h3>{userManagementStats.activeUsers}</h3>
+              </div>
+            </div>
+            <div style={styles.cardActions}>
+              <button 
+                onClick={() => setShowAddUser(true)} 
+                style={styles.actionButton}
+              >
+                Add New User
+              </button>
+              <button 
+                onClick={() => navigate('/user-management')} 
+                style={styles.actionButton}
+              >
+                Manage Users
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Add Employee Modal */}
@@ -468,6 +737,234 @@ function Dashboard() {
             </button>
           </div>
         </form>
+      )}
+
+      {/* Add User Modal */}
+      {showAddUser && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <h2 style={styles.modalTitle}>Add New User</h2>
+            <form onSubmit={handleAddUser} style={styles.form}>
+              <div style={styles.formGrid}>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>First Name</label>
+                  <input
+                    style={styles.input}
+                    type="text"
+                    value={newUser.firstName}
+                    onChange={(e) => setNewUser({...newUser, firstName: e.target.value})}
+                    required
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Last Name</label>
+                  <input
+                    style={styles.input}
+                    type="text"
+                    value={newUser.lastName}
+                    onChange={(e) => setNewUser({...newUser, lastName: e.target.value})}
+                    required
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Email</label>
+                  <input
+                    style={styles.input}
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                    required
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Password</label>
+                  <input
+                    style={styles.input}
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Type</label>
+                  <select
+                    style={styles.input}
+                    value={newUser.type}
+                    onChange={(e) => handleRoleChange(e.target.value)}
+                    required
+                  >
+                    <option value="employee">Employee</option>
+                    <option value="hr_manager">HR Manager</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={styles.permissionsSection}>
+                <h3 style={styles.permissionsTitle}>Permissions</h3>
+                
+                {/* Employee Management Permissions */}
+                <div style={styles.permissionGroup}>
+                  <h4 style={styles.permissionGroupTitle}>Employee Management</h4>
+                  <div style={styles.permissionsGrid}>
+                    {Object.entries(newUser.permissions.employeeManagement).map(([action, value]) => (
+                      <label key={action} style={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={value}
+                          onChange={(e) => handlePermissionChange('employeeManagement', action, e.target.checked)}
+                          disabled={newUser.type !== 'admin'}
+                        />
+                        {action.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Payroll Management Permissions */}
+                <div style={styles.permissionGroup}>
+                  <h4 style={styles.permissionGroupTitle}>Payroll Management</h4>
+                  <div style={styles.permissionsGrid}>
+                    {Object.entries(newUser.permissions.payrollManagement).map(([action, value]) => (
+                      <label key={action} style={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={value}
+                          onChange={(e) => handlePermissionChange('payrollManagement', action, e.target.checked)}
+                          disabled={newUser.type !== 'admin'}
+                        />
+                        {action.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Performance Management Permissions */}
+                <div style={styles.permissionGroup}>
+                  <h4 style={styles.permissionGroupTitle}>Performance Management</h4>
+                  <div style={styles.permissionsGrid}>
+                    {Object.entries(newUser.permissions.performanceManagement).map(([action, value]) => (
+                      <label key={action} style={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={value}
+                          onChange={(e) => handlePermissionChange('performanceManagement', action, e.target.checked)}
+                          disabled={newUser.type !== 'admin'}
+                        />
+                        {action.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* User Management Permissions */}
+                <div style={styles.permissionGroup}>
+                  <h4 style={styles.permissionGroupTitle}>User Management</h4>
+                  <div style={styles.permissionsGrid}>
+                    {Object.entries(newUser.permissions.userManagement).map(([action, value]) => (
+                      <label key={action} style={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={value}
+                          onChange={(e) => handlePermissionChange('userManagement', action, e.target.checked)}
+                          disabled={newUser.type !== 'admin'}
+                        />
+                        {action.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Financial Services Permissions */}
+                <div style={styles.permissionGroup}>
+                  <h4 style={styles.permissionGroupTitle}>Financial Services</h4>
+                  <div style={styles.permissionsGrid}>
+                    {Object.entries(newUser.permissions.financialServices).map(([action, value]) => (
+                      <label key={action} style={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={value}
+                          onChange={(e) => handlePermissionChange('financialServices', action, e.target.checked)}
+                          disabled={newUser.type !== 'admin'}
+                        />
+                        {action.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* System Administration Permissions */}
+                <div style={styles.permissionGroup}>
+                  <h4 style={styles.permissionGroupTitle}>System Administration</h4>
+                  <div style={styles.permissionsGrid}>
+                    {Object.entries(newUser.permissions.systemAdministration).map(([action, value]) => (
+                      <label key={action} style={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={value}
+                          onChange={(e) => handlePermissionChange('systemAdministration', action, e.target.checked)}
+                          disabled={newUser.type !== 'admin'}
+                        />
+                        {action.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div style={styles.formButtons}>
+                <button type="submit" style={styles.submitBtn}>
+                  Add User
+                </button>
+                <button 
+                  type="button" 
+                  style={styles.cancelBtn}
+                  onClick={() => {
+                    setShowAddUser(false);
+                    setNewUser({
+                      firstName: '',
+                      lastName: '',
+                      email: '',
+                      password: '',
+                      type: 'employee',
+                      permissions: {
+                        employeeManagement: {
+                          add: false, edit: false, delete: false, view: false,
+                          manageOnboarding: false, manageDocuments: false, setStatus: false
+                        },
+                        payrollManagement: {
+                          processPayroll: false, configureSalary: false, manageAllowances: false,
+                          manageDeductions: false, generatePayslips: false, bulkPayments: false,
+                          viewReports: false
+                        },
+                        performanceManagement: {
+                          createReviews: false, viewAllReviews: false, editTemplates: false,
+                          generateReports: false, manageTraining: false, trackDevelopment: false
+                        },
+                        userManagement: {
+                          createUsers: false, assignRoles: false, modifyPermissions: false,
+                          manageAccounts: false, resetPasswords: false, manageSecurity: false
+                        },
+                        financialServices: {
+                          configureAdvances: false, approveAdvances: false, manageWallet: false,
+                          viewTransactions: false, configurePayments: false
+                        },
+                        systemAdministration: {
+                          configureSettings: false, manageIntegrations: false, handleBackups: false,
+                          viewAuditTrail: false, manageNotifications: false
+                        }
+                      }
+                    });
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Employee Details Modal */}
@@ -693,7 +1190,9 @@ const styles = {
     gridTemplateColumns: 'repeat(2, 1fr)',
     gap: '1.5rem',
     marginBottom: '1.5rem',
+  },
     '@media (max-width: 768px)': {
+    formGrid: {
       gridTemplateColumns: '1fr',
     },
   },
@@ -701,21 +1200,6 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '0.5rem',
-  },
-  label: {
-    fontSize: '0.9rem',
-    color: '#2c3e50',
-  },
-  input: {
-    padding: '0.8rem',
-    fontSize: '1rem',
-    border: '1px solid #dee2e6',
-    borderRadius: '4px',
-    width: '100%',
-    '&:focus': {
-      outline: 'none',
-      borderColor: '#3498db',
-    },
   },
   formButtons: {
     display: 'flex',
@@ -745,6 +1229,55 @@ const styles = {
     '&:hover': {
       backgroundColor: '#c0392b',
     },
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: '2rem',
+    borderRadius: '12px',
+    width: '90%',
+    maxWidth: '800px',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+  },
+  modalTitle: {
+    fontSize: '1.5rem',
+    color: '#2c3e50',
+    marginBottom: '1.5rem',
+    fontWeight: '600',
+  },
+  permissionsSection: {
+    marginTop: '1.5rem',
+    padding: '1.5rem',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '8px',
+  },
+  permissionsTitle: {
+    fontSize: '1.1rem',
+    color: '#2c3e50',
+    marginBottom: '1rem',
+    fontWeight: '600',
+  },
+  permissionGroup: {
+    marginBottom: '1.5rem',
+  },
+  permissionGroupTitle: {
+    fontSize: '1rem',
+    color: '#2c3e50',
+    marginBottom: '0.5rem',
+    fontWeight: '600',
+  },
+  permissionsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '1rem',
+  },
+  checkboxLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    fontSize: '0.95rem',
+    color: '#2c3e50',
+    cursor: 'pointer',
   },
 };
 

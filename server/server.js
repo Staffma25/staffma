@@ -19,6 +19,7 @@ const Payroll = require('./models/Payroll');
 const PerformanceReview = require('./models/PerformanceReview');
 const performanceReviewsRouter = require('./routes/performanceReviews');
 const payrollRoutes = require('./routes/Payroll');
+const dashboardRoutes = require('./routes/dashboard');
 
 // Initialize express app
 const app = express();
@@ -333,7 +334,7 @@ app.post('/api/employees', authenticateBusiness, async (req, res) => {
     console.log('Generated employee number:', employeeNumber);
 
     // Validate salary before creating employee
-    const basicSalary = Number(req.body.salary);
+    const basicSalary = Number(req.body.salary?.basic);
     if (isNaN(basicSalary) || basicSalary <= 0) {
       return res.status(400).json({ 
         error: 'Invalid salary amount. Salary must be a positive number.' 
@@ -347,13 +348,13 @@ app.post('/api/employees', authenticateBusiness, async (req, res) => {
       employeeNumber,
       salary: {
         basic: basicSalary,
-        allowances: {
+        allowances: req.body.salary?.allowances || {
           housing: 0,
           transport: 0,
           medical: 0,
           other: 0
         },
-        deductions: {
+        deductions: req.body.salary?.deductions || {
           loans: 0,
           other: 0
         }
@@ -581,10 +582,12 @@ app.put('/api/employees/:id/status', authenticateBusiness, async (req, res) => {
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/employees', require('./routes/employees'));
-app.use('/api/payroll', require('./routes/Payroll'));
 app.use('/api/business', require('./routes/business'));
-app.use('/api/performance-reviews', require('./routes/performanceReviews'));
+app.use('/api/employees', require('./routes/employees'));
+app.use('/api/payroll', payrollRoutes);
+app.use('/api/performance-reviews', performanceReviewsRouter);
+app.use('/api/users', require('./routes/users'));
+app.use('/api/dashboard', dashboardRoutes);
 
 // Add health check endpoint
 app.get('/api/health', (req, res) => {
@@ -616,7 +619,7 @@ app.post('/api/employees/:id/upload-url', authenticateBusiness, async (req, res)
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
     if (!allowedTypes.includes(fileType)) {
       return res.status(400).json({ error: 'Invalid file type' });
-    }
+  }
 
     // Generate a unique file key
     const fileKey = `employees/${req.businessId}/${id}/${documentType}/${Date.now()}-${fileName}`;
@@ -741,7 +744,7 @@ app.put('/api/employees/:id/insurance/:type', authenticateBusiness, async (req, 
     const validTypes = ['nhif', 'medical', 'life'];
     if (!validTypes.includes(type)) {
       return res.status(400).json({ error: 'Invalid insurance type' });
-    }
+  }
 
     // Prepare update data based on insurance type
     let updateData = {

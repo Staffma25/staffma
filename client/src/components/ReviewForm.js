@@ -20,7 +20,7 @@ const ReviewForm = ({ onSubmitSuccess, onCancel, year, quarter }) => {
     overallRating: '',
     performanceMetrics: PERFORMANCE_CATEGORIES.map(category => ({
       category,
-      rating: '',
+    rating: '',
       comments: ''
     })),
     goals: '',
@@ -74,14 +74,14 @@ const ReviewForm = ({ onSubmitSuccess, onCancel, year, quarter }) => {
       alert('Please select an employee to review');
       return;
     }
-
+    
     const overallRating = calculateOverallRating();
     if (overallRating === 0) {
       alert('Please provide ratings for at least one performance metric');
       return;
     }
     
-    const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token');
     
     try {
       const response = await axios.post(
@@ -160,41 +160,41 @@ const ReviewForm = ({ onSubmitSuccess, onCancel, year, quarter }) => {
   return (
     <div style={styles.modalOverlay}>
       <div style={styles.modalContent}>
-        <form onSubmit={handleSubmit}>
-          <div style={styles.formHeader}>
+      <form onSubmit={handleSubmit}>
+        <div style={styles.formHeader}>
             <h2>New Performance Review - Q{quarter} {year}</h2>
-            <button type="button" onClick={onCancel} style={styles.closeButton}>×</button>
-          </div>
+          <button type="button" onClick={onCancel} style={styles.closeButton}>×</button>
+        </div>
 
-          <div style={styles.formSection}>
-            <label style={styles.label}>Select Employee to Review</label>
-            <select
-              value={review.employeeId}
-              onChange={(e) => setReview({ ...review, employeeId: e.target.value })}
-              style={styles.select}
-              required
-            >
-              <option value="">Choose an employee...</option>
-              {employees.map((employee) => (
-                <option key={employee._id} value={employee._id}>
-                  {employee.firstName} {employee.lastName}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div style={styles.formSection}>
+          <label style={styles.label}>Select Employee to Review</label>
+          <select
+            value={review.employeeId}
+            onChange={(e) => setReview({ ...review, employeeId: e.target.value })}
+            style={styles.select}
+            required
+          >
+            <option value="">Choose an employee...</option>
+            {employees.map((employee) => (
+              <option key={employee._id} value={employee._id}>
+                {employee.firstName} {employee.lastName}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          <div style={styles.formSection}>
-            <label style={styles.label}>Reviewer Name</label>
-            <input
-              type="text"
-              value={review.reviewerName}
-              onChange={(e) => setReview({ ...review, reviewerName: e.target.value })}
-              style={styles.input}
-              required
-            />
-          </div>
+        <div style={styles.formSection}>
+          <label style={styles.label}>Reviewer Name</label>
+          <input
+            type="text"
+            value={review.reviewerName}
+            onChange={(e) => setReview({ ...review, reviewerName: e.target.value })}
+            style={styles.input}
+            required
+          />
+        </div>
 
-          <div style={styles.formSection}>
+        <div style={styles.formSection}>
             <h3 style={styles.sectionTitle}>Performance Metrics</h3>
             {review.performanceMetrics.map((metric, index) => (
               <div key={index} style={styles.metricContainer}>
@@ -204,31 +204,31 @@ const ReviewForm = ({ onSubmitSuccess, onCancel, year, quarter }) => {
                 <div style={styles.metricContent}>
                   <div style={styles.ratingContainer}>
                     <label style={styles.label}>Rating (1-5):</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="5"
+          <input
+            type="number"
+            min="1"
+            max="5"
                       value={metric.rating}
                       onChange={(e) => handleMetricChange(index, 'rating', e.target.value)}
-                      style={styles.input}
-                      required
-                    />
-                  </div>
+            style={styles.input}
+            required
+          />
+        </div>
                   <div style={styles.commentsContainer}>
                     <label style={styles.label}>Comments:</label>
-                    <textarea
+          <textarea
                       value={metric.comments}
                       onChange={(e) => handleMetricChange(index, 'comments', e.target.value)}
-                      style={styles.textarea}
+            style={styles.textarea}
                       placeholder={`Enter comments about ${metric.category.toLowerCase()}`}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
+          />
+        </div>
           </div>
+            </div>
+          ))}
+        </div>
 
-          <div style={styles.formSection}>
+        <div style={styles.formSection}>
             <label style={styles.label}>Goals (one per line)</label>
             <textarea
               value={review.goals}
@@ -246,9 +246,9 @@ const ReviewForm = ({ onSubmitSuccess, onCancel, year, quarter }) => {
               style={styles.textarea}
               placeholder="Enter strengths, one per line"
             />
-          </div>
+        </div>
 
-          <div style={styles.formSection}>
+        <div style={styles.formSection}>
             <label style={styles.label}>Areas for Improvement (one per line)</label>
             <textarea
               value={review.areasForImprovement}
@@ -256,9 +256,9 @@ const ReviewForm = ({ onSubmitSuccess, onCancel, year, quarter }) => {
               style={styles.textarea}
               placeholder="Enter areas for improvement, one per line"
             />
-          </div>
+        </div>
 
-          <div style={styles.formSection}>
+        <div style={styles.formSection}>
             <label style={styles.label}>Training Recommendations (one per line)</label>
             <textarea
               value={review.trainingRecommendations}
@@ -266,17 +266,17 @@ const ReviewForm = ({ onSubmitSuccess, onCancel, year, quarter }) => {
               style={styles.textarea}
               placeholder="Enter training recommendations, one per line"
             />
-          </div>
+        </div>
 
-          <div style={styles.formActions}>
-            <button type="submit" style={styles.submitButton}>
-              Submit Review
-            </button>
-            <button type="button" onClick={onCancel} style={styles.cancelButton}>
-              Cancel
-            </button>
-          </div>
-        </form>
+        <div style={styles.formActions}>
+          <button type="submit" style={styles.submitButton}>
+            Submit Review
+          </button>
+          <button type="button" onClick={onCancel} style={styles.cancelButton}>
+            Cancel
+          </button>
+        </div>
+      </form>
       </div>
     </div>
   );

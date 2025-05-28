@@ -100,40 +100,27 @@ router.post('/process', auth, async (req, res) => {
   try {
     const { month, year } = req.body;
 
-    if (!month || !year) {
-      return res.status(400).json({
-        message: 'Month and year are required'
+    // Only business users can process payroll
+    if (req.user.type !== 'business') {
+      return res.status(403).json({ 
+        error: 'Unauthorized',
+        message: 'Only business users can process payroll'
       });
     }
 
     // Validate month and year
-    if (month < 1 || month > 12) {
-      return res.status(400).json({
-        message: 'Invalid month. Month must be between 1 and 12'
-      });
+    if (!month || !year) {
+      return res.status(400).json({ error: 'Month and year are required' });
     }
 
-    if (year < 2000 || year > 2100) {
-      return res.status(400).json({
-        message: 'Invalid year. Year must be between 2000 and 2100'
-      });
+    // Check if payroll settings exist
+    const payrollSettings = await PayrollSettings.findOne({ businessId: req.user.businessId });
+    if (!payrollSettings) {
+      return res.status(400).json({ error: 'Payroll settings not found' });
     }
 
-    // Get business settings first
-    const settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
-    if (!settings) {
-      return res.status(400).json({
-        message: 'Payroll settings not found',
-        details: 'Please configure your payroll settings before processing payroll'
-      });
-    }
-
-    console.log('Processing payroll with settings:', {
-      businessId: req.user.businessId,
-      month,
-      year,
-      taxRates: settings.taxRates
-    });
+    // Log the entire settings object to see its structure
+    console.log('Full payroll settings:', JSON.stringify(payrollSettings, null, 2));
 
     // Get all active employees
     const employees = await Employee.find({ 
@@ -142,122 +129,154 @@ router.post('/process', auth, async (req, res) => {
     });
 
     if (!employees.length) {
-      return res.status(400).json({
-        message: 'No active employees found',
-        details: 'Please add employees before processing payroll'
-      });
+      return res.status(400).json({ error: 'No active employees found' });
     }
 
     // Validate employee data
-    const invalidEmployees = employees.filter(emp => !emp.salary?.basic || !emp.employeeNumber);
+    const invalidEmployees = employees.filter(employee => 
+      !employee.salary?.basic || !employee.employeeNumber
+    );
+
     if (invalidEmployees.length > 0) {
       return res.status(400).json({
-        message: 'Invalid employee data',
-        details: `The following employees have missing required data: ${invalidEmployees.map(emp => 
-          `${emp.firstName} ${emp.lastName} (${!emp.salary?.basic ? 'No basic salary' : 'No employee number'})`
-        ).join(', ')}`
+        error: 'Invalid employee data',
+        message: 'Some employees are missing required data',
+        invalidEmployees: invalidEmployees.map(emp => ({
+          id: emp._id,
+          name: `${emp.firstName} ${emp.lastName}`,
+          missingData: [
+            !emp.salary?.basic && 'basic salary',
+            !emp.employeeNumber && 'employee number'
+          ].filter(Boolean)
+        }))
       });
     }
 
-    console.log(`Found ${employees.length} active employees`);
+    // Process payroll for each employee
+    const payrollResults = await Promise.all(employees.map(async (employee) => {
+      const basicSalary = employee.salary.basic;
+      let totalAllowances = 0;
+      let totalDeductions = 0;
+      const allowanceItems = [];
+      const deductionItems = [];
 
-    // During development, allow reprocessing by deleting existing records
-    const existingPayroll = await Payroll.find({
-      businessId: req.user.businessId,
-      month: Number(month),
-      year: Number(year)
-    });
-
-    if (existingPayroll.length > 0) {
-      console.log(`Deleting ${existingPayroll.length} existing payroll records for ${month}/${year}`);
-      await Payroll.deleteMany({
-        businessId: req.user.businessId,
-        month: Number(month),
-        year: Number(year)
+      console.log('Processing employee:', {
+        id: employee._id,
+        name: `${employee.firstName} ${employee.lastName}`,
+        basicSalary
       });
-    }
 
-    const payrollResults = [];
-    const errors = [];
-
-    for (const employee of employees) {
-      try {
-        console.log(`Processing payroll for employee: ${employee.firstName} ${employee.lastName}`);
-        console.log('Employee details:', {
-          id: employee._id,
-          basicSalary: employee.salary?.basic,
-          position: employee.position,
-          department: employee.department
-        });
-
-        // Calculate payroll using the async function
-        const payrollData = await calculatePayroll(employee, req.user.businessId);
-
-        // Validate payroll calculation results
-        if (!payrollData || typeof payrollData.grossSalary !== 'number' || isNaN(payrollData.grossSalary)) {
-          throw new Error('Invalid payroll calculation results');
-        }
-
-        console.log('Payroll calculation results:', {
-          employeeId: employee._id,
-          basicSalary: payrollData.basicSalary,
-          grossSalary: payrollData.grossSalary,
-          deductions: payrollData.deductions,
-          netSalary: payrollData.netSalary
-        });
-
-        // Create payroll record
-        const payrollRecord = new Payroll({
-          employeeId: employee._id,
-          employeeNumber: employee.employeeNumber,
-          businessId: req.user.businessId,
-          month: Number(month),
-          year: Number(year),
-          basicSalary: payrollData.basicSalary,
-          grossSalary: payrollData.grossSalary,
-          allowances: payrollData.allowances,
-          deductions: {
-            ...payrollData.deductions,
-            totalDeductions: Object.values(payrollData.deductions).reduce((sum, val) => sum + val, 0)
-          },
-          netSalary: payrollData.netSalary,
-          processedDate: new Date()
-        });
-
-        await payrollRecord.save();
-        payrollResults.push(payrollRecord);
-        console.log(`Successfully processed payroll for ${employee.firstName} ${employee.lastName}`);
-      } catch (error) {
-        console.error(`Error processing payroll for employee ${employee._id}:`, error);
-        errors.push({
-          employee: `${employee.firstName} ${employee.lastName}`,
-          error: error.message
+      // Calculate allowances based on settings
+      if (payrollSettings.taxRates?.allowances) {
+        payrollSettings.taxRates.allowances.forEach(allowance => {
+          if (allowance.enabled) {
+            let amount = 0;
+            if (allowance.type === 'percentage') {
+              amount = (basicSalary * allowance.value) / 100;
+            } else {
+              amount = allowance.value;
+            }
+            console.log('Allowance calculation:', {
+              name: allowance.name,
+              type: allowance.type,
+              value: allowance.value,
+              calculatedAmount: amount
+            });
+            totalAllowances += amount;
+            allowanceItems.push({
+              name: allowance.name,
+              amount: amount
+            });
+          }
         });
       }
-    }
 
-    if (payrollResults.length === 0) {
-      return res.status(400).json({
-        message: 'No valid payroll records could be generated',
-        errors: errors.map(e => `${e.employee}: ${e.error}`)
+      // Calculate deductions based on settings
+      if (payrollSettings.taxRates?.customDeductions) {
+        payrollSettings.taxRates.customDeductions.forEach(deduction => {
+          if (deduction.enabled) {
+            let amount = 0;
+            if (deduction.type === 'percentage') {
+              amount = (basicSalary * deduction.value) / 100;
+            } else {
+              amount = deduction.value;
+            }
+            console.log('Deduction calculation:', {
+              name: deduction.name,
+              type: deduction.type,
+              value: deduction.value,
+              calculatedAmount: amount
+            });
+            totalDeductions += amount;
+            deductionItems.push({
+              name: deduction.name,
+              amount: amount
+            });
+          }
+        });
+      }
+
+      // Calculate gross salary (basic + allowances)
+      const grossSalary = basicSalary + totalAllowances;
+
+      // Calculate net salary (gross - deductions)
+      const netSalary = grossSalary - totalDeductions;
+
+      console.log('Final calculations for employee:', {
+        id: employee._id,
+        basicSalary,
+        totalAllowances,
+        totalDeductions,
+        grossSalary,
+        netSalary
       });
-    }
 
-    console.log('Payroll processing completed:', {
-      totalProcessed: payrollResults.length,
-      errors: errors.length
-    });
+      // Create or update payroll record
+      const payroll = await Payroll.findOneAndUpdate(
+        {
+          businessId: req.user.businessId,
+          employeeId: employee._id,
+          month,
+          year
+        },
+        {
+          $set: {
+            employeeNumber: employee.employeeNumber,
+            basicSalary,
+            grossSalary,
+            allowances: {
+              items: allowanceItems,
+              total: totalAllowances
+            },
+            deductions: {
+              items: deductionItems,
+              total: totalDeductions
+            },
+            netSalary,
+            status: 'pending',
+            processedBy: req.user._id,
+            processedDate: new Date()
+          }
+        },
+        {
+          new: true,
+          upsert: true,
+          runValidators: true
+        }
+      );
+
+      return payroll;
+    }));
 
     res.status(200).json({
-      message: `Successfully processed payroll for ${payrollResults.length} employees`,
-      errors: errors.length > 0 ? errors.map(e => `${e.employee}: ${e.error}`) : undefined
+      message: 'Payroll processed successfully',
+      payrolls: payrollResults
     });
   } catch (error) {
-    console.error('Payroll processing error:', error);
-    res.status(500).json({
-      message: 'Failed to process payroll',
-      error: error.message,
-      details: error.stack
+    console.error('Error processing payroll:', error);
+    res.status(500).json({ 
+      error: 'Failed to process payroll',
+      details: error.message 
     });
   }
 });
@@ -266,9 +285,17 @@ router.post('/process', auth, async (req, res) => {
 router.get('/history', auth, async (req, res) => {
   try {
     const { month, year } = req.query;
-    
-    console.log('Auth user:', req.user.businessId);
     console.log('Query params:', { month, year });
+
+    if (!req.user.businessId) {
+      return res.status(400).json({ error: 'Business ID is required' });
+    }
+
+    // For business users, they can always access their history
+    // For system users, check permissions
+    if (req.user.type === 'user' && !req.user.hasPermission('payrollManagement', 'viewReports')) {
+      return res.status(403).json({ message: 'You do not have permission to view payroll history' });
+    }
 
     const query = { 
       businessId: new mongoose.Types.ObjectId(req.user.businessId),
@@ -294,6 +321,12 @@ router.get('/history', auth, async (req, res) => {
     res.json(payrollHistory);
   } catch (error) {
     console.error('Error fetching payroll history:', error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({ 
+        error: 'Invalid business ID format',
+        details: error.message 
+      });
+    }
     res.status(500).json({ 
       error: 'Failed to fetch payroll history',
       details: error.message 
@@ -374,103 +407,58 @@ router.get('/debug', auth, async (req, res) => {
 // Get payroll settings
 router.get('/settings', auth, async (req, res) => {
   try {
-    let settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
+    console.log('Fetching payroll settings for business:', req.user.businessId);
     
-    if (!settings) {
-      // Create default settings if none exist
-      settings = new PayrollSettings({
-        businessId: req.user.businessId,
-        taxRates: {
-          paye: {
-            rates: [
-              { min: 0, max: 24000, rate: 10 },
-              { min: 24001, max: 32333, rate: 25 },
-              { min: 32334, max: 500000, rate: 30 },
-              { min: 500001, max: 800000, rate: 32.5 },
-              { min: 800001, rate: 35 }
-            ],
-            personalRelief: 2400,
-            insuranceRelief: 15000,
-            housingRelief: 9000
-          },
-          nhif: {
-            rates: [
-              { min: 0, max: 5999, amount: 150 },
-              { min: 6000, max: 7999, amount: 300 },
-              { min: 8000, max: 11999, amount: 400 },
-              { min: 12000, max: 14999, amount: 500 },
-              { min: 15000, max: 19999, amount: 600 },
-              { min: 20000, max: 24999, amount: 750 },
-              { min: 25000, max: 29999, amount: 850 },
-              { min: 30000, max: 34999, amount: 900 },
-              { min: 35000, max: 39999, amount: 950 },
-              { min: 40000, max: 44999, amount: 1000 },
-              { min: 45000, max: 49999, amount: 1100 },
-              { min: 50000, max: 59999, amount: 1200 },
-              { min: 60000, max: 69999, amount: 1300 },
-              { min: 70000, max: 79999, amount: 1400 },
-              { min: 80000, max: 89999, amount: 1500 },
-              { min: 90000, max: 99999, amount: 1600 },
-              { min: 100000, amount: 1700 }
-            ],
-            employerContribution: 0.5
-          },
-          nssf: {
-            employeeRate: 6,
-            employerRate: 6,
-            maxContribution: 1080,
-            tier1Limit: 6000,
-            tier2Limit: 18000
-          },
-          customDeductions: [],
-          allowances: []
-        },
-        benefits: {
-          gratuity: {
-            enabled: true,
-            rate: 15,
-            description: "End of service gratuity"
-          },
-          leave: {
-            annualLeave: 21,
-            sickLeave: 14,
-            maternityLeave: 90,
-            paternityLeave: 14
-          }
-        },
-        taxExemptions: {
-          personalRelief: 2400,
-          insuranceRelief: 15000,
-          housingRelief: 9000,
-          disabilityExemption: 150000
-        }
-      });
-      await settings.save();
+    if (!req.user.businessId) {
+      return res.status(400).json({ error: 'Business ID is required' });
     }
-    
+
+    // For business users, they can always access their settings
+    // For system users, check permissions
+    if (req.user.type === 'user' && !req.user.hasPermission('payrollManagement', 'viewReports')) {
+      return res.status(403).json({ message: 'You do not have permission to view payroll settings' });
+    }
+
+    const settings = await PayrollSettings.findOrCreate(req.user.businessId);
     res.json(settings);
   } catch (error) {
     console.error('Error fetching payroll settings:', error);
-    res.status(500).json({ message: 'Error fetching payroll settings' });
+    res.status(500).json({ error: error.message });
   }
 });
 
 // Update payroll settings
 router.put('/settings', auth, async (req, res) => {
   try {
-    const settings = await PayrollSettings.findOneAndUpdate(
-      { businessId: req.user.businessId },
-      { 
-        ...req.body,
-        lastUpdated: new Date()
-      },
-      { new: true, upsert: true }
-    );
-    
+    if (!req.user.businessId) {
+      return res.status(400).json({ error: 'Business ID is required' });
+    }
+
+    console.log('Updating payroll settings with:', JSON.stringify(req.body, null, 2));
+
+    // Find existing settings or create new ones
+    let settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
+    if (!settings) {
+      settings = new PayrollSettings({ businessId: req.user.businessId });
+    }
+
+    // Update settings
+    if (req.body.taxRates) {
+      settings.taxRates = req.body.taxRates;
+    }
+
+    // Save the updated settings
+    await settings.save();
+
+    console.log('Updated payroll settings:', JSON.stringify(settings, null, 2));
+
     res.json(settings);
   } catch (error) {
     console.error('Error updating payroll settings:', error);
-    res.status(500).json({ message: 'Error updating payroll settings' });
+    res.status(500).json({ 
+      error: 'Failed to update payroll settings',
+      details: error.message 
+    });
   }
 });
 
@@ -482,26 +470,39 @@ router.post('/settings/deductions', auth, async (req, res) => {
     if (!name || !type || value === undefined) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
-    
-    const settings = await PayrollSettings.findOneAndUpdate(
-      { businessId: req.user.businessId },
-      { 
-        $push: { 
-          'taxRates.customDeductions': {
-            name,
-            type,
-            value,
-            enabled: true
-          }
-        }
-      },
-      { new: true }
-    );
-    
+
+    // Find existing settings or create new ones
+    let settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
     if (!settings) {
-      return res.status(404).json({ message: 'Payroll settings not found' });
+      settings = new PayrollSettings({ businessId: req.user.businessId });
     }
+
+    // Initialize taxRates if it doesn't exist
+    if (!settings.taxRates) {
+      settings.taxRates = {};
+    }
+
+    // Initialize customDeductions array if it doesn't exist
+    if (!settings.taxRates.customDeductions) {
+      settings.taxRates.customDeductions = [];
+    }
+
+    // Add new deduction
+    settings.taxRates.customDeductions.push({
+      name,
+      type,
+      value,
+      enabled: true
+    });
+
+    // Save the updated settings
+    await settings.save();
     
+    console.log('Added custom deduction:', {
+      businessId: req.user.businessId,
+      deduction: { name, type, value }
+    });
+
     res.json(settings);
   } catch (error) {
     console.error('Error adding custom deduction:', error);
@@ -541,26 +542,39 @@ router.post('/settings/allowances', auth, async (req, res) => {
     if (!name || !type || value === undefined) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
-    
-    const settings = await PayrollSettings.findOneAndUpdate(
-      { businessId: req.user.businessId },
-      { 
-        $push: { 
-          'taxRates.allowances': {
-            name,
-            type,
-            value,
-            enabled: true
-          }
-        }
-      },
-      { new: true }
-    );
-    
+
+    // Find existing settings or create new ones
+    let settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
     if (!settings) {
-      return res.status(404).json({ message: 'Payroll settings not found' });
+      settings = new PayrollSettings({ businessId: req.user.businessId });
     }
+
+    // Initialize taxRates if it doesn't exist
+    if (!settings.taxRates) {
+      settings.taxRates = {};
+    }
+
+    // Initialize allowances array if it doesn't exist
+    if (!settings.taxRates.allowances) {
+      settings.taxRates.allowances = [];
+    }
+
+    // Add new allowance
+    settings.taxRates.allowances.push({
+      name,
+      type,
+      value,
+      enabled: true
+    });
+
+    // Save the updated settings
+    await settings.save();
     
+    console.log('Added custom allowance:', {
+      businessId: req.user.businessId,
+      allowance: { name, type, value }
+    });
+
     res.json(settings);
   } catch (error) {
     console.error('Error adding custom allowance:', error);
@@ -691,22 +705,12 @@ router.get('/download/:payrollId', auth, async (req, res) => {
       .fillColor('#333')
       .font('Helvetica');
 
-    // Display allowances from payroll settings
-    const allowances = settings.taxRates.allowances || [];
-    let totalAllowances = 0;
-    
-    allowances.forEach(allowance => {
-      if (allowance.enabled) {
-        let amount = 0;
-        if (allowance.type === 'percentage') {
-          amount = (payroll.basicSalary * allowance.value) / 100;
-        } else {
-          amount = allowance.value;
-        }
-        totalAllowances += amount;
-        doc.text(`${allowance.name}: KES ${amount.toLocaleString()}`);
-      }
-    });
+    // Display allowances from payroll record
+    if (payroll.allowances?.items) {
+      payroll.allowances.items.forEach(allowance => {
+        doc.text(`${allowance.name}: KES ${allowance.amount.toLocaleString()}`);
+      });
+    }
     
     doc.moveDown(0.5);
 
@@ -721,46 +725,12 @@ router.get('/download/:payrollId', auth, async (req, res) => {
       .fillColor('#333')
       .font('Helvetica');
 
-    // Get tax rates from settings for display purposes only
-    const payeRate = settings?.taxRates?.paye?.rates?.find(rate => 
-      payroll.grossSalary >= rate.min && payroll.grossSalary <= (rate.max || Infinity)
-    )?.rate || 30;
-
-    const nhifRate = settings?.taxRates?.nhif?.rates?.find(rate => 
-      payroll.grossSalary >= rate.min && payroll.grossSalary <= (rate.max || Infinity)
-    )?.amount || 1;
-
-    const nssfRate = settings?.taxRates?.nssf?.employeeRate || 2;
-
-    // Display only the actual calculated deductions from the payroll record
-    if (payroll.deductions?.paye) {
-      doc.text(`PAYE (${payeRate}%): KES ${payroll.deductions.paye.toLocaleString()}`);
+    // Display deductions from payroll record
+    if (payroll.deductions?.items) {
+      payroll.deductions.items.forEach(deduction => {
+        doc.text(`${deduction.name}: KES ${deduction.amount.toLocaleString()}`);
+      });
     }
-    if (payroll.deductions?.nhif) {
-      doc.text(`NHIF (${nhifRate}%): KES ${payroll.deductions.nhif.toLocaleString()}`);
-    }
-    if (payroll.deductions?.nssf) {
-      doc.text(`NSSF (${nssfRate}%): KES ${payroll.deductions.nssf.toLocaleString()}`);
-    }
-    doc.moveDown(0.2);
-
-    // Display custom deductions from payroll settings
-    const deductions = settings?.taxRates?.customDeductions || [];
-    let totalCustomDeductions = 0;
-    
-    deductions.forEach(deduction => {
-      if (deduction.enabled) {
-        let amount = 0;
-        if (deduction.type === 'percentage') {
-          amount = (payroll.basicSalary * deduction.value) / 100;
-          doc.text(`${deduction.name} (${deduction.value}%): KES ${amount.toLocaleString()}`);
-        } else {
-          amount = deduction.value;
-          doc.text(`${deduction.name} (Fixed): KES ${amount.toLocaleString()}`);
-        }
-        totalCustomDeductions += amount;
-      }
-    });
     
     doc.moveDown(0.5);
 
@@ -775,7 +745,7 @@ router.get('/download/:payrollId', auth, async (req, res) => {
       .fillColor('#333')
       .font('Helvetica')
       .text(`Basic Salary: KES ${(payroll.basicSalary || 0).toLocaleString()}`)
-      .text(`Total Allowances: KES ${totalAllowances.toLocaleString()}`)
+      .text(`Total Allowances: KES ${(payroll.allowances?.total || 0).toLocaleString()}`)
       .text(`Gross Salary: KES ${(payroll.grossSalary || 0).toLocaleString()}`)
       .text(`Total Deductions: KES ${(payroll.deductions?.total || 0).toLocaleString()}`)
       .text(`Net Salary: KES ${(payroll.netSalary || 0).toLocaleString()}`)

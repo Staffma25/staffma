@@ -65,18 +65,18 @@ const calculateNHIF = (grossSalary, settings) => {
 const calculateNSSF = (grossSalary, settings) => {
   try {
     const { employeeRate, maxContribution, tier1Limit, tier2Limit } = settings.taxRates.nssf;
-    
+
     // Calculate tier 1 contribution
     const tier1Amount = Math.min(grossSalary, tier1Limit);
     const tier1Contribution = (tier1Amount * employeeRate) / 100;
-    
+
     // Calculate tier 2 contribution if applicable
     let tier2Contribution = 0;
-    if (grossSalary > tier1Limit) {
+  if (grossSalary > tier1Limit) {
       const tier2Amount = Math.min(grossSalary - tier1Limit, tier2Limit - tier1Limit);
       tier2Contribution = (tier2Amount * employeeRate) / 100;
-    }
-    
+  }
+
     const totalContribution = tier1Contribution + tier2Contribution;
     return Math.min(totalContribution, maxContribution);
   } catch (error) {
@@ -120,7 +120,7 @@ const calculateAllowances = async (basicSalary, businessId) => {
     return { totalAllowances: 0, allowanceDetails: {} };
   }
 };
-
+  
 // Calculate custom deductions
 const calculateDeductions = async (grossSalary, businessId) => {
   try {
@@ -168,8 +168,8 @@ const calculatePayroll = async (employee, businessId) => {
 
     // Calculate allowances
     const { totalAllowances, allowanceDetails } = await calculateAllowances(basicSalary, businessId);
-    
-    // Calculate gross salary
+  
+  // Calculate gross salary
     const grossSalary = basicSalary + totalAllowances;
 
     // Calculate statutory deductions only if enabled in settings
@@ -203,11 +203,11 @@ const calculatePayroll = async (employee, businessId) => {
       ...deductionDetails
     };
 
-    // Calculate net salary
+  // Calculate net salary
     const totalDeductionsAmount = totalStatutoryDeductions + totalDeductions;
     const netSalary = grossSalary - totalDeductionsAmount;
 
-    return {
+  return {
       employeeId: employee._id,
       employeeNumber: employee.employeeNumber,
       basicSalary,
@@ -218,16 +218,16 @@ const calculatePayroll = async (employee, businessId) => {
           amount
         })),
         total: totalAllowances
-      },
-      deductions: {
+    },
+    deductions: {
         items: Object.entries(allDeductions).map(([name, amount]) => ({
           name,
           amount
         })),
         total: totalDeductionsAmount
-      },
+    },
       netSalary: Math.round(netSalary)
-    };
+  };
   } catch (error) {
     console.error('Error calculating payroll:', error);
     throw error;

@@ -44,3 +44,25 @@ export const updateBusiness = async (data) => {
   }
   return response.json();
 }; 
+
+export const resetPassword = async (token, password) => {
+  try {
+    const response = await fetch(`http://localhost:5001/api/auth/reset-password/${token}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to reset password');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Password reset error:', error);
+    throw error;
+  }
+}; 

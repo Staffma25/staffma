@@ -147,17 +147,53 @@ const PayrollSettings = () => {
 
   const handleAddAllowance = async () => {
     try {
+      // Validate input
+      if (!newAllowance.name.trim()) {
+        setError('Allowance name is required');
+        return;
+      }
+
+      if (newAllowance.value <= 0) {
+        setError('Allowance value must be greater than 0');
+        return;
+      }
+
+      if (newAllowance.type === 'percentage' && newAllowance.value > 100) {
+        setError('Percentage cannot exceed 100%');
+        return;
+      }
+
+      setLoading(true);
       const token = getToken();
-      await axios.post(`${API_BASE_URL}/payroll/settings/allowances`, newAllowance, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.post(
+        `${API_BASE_URL}/payroll/settings/allowances`,
+        newAllowance,
+        {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.data) {
+        throw new Error('No response data received');
+      }
+
+      setSettings(response.data);
       setNewAllowance({ name: '', type: 'percentage', value: 0 });
-      fetchSettings();
       setSuccess('Custom allowance added successfully');
-      setTimeout(() => setSuccess(null), 3000);
+      setError(null);
     } catch (error) {
-      setError('Failed to add custom allowance');
-      setTimeout(() => setError(null), 3000);
+      console.error('Error adding allowance:', error);
+      setError(error.response?.data?.message || 'Failed to add custom allowance');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setSuccess(null), 3000);
     }
   };
 

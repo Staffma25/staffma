@@ -23,7 +23,7 @@ function PerformanceReviews() {
       const response = await fetch(
         `http://localhost:5001/api/performance-reviews/performance-reviews?year=${selectedYear}&quarter=${selectedQuarter}`,
         {
-          headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` }
         }
       );
       const data = await response.json();
@@ -146,11 +146,11 @@ function PerformanceReviews() {
                     {selectedReview.goals.map((goal, index) => (
                       <li key={index} style={styles.listItem}>
                         {typeof goal === 'object' ? goal.description : goal}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
               {selectedReview.strengths?.length > 0 && (
                 <div style={styles.reviewSection}>
@@ -158,10 +158,10 @@ function PerformanceReviews() {
                   <ul style={styles.list}>
                     {selectedReview.strengths.map((strength, index) => (
                       <li key={index} style={styles.listItem}>{strength}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
               {selectedReview.areasForImprovement?.length > 0 && (
                 <div style={styles.reviewSection}>
@@ -169,10 +169,10 @@ function PerformanceReviews() {
                   <ul style={styles.list}>
                     {selectedReview.areasForImprovement.map((area, index) => (
                       <li key={index} style={styles.listItem}>{area}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
               {selectedReview.trainingRecommendations?.length > 0 && (
                 <div style={styles.reviewSection}>
@@ -180,12 +180,12 @@ function PerformanceReviews() {
                   <ul style={styles.list}>
                     {selectedReview.trainingRecommendations.map((rec, index) => (
                       <li key={index} style={styles.listItem}>{rec}</li>
-                    ))}
-                  </ul>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
         </div>
       )}
 

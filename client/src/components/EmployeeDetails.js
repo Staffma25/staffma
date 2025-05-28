@@ -424,17 +424,17 @@ function EmployeeDetails() {
             <h2 style={styles.subtitle}>Insurance Documents</h2>
             
             <div className="insurance-section">
-              {/* NHIF Section */}
-              <div style={styles.insuranceSection}>
-                <h3 style={styles.insuranceTitle}>NHIF</h3>
-                <div style={styles.uploadSection}>
-                  <input
-                    type="text"
-                    placeholder="NHIF Number"
-                    value={employee.insurance?.nhif?.number || ''}
-                    onChange={(e) => handleInsuranceUpdate('nhif', 'number', e.target.value)}
-                    style={styles.input}
-                  />
+            {/* NHIF Section */}
+            <div style={styles.insuranceSection}>
+              <h3 style={styles.insuranceTitle}>NHIF</h3>
+              <div style={styles.uploadSection}>
+                <input
+                  type="text"
+                  placeholder="NHIF Number"
+                  value={employee.insurance?.nhif?.number || ''}
+                  onChange={(e) => handleInsuranceUpdate('nhif', 'number', e.target.value)}
+                  style={styles.input}
+                />
                   <InsuranceDocumentUpload
                     employeeId={employee._id}
                     insuranceType="nhif"
@@ -444,37 +444,37 @@ function EmployeeDetails() {
                       updatedEmployee.insurance[type] = data;
                       setEmployee(updatedEmployee);
                     }}
-                  />
-                </div>
+                />
               </div>
+            </div>
 
-              {/* Medical Insurance Section */}
-              <div style={styles.insuranceSection}>
-                <h3 style={styles.insuranceTitle}>Medical Insurance</h3>
-                <div style={styles.uploadSection}>
-                  <input
-                    type="text"
-                    placeholder="Provider"
-                    value={employee.insurance?.medical?.provider || ''}
-                    onChange={(e) => handleInsuranceUpdate('medical', 'provider', e.target.value)}
-                    style={styles.input}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Policy Number"
-                    value={employee.insurance?.medical?.policyNumber || ''}
-                    onChange={(e) => handleInsuranceUpdate('medical', 'policyNumber', e.target.value)}
-                    style={styles.input}
-                  />
-                  <select
-                    value={employee.insurance?.medical?.coverage || 'basic'}
-                    onChange={(e) => handleInsuranceUpdate('medical', 'coverage', e.target.value)}
-                    style={styles.select}
-                  >
-                    <option value="basic">Basic Coverage</option>
-                    <option value="standard">Standard Coverage</option>
-                    <option value="premium">Premium Coverage</option>
-                  </select>
+            {/* Medical Insurance Section */}
+            <div style={styles.insuranceSection}>
+              <h3 style={styles.insuranceTitle}>Medical Insurance</h3>
+              <div style={styles.uploadSection}>
+                <input
+                  type="text"
+                  placeholder="Provider"
+                  value={employee.insurance?.medical?.provider || ''}
+                  onChange={(e) => handleInsuranceUpdate('medical', 'provider', e.target.value)}
+                  style={styles.input}
+                />
+                <input
+                  type="text"
+                  placeholder="Policy Number"
+                  value={employee.insurance?.medical?.policyNumber || ''}
+                  onChange={(e) => handleInsuranceUpdate('medical', 'policyNumber', e.target.value)}
+                  style={styles.input}
+                />
+                <select
+                  value={employee.insurance?.medical?.coverage || 'basic'}
+                  onChange={(e) => handleInsuranceUpdate('medical', 'coverage', e.target.value)}
+                  style={styles.select}
+                >
+                  <option value="basic">Basic Coverage</option>
+                  <option value="standard">Standard Coverage</option>
+                  <option value="premium">Premium Coverage</option>
+                </select>
                   <InsuranceDocumentUpload
                     employeeId={employee._id}
                     insuranceType="medical"
@@ -484,37 +484,37 @@ function EmployeeDetails() {
                       updatedEmployee.insurance[type] = data;
                       setEmployee(updatedEmployee);
                     }}
-                  />
-                </div>
+                />
               </div>
+            </div>
 
-              {/* Life Insurance Section */}
-              <div style={styles.insuranceSection}>
-                <h3 style={styles.insuranceTitle}>Life Insurance</h3>
-                <div style={styles.uploadSection}>
-                  <input
-                    type="text"
-                    placeholder="Provider"
-                    value={employee.insurance?.life?.provider || ''}
-                    onChange={(e) => handleInsuranceUpdate('life', 'provider', e.target.value)}
-                    style={styles.input}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Policy Number"
-                    value={employee.insurance?.life?.policyNumber || ''}
-                    onChange={(e) => handleInsuranceUpdate('life', 'policyNumber', e.target.value)}
-                    style={styles.input}
-                  />
-                  <select
-                    value={employee.insurance?.life?.coverage || 'basic'}
-                    onChange={(e) => handleInsuranceUpdate('life', 'coverage', e.target.value)}
-                    style={styles.select}
-                  >
-                    <option value="basic">Basic Coverage</option>
-                    <option value="standard">Standard Coverage</option>
-                    <option value="premium">Premium Coverage</option>
-                  </select>
+            {/* Life Insurance Section */}
+            <div style={styles.insuranceSection}>
+              <h3 style={styles.insuranceTitle}>Life Insurance</h3>
+              <div style={styles.uploadSection}>
+                <input
+                  type="text"
+                  placeholder="Provider"
+                  value={employee.insurance?.life?.provider || ''}
+                  onChange={(e) => handleInsuranceUpdate('life', 'provider', e.target.value)}
+                  style={styles.input}
+                />
+                <input
+                  type="text"
+                  placeholder="Policy Number"
+                  value={employee.insurance?.life?.policyNumber || ''}
+                  onChange={(e) => handleInsuranceUpdate('life', 'policyNumber', e.target.value)}
+                  style={styles.input}
+                />
+                <select
+                  value={employee.insurance?.life?.coverage || 'basic'}
+                  onChange={(e) => handleInsuranceUpdate('life', 'coverage', e.target.value)}
+                  style={styles.select}
+                >
+                  <option value="basic">Basic Coverage</option>
+                  <option value="standard">Standard Coverage</option>
+                  <option value="premium">Premium Coverage</option>
+                </select>
                   <InsuranceDocumentUpload
                     employeeId={employee._id}
                     insuranceType="life"
@@ -524,7 +524,7 @@ function EmployeeDetails() {
                       updatedEmployee.insurance[type] = data;
                       setEmployee(updatedEmployee);
                     }}
-                  />
+                />
                 </div>
               </div>
             </div>

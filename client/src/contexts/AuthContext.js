@@ -22,10 +22,16 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.get('http://localhost:5001/api/auth/me', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setUser(response.data);
+      
+      if (response.data) {
+        setUser(response.data);
+      } else {
+        throw new Error('No user data received');
+      }
     } catch (error) {
       console.error('Error fetching user data:', error);
       localStorage.removeItem('token');
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -33,18 +39,42 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
+      console.log('Attempting login with:', { email });
+      
       const response = await axios.post('http://localhost:5001/api/auth/login', {
         email,
         password
       });
+
+      console.log('Login response:', response.data);
+
       const { token, user } = response.data;
+      
+      if (!token || !user) {
+        throw new Error('Invalid response from server');
+      }
+
       localStorage.setItem('token', token);
       setUser(user);
+
+      // Fetch complete user data
+      try {
+        const userResponse = await axios.get('http://localhost:5001/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        console.log('User data fetched:', userResponse.data);
+        setUser(userResponse.data);
+      } catch (userError) {
+        console.error('Error fetching user data:', userError);
+        // Don't throw here, we still have basic user data
+      }
+
       return { success: true };
     } catch (error) {
+      console.error('Login error:', error);
       return {
         success: false,
-        error: error.response?.data?.message || 'Login failed'
+        error: error.response?.data?.message || 'Login failed. Please check your credentials and try again.'
       };
     }
   };
@@ -73,13 +103,34 @@ export const AuthProvider = ({ children }) => {
     return localStorage.getItem('token');
   };
 
+  const isAuthenticated = () => {
+    return !!user;
+  };
+
+  const isBusinessUser = () => {
+    return user?.type === 'business';
+  };
+
+  const isSystemUser = () => {
+    return user?.type === 'user';
+  };
+
+  const hasPermission = (module, action) => {
+    if (!user || user.type !== 'user') return false;
+    return user.permissions?.[module]?.[action] || false;
+  };
+
   const value = {
     user,
     loading,
     login,
     register,
     logout,
-    getToken
+    getToken,
+    isAuthenticated,
+    isBusinessUser,
+    isSystemUser,
+    hasPermission
   };
 
   return (
