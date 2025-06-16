@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
 import LogIn from './components/LogIn';
 import Register from './components/Register';
@@ -8,65 +8,351 @@ import EmployeeDetails from './components/EmployeeDetails';
 import PayrollManagement from './components/PayrollManagement';
 import PayrollSettings from './components/PayrollSettings';
 import PerformanceReviews from './components/PerformanceReviews';
+import ReviewForm from './components/ReviewForm';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './components/LandingPage';
 import { AuthProvider } from './contexts/AuthContext';
 import UserManagement from './components/UserManagement';
+import AddUser from './components/AddUser';
 import EmailVerification from './components/EmailVerification';
 import ResetPassword from './components/ResetPassword';
+import LeaveRequest from './components/LeaveRequest';
+import LeaveManagement from './components/LeaveManagement';
+import LeaveRequestForm from './components/LeaveRequestForm';
+import LeaveRequests from './components/LeaveRequests';
+import AddEmployee from './components/AddEmployee';
+import Settings from './components/Settings';
+import LeaveRequestDetails from './components/LeaveRequestDetails';
+
+const DashboardLayout = ({ children }) => {
+  const [expandedSections, setExpandedSections] = useState({
+    employees: true,
+    payroll: true,
+    performance: true,
+    userManagement: true,
+    leaveManagement: true,
+    system: true
+  });
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  return (
+    <div style={styles.dashboardContainer}>
+      <div style={styles.sidebar}>
+        <div style={styles.sidebarHeader}>
+          <h2 style={styles.logo}>Lola</h2>
+        </div>
+        <nav style={styles.nav}>
+          <a href="/dashboard" style={styles.navItem}>
+            <span style={styles.icon}>📊</span>
+            Overview
+          </a>
+          
+          <div style={styles.navGroup}>
+            <button 
+              onClick={() => toggleSection('employees')} 
+              style={styles.navGroupHeader}
+            >
+              <span style={styles.icon}>👥</span>
+              Employees
+              <span style={{
+                ...styles.arrow,
+                transform: expandedSections.employees ? 'rotate(180deg)' : 'rotate(0deg)'
+              }}>▼</span>
+            </button>
+            <div style={{
+              ...styles.subItems,
+              display: expandedSections.employees ? 'flex' : 'none'
+            }}>
+              <a href="/employees" style={styles.navSubItem}>View Employees</a>
+              <a href="/employees/add" style={styles.navSubItem}>Add Employee</a>
+            </div>
+          </div>
+
+          <div style={styles.navGroup}>
+            <button 
+              onClick={() => toggleSection('payroll')} 
+              style={styles.navGroupHeader}
+            >
+              <span style={styles.icon}>💰</span>
+              Payroll
+              <span style={{
+                ...styles.arrow,
+                transform: expandedSections.payroll ? 'rotate(180deg)' : 'rotate(0deg)'
+              }}>▼</span>
+            </button>
+            <div style={{
+              ...styles.subItems,
+              display: expandedSections.payroll ? 'flex' : 'none'
+            }}>
+              <a href="/payroll/process" style={styles.navSubItem}>Process Payroll</a>
+              <a href="/payroll/settings" style={styles.navSubItem}>Payroll Settings</a>
+            </div>
+          </div>
+
+          <div style={styles.navGroup}>
+            <button 
+              onClick={() => toggleSection('performance')} 
+              style={styles.navGroupHeader}
+            >
+              <span style={styles.icon}>📈</span>
+              Performance
+              <span style={{
+                ...styles.arrow,
+                transform: expandedSections.performance ? 'rotate(180deg)' : 'rotate(0deg)'
+              }}>▼</span>
+            </button>
+            <div style={{
+              ...styles.subItems,
+              display: expandedSections.performance ? 'flex' : 'none'
+            }}>
+              <a href="/performance-reviews/create" style={styles.navSubItem}>Create Review</a>
+              <a href="/performance-reviews" style={styles.navSubItem}>View Reviews</a>
+            </div>
+          </div>
+
+          <div style={styles.navGroup}>
+            <button 
+              onClick={() => toggleSection('userManagement')} 
+              style={styles.navGroupHeader}
+            >
+              <span style={styles.icon}>👤</span>
+              User Management
+              <span style={{
+                ...styles.arrow,
+                transform: expandedSections.userManagement ? 'rotate(180deg)' : 'rotate(0deg)'
+              }}>▼</span>
+            </button>
+            <div style={{
+              ...styles.subItems,
+              display: expandedSections.userManagement ? 'flex' : 'none'
+            }}>
+              <a href="/user-management/add" style={styles.navSubItem}>Add User</a>
+              <a href="/user-management" style={styles.navSubItem}>Manage Users</a>
+            </div>
+          </div>
+
+          <div style={styles.navGroup}>
+            <button 
+              onClick={() => toggleSection('leaveManagement')} 
+              style={styles.navGroupHeader}
+            >
+              <span style={styles.icon}>📅</span>
+              Leave Management
+              <span style={{
+                ...styles.arrow,
+                transform: expandedSections.leaveManagement ? 'rotate(180deg)' : 'rotate(0deg)'
+              }}>▼</span>
+            </button>
+            <div style={{
+              ...styles.subItems,
+              display: expandedSections.leaveManagement ? 'flex' : 'none'
+            }}>
+              <a href="/leave-request" style={styles.navSubItem}>Request Leave</a>
+              <a href="/leave-requests" style={styles.navSubItem}>View Requests</a>
+            </div>
+          </div>
+
+          <div style={styles.navGroup}>
+            <button 
+              onClick={() => toggleSection('system')} 
+              style={styles.navGroupHeader}
+            >
+              <span style={styles.icon}>⚙️</span>
+              System
+              <span style={{
+                ...styles.arrow,
+                transform: expandedSections.system ? 'rotate(180deg)' : 'rotate(0deg)'
+              }}>▼</span>
+            </button>
+            <div style={{
+              ...styles.subItems,
+              display: expandedSections.system ? 'flex' : 'none'
+            }}>
+              <a href="/settings" style={styles.navSubItem}>Business Settings</a>
+            </div>
+          </div>
+        </nav>
+      </div>
+      <div style={styles.content}>
+        {children}
+      </div>
+    </div>
+  );
+};
 
 function App() {
   return (
     <AuthProvider>
-    <Router>
-      <div style={styles.app}>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LogIn />} />
-          <Route path="/register" element={<Register />} />
+      <Router>
+        <div style={styles.app}>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LogIn />} />
+            <Route path="/register" element={<Register />} />
             <Route path="/verify-email/:token" element={<EmailVerification />} />
             <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-          {/* Protected routes */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/employees" element={
-            <ProtectedRoute>
-              <EmployeesList />
-            </ProtectedRoute>
-          } />
-          <Route path="/employee/:id" element={
-            <ProtectedRoute>
-              <EmployeeDetails />
-            </ProtectedRoute>
-          } />
-          <Route path="/payroll" element={
-            <ProtectedRoute>
-              <PayrollManagement />
-            </ProtectedRoute>
-          } />
-            <Route path="/payroll/settings" element={
-              <ProtectedRoute>
-                <PayrollSettings />
-            </ProtectedRoute>
-          } />
-          <Route path="/performance-reviews" element={
-            <ProtectedRoute>
-              <PerformanceReviews />
-            </ProtectedRoute>
-          } />
-          <Route path="/user-management" element={
-            <ProtectedRoute>
-              <UserManagement />
-            </ProtectedRoute>
-          } />
-        </Routes>
-      </div>
-    </Router>
+            {/* Protected routes with DashboardLayout */}
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <Dashboard />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/employees" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <EmployeesList />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/employee/:id" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <EmployeeDetails />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/payroll/process" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <PayrollManagement />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/payroll/settings" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <PayrollSettings />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/performance-reviews" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <PerformanceReviews />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/performance-reviews/create" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <ReviewForm />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/user-management/*" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <UserManagement />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/user-management/add" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <AddUser />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/leave-management/*" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <LeaveManagement />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/leave-request" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <LeaveRequest />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/leave-requests" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <LeaveRequests />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/employees/add" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <AddEmployee />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <Settings />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/leave-details/:id"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <LeaveRequestDetails />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </div>
+      </Router>
     </AuthProvider>
   );
 }
@@ -75,6 +361,106 @@ const styles = {
   app: {
     minHeight: '100vh',
     backgroundColor: '#f8f9fa',
+  },
+  dashboardContainer: {
+    display: 'flex',
+    minHeight: '100vh',
+  },
+  sidebar: {
+    width: '250px',
+    backgroundColor: '#2c3e50',
+    color: 'white',
+    padding: '20px 0',
+    display: 'flex',
+    flexDirection: 'column',
+    position: 'fixed',
+    height: '100vh',
+    overflowY: 'auto',
+    boxShadow: '2px 0 5px rgba(0,0,0,0.1)',
+    zIndex: 1000,
+  },
+  sidebarHeader: {
+    padding: '0 20px 20px',
+    borderBottom: '1px solid rgba(255,255,255,0.1)',
+  },
+  logo: {
+    margin: 0,
+    fontSize: '24px',
+    fontWeight: 500,
+    color: 'white',
+  },
+  nav: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '5px',
+    padding: '20px 0',
+  },
+  navItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '12px 20px',
+    color: 'white',
+    textDecoration: 'none',
+    fontSize: '14px',
+    transition: 'background-color 0.2s',
+    '&:hover': {
+      backgroundColor: 'rgba(255,255,255,0.1)',
+    },
+  },
+  navGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  navGroupHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '12px 20px',
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: '14px',
+    fontWeight: 500,
+    backgroundColor: 'transparent',
+    border: 'none',
+    width: '100%',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s',
+    '&:hover': {
+      backgroundColor: 'rgba(255,255,255,0.1)',
+    },
+  },
+  icon: {
+    fontSize: '16px',
+    width: '20px',
+    textAlign: 'center',
+  },
+  navSubItem: {
+    color: 'rgba(255,255,255,0.8)',
+    textDecoration: 'none',
+    padding: '8px 20px 8px 50px',
+    fontSize: '14px',
+    transition: 'background-color 0.2s',
+    '&:hover': {
+      backgroundColor: 'rgba(255,255,255,0.1)',
+    },
+  },
+  content: {
+    flex: 1,
+    marginLeft: '250px',
+    padding: '20px',
+    backgroundColor: '#f8f9fa',
+    minHeight: '100vh',
+  },
+  arrow: {
+    marginLeft: 'auto',
+    fontSize: '10px',
+    transition: 'transform 0.2s ease',
+  },
+  subItems: {
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    transition: 'height 0.2s ease',
   },
 };
 

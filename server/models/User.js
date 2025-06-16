@@ -74,6 +74,13 @@ const userSchema = new mongoose.Schema({
       viewTransactions: { type: Boolean, default: false },
       configurePayments: { type: Boolean, default: false }
     },
+    leaveManagement: {
+      applyLeave: { type: Boolean, default: true },
+      approveLeave: { type: Boolean, default: false },
+      viewAllLeaves: { type: Boolean, default: false },
+      manageLeaveTypes: { type: Boolean, default: false },
+      generateLeaveReports: { type: Boolean, default: false }
+    },
     systemAdministration: {
       configureSettings: { type: Boolean, default: false },
       manageIntegrations: { type: Boolean, default: false },
@@ -149,7 +156,8 @@ userSchema.pre('save', function(next) {
         performanceManagement: { createReviews: true, viewAllReviews: true, editTemplates: true, generateReports: true, manageTraining: true, trackDevelopment: true },
         userManagement: { createUsers: true, assignRoles: true, modifyPermissions: true, manageAccounts: true, resetPasswords: true, manageSecurity: true },
         financialServices: { configureAdvances: true, approveAdvances: true, manageWallet: true, viewTransactions: true, configurePayments: true },
-        systemAdministration: { configureSettings: true, manageIntegrations: true, handleBackups: true, viewAuditTrail: true, manageNotifications: true }
+        systemAdministration: { configureSettings: true, manageIntegrations: true, handleBackups: true, viewAuditTrail: true, manageNotifications: true },
+        leaveManagement: { applyForLeave: true, approveLeave: true, viewAllLeaves: true, manageLeaveTypes: true, generateLeaveReports: true }
       },
       business: {
         employeeManagement: { add: true, edit: true, delete: true, view: true, manageOnboarding: true, manageDocuments: true, setStatus: true },
@@ -157,23 +165,26 @@ userSchema.pre('save', function(next) {
         performanceManagement: { createReviews: true, viewAllReviews: true, editTemplates: true, generateReports: true, manageTraining: true, trackDevelopment: true },
         userManagement: { createUsers: true, assignRoles: true, modifyPermissions: true, manageAccounts: true, resetPasswords: true, manageSecurity: true },
         financialServices: { configureAdvances: true, approveAdvances: true, manageWallet: true, viewTransactions: true, configurePayments: true },
-        systemAdministration: { configureSettings: true, manageIntegrations: true, handleBackups: true, viewAuditTrail: true, manageNotifications: true }
+        systemAdministration: { configureSettings: true, manageIntegrations: true, handleBackups: true, viewAuditTrail: true, manageNotifications: true },
+        leaveManagement: { applyForLeave: true, approveLeave: true, viewAllLeaves: true, manageLeaveTypes: true, generateLeaveReports: true }
       },
       hr_manager: {
-        employeeManagement: { add: true, edit: true, delete: false, view: true, manageOnboarding: true, manageDocuments: true, setStatus: false },
-        payrollManagement: { processPayroll: true, configureSalary: false, manageAllowances: false, manageDeductions: false, generatePayslips: true, bulkPayments: false, viewReports: true },
-        performanceManagement: { createReviews: true, viewAllReviews: true, editTemplates: false, generateReports: true, manageTraining: true, trackDevelopment: true },
-        userManagement: { createUsers: false, assignRoles: false, modifyPermissions: false, manageAccounts: false, resetPasswords: true, manageSecurity: false },
-        financialServices: { configureAdvances: false, approveAdvances: false, manageWallet: false, viewTransactions: false, configurePayments: false },
-        systemAdministration: { configureSettings: false, manageIntegrations: false, handleBackups: false, viewAuditTrail: false, manageNotifications: false }
+        employeeManagement: { add: true, edit: true, delete: false, view: true, manageOnboarding: true, manageDocuments: true, setStatus: true },
+        payrollManagement: { processPayroll: true, configureSalary: false, manageAllowances: true, manageDeductions: true, generatePayslips: true, bulkPayments: false, viewReports: true },
+        performanceManagement: { createReviews: true, viewAllReviews: true, editTemplates: true, generateReports: true, manageTraining: true, trackDevelopment: true },
+        userManagement: { createUsers: true, assignRoles: false, modifyPermissions: false, manageAccounts: true, resetPasswords: true, manageSecurity: false },
+        financialServices: { configureAdvances: false, approveAdvances: true, manageWallet: false, viewTransactions: true, configurePayments: false },
+        systemAdministration: { configureSettings: false, manageIntegrations: false, handleBackups: false, viewAuditTrail: true, manageNotifications: false },
+        leaveManagement: { applyForLeave: true, approveLeave: true, viewAllLeaves: true, manageLeaveTypes: true, generateLeaveReports: true }
       },
       employee: {
         employeeManagement: { add: false, edit: false, delete: false, view: false, manageOnboarding: false, manageDocuments: false, setStatus: false },
         payrollManagement: { processPayroll: false, configureSalary: false, manageAllowances: false, manageDeductions: false, generatePayslips: false, bulkPayments: false, viewReports: false },
         performanceManagement: { createReviews: false, viewAllReviews: false, editTemplates: false, generateReports: false, manageTraining: false, trackDevelopment: false },
         userManagement: { createUsers: false, assignRoles: false, modifyPermissions: false, manageAccounts: false, resetPasswords: false, manageSecurity: false },
-        financialServices: { configureAdvances: false, approveAdvances: false, manageWallet: true, viewTransactions: true, configurePayments: false },
-        systemAdministration: { configureSettings: false, manageIntegrations: false, handleBackups: false, viewAuditTrail: false, manageNotifications: false }
+        financialServices: { configureAdvances: false, approveAdvances: false, manageWallet: false, viewTransactions: false, configurePayments: false },
+        systemAdministration: { configureSettings: false, manageIntegrations: false, handleBackups: false, viewAuditTrail: false, manageNotifications: false },
+        leaveManagement: { applyLeave: true, approveLeave: false, viewAllLeaves: false, manageLeaveTypes: false, generateLeaveReports: false }
       }
     };
 

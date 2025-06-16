@@ -2,11 +2,9 @@
 // client/src/components/PerformanceReviews.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ReviewForm from './ReviewForm';
 
 function PerformanceReviews() {
   const [reviews, setReviews] = useState([]);
-  const [showReviewForm, setShowReviewForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedQuarter, setSelectedQuarter] = useState(Math.ceil((new Date().getMonth() + 1) / 3));
@@ -23,7 +21,7 @@ function PerformanceReviews() {
       const response = await fetch(
         `http://localhost:5001/api/performance-reviews/performance-reviews?year=${selectedYear}&quarter=${selectedQuarter}`,
         {
-        headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 'Authorization': `Bearer ${token}` }
         }
       );
       const data = await response.json();
@@ -62,9 +60,6 @@ function PerformanceReviews() {
           ← Back to Dashboard
         </button>
         <h1 style={styles.title}>Performance Reviews</h1>
-        <button onClick={() => setShowReviewForm(true)} style={styles.addButton}>
-          Add New Review
-        </button>
       </div>
 
       <div style={styles.filters}>
@@ -98,18 +93,6 @@ function PerformanceReviews() {
         <h3 style={styles.periodInfoTitle}>Q{selectedQuarter} {selectedYear} Review Period</h3>
         <p style={styles.periodInfoText}>{quarterDates.start} - {quarterDates.end}</p>
       </div>
-
-      {showReviewForm && (
-        <ReviewForm
-          year={selectedYear}
-          quarter={selectedQuarter}
-          onSubmitSuccess={(newReview) => {
-            setReviews([...reviews, newReview]);
-            setShowReviewForm(false);
-          }}
-          onCancel={() => setShowReviewForm(false)}
-        />
-      )}
 
       {selectedReview && (
         <div style={styles.modalOverlay}>
@@ -146,11 +129,11 @@ function PerformanceReviews() {
                     {selectedReview.goals.map((goal, index) => (
                       <li key={index} style={styles.listItem}>
                         {typeof goal === 'object' ? goal.description : goal}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {selectedReview.strengths?.length > 0 && (
                 <div style={styles.reviewSection}>
@@ -158,10 +141,10 @@ function PerformanceReviews() {
                   <ul style={styles.list}>
                     {selectedReview.strengths.map((strength, index) => (
                       <li key={index} style={styles.listItem}>{strength}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {selectedReview.areasForImprovement?.length > 0 && (
                 <div style={styles.reviewSection}>
@@ -169,10 +152,10 @@ function PerformanceReviews() {
                   <ul style={styles.list}>
                     {selectedReview.areasForImprovement.map((area, index) => (
                       <li key={index} style={styles.listItem}>{area}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {selectedReview.trainingRecommendations?.length > 0 && (
                 <div style={styles.reviewSection}>
@@ -180,12 +163,12 @@ function PerformanceReviews() {
                   <ul style={styles.list}>
                     {selectedReview.trainingRecommendations.map((rec, index) => (
                       <li key={index} style={styles.listItem}>{rec}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                    ))}
+                  </ul>
                 </div>
-              </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -264,8 +247,8 @@ const styles = {
   },
   header: {
     display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: '20px',
     marginBottom: '30px',
   },
   title: {
@@ -275,14 +258,6 @@ const styles = {
   backButton: {
     padding: '8px 16px',
     backgroundColor: '#6c757d',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  addButton: {
-    padding: '8px 16px',
-    backgroundColor: '#28a745',
     color: 'white',
     border: 'none',
     borderRadius: '4px',

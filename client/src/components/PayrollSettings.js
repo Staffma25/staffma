@@ -1,27 +1,78 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
+// Add predefined regions and business types
+const REGIONS = [
+  'Kenya',
+  'Uganda',
+  'Tanzania',
+  'Rwanda',
+  'Other'
+];
+
+const BUSINESS_TYPES = [
+  'Small Business',
+  'Corporation',
+  'Non-Profit',
+  'Government',
+  'Startup',
+  'Other'
+];
+
 const PayrollSettings = () => {
   const navigate = useNavigate();
   const { getToken } = useAuth();
-  const [settings, setSettings] = useState(null);
+  
+  // Initialize all state with default values
+  const [settings, setSettings] = useState({
+    taxRates: {
+      allowances: [],
+      customDeductions: [],
+      taxBrackets: {
+        region: '',
+        businessType: '',
+        source: 'upload',
+        brackets: []
+      }
+    }
+  });
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  
   const [newDeduction, setNewDeduction] = useState({
     name: '',
     type: 'percentage',
     value: 0
   });
+  
   const [newAllowance, setNewAllowance] = useState({
     name: '',
     type: 'percentage',
     value: 0
   });
+  
+  const [selectedFile, setSelectedFile] = useState(null);
+  
+  const [taxBracketInfo, setTaxBracketInfo] = useState({
+    region: '',
+    businessType: '',
+    source: 'upload'
+  });
+  
+  const [newTaxBracket, setNewTaxBracket] = useState({
+    lowerBound: 0,
+    upperBound: 0,
+    rate: 0
+  });
+
+  // Add a ref for the file input
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchSettings();
@@ -43,17 +94,31 @@ const PayrollSettings = () => {
         throw new Error('No settings data received');
       }
 
-      // Ensure taxRates and allowances exist
-      if (!response.data.taxRates) {
-        response.data.taxRates = {
-          allowances: [],
-          customDeductions: []
-        };
-      } else if (!response.data.taxRates.allowances) {
-        response.data.taxRates.allowances = [];
-      }
+      // Ensure all required fields exist with default values
+      const settingsData = {
+        taxRates: {
+          allowances: Array.isArray(response.data.taxRates?.allowances) 
+            ? response.data.taxRates.allowances 
+            : [],
+          customDeductions: Array.isArray(response.data.taxRates?.customDeductions)
+            ? response.data.taxRates.customDeductions
+            : [],
+          taxBrackets: response.data.taxRates?.taxBrackets || {
+            region: '',
+            businessType: '',
+            source: 'upload',
+            brackets: []
+          }
+        }
+      };
 
-      setSettings(response.data);
+      setSettings(settingsData);
+      // Update taxBracketInfo with values from server
+      setTaxBracketInfo({
+        region: response.data.taxRates?.taxBrackets?.region || '',
+        businessType: response.data.taxRates?.taxBrackets?.businessType || '',
+        source: response.data.taxRates?.taxBrackets?.source || 'upload'
+      });
       setError(null);
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -244,7 +309,8 @@ const PayrollSettings = () => {
       const response = await axios.put(`${API_BASE_URL}/payroll/settings`, {
         taxRates: {
           allowances: [],
-          customDeductions: []
+          customDeductions: [],
+          taxBrackets: []
         }
       }, {
         headers: { 
@@ -261,6 +327,208 @@ const PayrollSettings = () => {
       setSuccess('Payroll settings reset successfully');
     } catch (error) {
       setError(error.response?.data?.message || 'Failed to reset payroll settings');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setSuccess(null), 3000);
+    }
+  };
+
+  // Update file input handler
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = [
+      'text/csv',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ];
+    
+    if (!validTypes.includes(file.type)) {
+      setError('Please upload a CSV or Excel file');
+      return;
+    }
+
+    // Validate region and business type
+    if (!taxBracketInfo.region || !taxBracketInfo.businessType) {
+      setError('Please select both region and business type before uploading');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('region', taxBracketInfo.region);
+    formData.append('businessType', taxBracketInfo.businessType);
+
+    try {
+      setLoading(true);
+      const token = getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.post(
+        `${API_BASE_URL}/payroll/settings/tax-brackets/upload`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      setSettings(response.data);
+      setSuccess('Tax brackets uploaded successfully');
+      setError(null);
+    } catch (error) {
+      console.error('Error uploading tax brackets:', error);
+      setError(error.response?.data?.details || 'Failed to upload tax brackets');
+    } finally {
+      setLoading(false);
+      // Clear the file input
+      event.target.value = '';
+    }
+  };
+
+  // Add a function to clear the file input
+  const clearFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    setSelectedFile(null);
+  };
+
+  const handleLoadTemplate = async () => {
+    try {
+      if (!taxBracketInfo.region || !taxBracketInfo.businessType) {
+        setError('Please select both region and business type');
+        return;
+      }
+
+      setLoading(true);
+      const token = getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.get(
+        `${API_BASE_URL}/payroll/settings/tax-brackets/template`,
+        {
+          params: {
+            region: taxBracketInfo.region,
+            businessType: taxBracketInfo.businessType
+          },
+          headers: { 
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.data) {
+        throw new Error('No response data received');
+      }
+
+      setSettings(response.data);
+      setSuccess('Tax bracket template loaded successfully');
+      setError(null);
+    } catch (error) {
+      console.error('Error loading template:', error);
+      setError(error.response?.data?.message || 'Failed to load tax bracket template');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setSuccess(null), 3000);
+    }
+  };
+
+  const handleAddTaxBracket = async () => {
+    try {
+      // Validate input
+      if (newTaxBracket.lowerBound < 0) {
+        setError('Lower bound must be greater than or equal to 0');
+        return;
+      }
+
+      if (newTaxBracket.upperBound <= newTaxBracket.lowerBound) {
+        setError('Upper bound must be greater than lower bound');
+        return;
+      }
+
+      if (newTaxBracket.rate < 0 || newTaxBracket.rate > 100) {
+        setError('Tax rate must be between 0 and 100');
+        return;
+      }
+
+      // Validate region and business type
+      if (!taxBracketInfo.region || !taxBracketInfo.businessType) {
+        setError('Please select both region and business type');
+        return;
+      }
+
+      setLoading(true);
+      const token = getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.post(
+        `${API_BASE_URL}/payroll/settings/tax-brackets`,
+        {
+          ...newTaxBracket,
+          region: taxBracketInfo.region,
+          businessType: taxBracketInfo.businessType
+        },
+        {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.data) {
+        throw new Error('No response data received');
+      }
+
+      setSettings(response.data);
+      setNewTaxBracket({ lowerBound: 0, upperBound: 0, rate: 0 });
+      setSuccess('Tax bracket added successfully');
+      setError(null);
+    } catch (error) {
+      console.error('Error adding tax bracket:', error);
+      setError(error.response?.data?.message || 'Failed to add tax bracket');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setSuccess(null), 3000);
+    }
+  };
+
+  const handleRemoveTaxBracket = async (index) => {
+    try {
+      setLoading(true);
+      const token = getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.delete(`${API_BASE_URL}/payroll/settings/tax-brackets/${index}`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.data) {
+        throw new Error('No response data received');
+      }
+
+      setSettings(response.data);
+      setSuccess('Tax bracket removed successfully');
+      setError(null);
+    } catch (error) {
+      console.error('Error removing tax bracket:', error);
+      setError(error.response?.data?.message || 'Failed to remove tax bracket');
     } finally {
       setLoading(false);
       setTimeout(() => setSuccess(null), 3000);
@@ -303,13 +571,13 @@ const PayrollSettings = () => {
             <div style={styles.deductionForm}>
               <input
                 type="text"
-                value={newAllowance.name}
+                value={newAllowance.name || ''}
                 onChange={(e) => setNewAllowance({ ...newAllowance, name: e.target.value })}
                 placeholder="Allowance Name"
                 style={styles.input}
               />
               <select
-                value={newAllowance.type}
+                value={newAllowance.type || 'percentage'}
                 onChange={(e) => setNewAllowance({ ...newAllowance, type: e.target.value })}
                 style={styles.select}
               >
@@ -318,7 +586,7 @@ const PayrollSettings = () => {
               </select>
               <input
                 type="number"
-                value={newAllowance.value}
+                value={newAllowance.value || 0}
                 onChange={(e) => setNewAllowance({ ...newAllowance, value: Number(e.target.value) })}
                 placeholder={newAllowance.type === 'percentage' ? 'Rate (%)' : 'Amount'}
                 style={styles.input}
@@ -344,12 +612,12 @@ const PayrollSettings = () => {
                 </tr>
               </thead>
               <tbody>
-                {settings?.taxRates?.allowances?.map((allowance, index) => (
+                {(settings.taxRates?.allowances || []).map((allowance, index) => (
                   <tr key={index}>
-                    <td>{allowance.name}</td>
-                    <td>{allowance.type}</td>
+                    <td>{allowance.name || ''}</td>
+                    <td>{allowance.type || 'percentage'}</td>
                     <td>
-                      {allowance.value}
+                      {allowance.value || 0}
                       {allowance.type === 'percentage' ? '%' : ' KES'}
                     </td>
                     <td>
@@ -371,7 +639,7 @@ const PayrollSettings = () => {
                     </td>
                   </tr>
                 ))}
-                {(!settings?.taxRates?.allowances || settings.taxRates.allowances.length === 0) && (
+                {(!settings.taxRates?.allowances || settings.taxRates.allowances.length === 0) && (
                   <tr>
                     <td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>
                       No allowances added yet
@@ -388,13 +656,13 @@ const PayrollSettings = () => {
             <div style={styles.deductionForm}>
               <input
                 type="text"
-                value={newDeduction.name}
+                value={newDeduction.name || ''}
                 onChange={(e) => setNewDeduction({ ...newDeduction, name: e.target.value })}
                 placeholder="Deduction Name"
                 style={styles.input}
               />
               <select
-                value={newDeduction.type}
+                value={newDeduction.type || 'percentage'}
                 onChange={(e) => setNewDeduction({ ...newDeduction, type: e.target.value })}
                 style={styles.select}
               >
@@ -403,7 +671,7 @@ const PayrollSettings = () => {
               </select>
               <input
                 type="number"
-                value={newDeduction.value}
+                value={newDeduction.value || 0}
                 onChange={(e) => setNewDeduction({ ...newDeduction, value: Number(e.target.value) })}
                 placeholder={newDeduction.type === 'percentage' ? 'Rate (%)' : 'Amount'}
                 style={styles.input}
@@ -429,12 +697,12 @@ const PayrollSettings = () => {
                 </tr>
               </thead>
               <tbody>
-                {settings.taxRates.customDeductions.map((deduction, index) => (
+                {(settings.taxRates?.customDeductions || []).map((deduction, index) => (
                   <tr key={index}>
-                    <td>{deduction.name}</td>
-                    <td>{deduction.type}</td>
+                    <td>{deduction.name || ''}</td>
+                    <td>{deduction.type || 'percentage'}</td>
                     <td>
-                      {deduction.value}
+                      {deduction.value || 0}
                       {deduction.type === 'percentage' ? '%' : ' KES'}
                     </td>
                     <td>
@@ -456,7 +724,7 @@ const PayrollSettings = () => {
                     </td>
                   </tr>
                 ))}
-                {settings.taxRates.customDeductions.length === 0 && (
+                {(!settings.taxRates?.customDeductions || settings.taxRates.customDeductions.length === 0) && (
                   <tr>
                     <td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>
                       No custom deductions added yet
@@ -465,6 +733,183 @@ const PayrollSettings = () => {
                 )}
               </tbody>
             </table>
+          </section>
+
+          {/* Tax Brackets */}
+          <section style={styles.section}>
+            <h2 style={styles.sectionTitle}>Tax Brackets</h2>
+            <div style={styles.taxBracketConfig}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Region</label>
+                <select
+                  value={taxBracketInfo.region || ''}
+                  onChange={(e) => setTaxBracketInfo({ ...taxBracketInfo, region: e.target.value })}
+                  style={styles.select}
+                >
+                  <option value="">Select Region</option>
+                  {REGIONS.map((region) => (
+                    <option key={region} value={region}>{region}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Business Type</label>
+                <select
+                  value={taxBracketInfo.businessType || ''}
+                  onChange={(e) => setTaxBracketInfo({ ...taxBracketInfo, businessType: e.target.value })}
+                  style={styles.select}
+                >
+                  <option value="">Select Business Type</option>
+                  {BUSINESS_TYPES.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Source</label>
+                <select
+                  value={taxBracketInfo.source || 'upload'}
+                  onChange={(e) => setTaxBracketInfo({ ...taxBracketInfo, source: e.target.value })}
+                  style={styles.select}
+                >
+                  <option value="upload">Upload File</option>
+                  <option value="template">Use Template</option>
+                  <option value="manual">Manual Entry</option>
+                </select>
+              </div>
+            </div>
+
+            {taxBracketInfo.source === 'upload' ? (
+              <div style={styles.uploadSection}>
+                <div style={styles.fileUpload}>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Upload Tax Brackets (CSV/Excel)
+                    </label>
+                    <div className="flex items-center space-x-4">
+                      <input
+                        type="file"
+                        accept=".csv,.xlsx,.xls"
+                        onChange={handleFileUpload}
+                        className="block w-full text-sm text-gray-500
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-md file:border-0
+                          file:text-sm file:font-semibold
+                          file:bg-blue-50 file:text-blue-700
+                          hover:file:bg-blue-100"
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Upload a CSV or Excel file with columns: Lower Bound, Upper Bound, Rate
+                  </p>
+                </div>
+              </div>
+            ) : taxBracketInfo.source === 'template' ? (
+              <div style={styles.templateSection}>
+                <button
+                  onClick={handleLoadTemplate}
+                  style={styles.templateButton}
+                  disabled={loading}
+                >
+                  Load Template
+                </button>
+              </div>
+            ) : (
+              <div style={styles.manualEntrySection}>
+                <div style={styles.deductionForm}>
+                  <input
+                    type="number"
+                    value={newTaxBracket.lowerBound || 0}
+                    onChange={(e) => setNewTaxBracket({ ...newTaxBracket, lowerBound: Number(e.target.value) })}
+                    placeholder="Lower Bound (KES)"
+                    style={styles.input}
+                    min="0"
+                  />
+                  <input
+                    type="number"
+                    value={newTaxBracket.upperBound || 0}
+                    onChange={(e) => setNewTaxBracket({ ...newTaxBracket, upperBound: Number(e.target.value) })}
+                    placeholder="Upper Bound (KES)"
+                    style={styles.input}
+                    min="0"
+                  />
+                  <input
+                    type="number"
+                    value={newTaxBracket.rate || 0}
+                    onChange={(e) => setNewTaxBracket({ ...newTaxBracket, rate: Number(e.target.value) })}
+                    placeholder="Tax Rate (%)"
+                    style={styles.input}
+                    min="0"
+                    max="100"
+                  />
+                  <button
+                    onClick={handleAddTaxBracket}
+                    style={styles.addButton}
+                    disabled={!taxBracketInfo.region || !taxBracketInfo.businessType}
+                  >
+                    Add Tax Bracket
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th>Lower Bound (KES)</th>
+                  <th>Upper Bound (KES)</th>
+                  <th>Tax Rate (%)</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(settings.taxRates?.taxBrackets?.brackets || []).map((bracket, index) => (
+                  <tr key={index}>
+                    <td>{(bracket.lowerBound || 0).toLocaleString()}</td>
+                    <td>{(bracket.upperBound || 0).toLocaleString()}</td>
+                    <td>{(bracket.rate || 0)}%</td>
+                    <td>
+                      <span style={{
+                        color: bracket.enabled ? '#4caf50' : '#f44336',
+                        fontWeight: 'bold'
+                      }}>
+                        {bracket.enabled ? 'Active' : 'Disabled'}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        onClick={() => handleRemoveTaxBracket(index)}
+                        style={styles.removeButton}
+                        disabled={loading}
+                      >
+                        {loading ? 'Removing...' : 'Remove'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {(!settings.taxRates?.taxBrackets?.brackets || settings.taxRates.taxBrackets.brackets.length === 0) && (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>
+                      No tax brackets configured yet
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+            {settings.taxRates?.taxBrackets?.region && (
+              <div style={styles.currentConfig}>
+                <p>Current Configuration:</p>
+                <p>Region: {settings.taxRates.taxBrackets.region}</p>
+                <p>Business Type: {settings.taxRates.taxBrackets.businessType}</p>
+                <p>Last Updated: {new Date(settings.taxRates.taxBrackets.lastUpdated).toLocaleDateString()}</p>
+              </div>
+            )}
           </section>
 
           <button
@@ -788,6 +1233,113 @@ const styles = {
     padding: '10px',
     borderRadius: '4px',
     marginBottom: '20px'
+  },
+  taxBracketConfig: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '20px',
+    marginBottom: '30px',
+    padding: '20px',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '10px'
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px'
+  },
+  label: {
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#2c3e50'
+  },
+  uploadSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+    marginBottom: '30px',
+    padding: '20px',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '10px'
+  },
+  fileUpload: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px'
+  },
+  fileInput: {
+    padding: '10px',
+    border: '2px dashed #e0e0e0',
+    borderRadius: '8px',
+    cursor: 'pointer'
+  },
+  uploadInfo: {
+    fontSize: '14px',
+    color: '#666',
+    marginTop: '10px'
+  },
+  uploadButton: {
+    padding: '12px 24px',
+    backgroundColor: '#4caf50',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+    alignSelf: 'flex-start',
+    '&:disabled': {
+      backgroundColor: '#ccc',
+      cursor: 'not-allowed'
+    }
+  },
+  templateButton: {
+    padding: '12px 24px',
+    backgroundColor: '#2196f3',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+    marginBottom: '20px',
+    '&:disabled': {
+      backgroundColor: '#ccc',
+      cursor: 'not-allowed'
+    }
+  },
+  currentConfig: {
+    marginTop: '20px',
+    padding: '15px',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '8px',
+    fontSize: '14px',
+    color: '#2c3e50'
+  },
+  manualEntrySection: {
+    marginBottom: '30px',
+    padding: '20px',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '10px'
+  },
+  uploadActions: {
+    display: 'flex',
+    gap: '10px',
+    marginTop: '10px'
+  },
+  clearButton: {
+    padding: '12px 24px',
+    backgroundColor: '#f44336',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+    '&:disabled': {
+      backgroundColor: '#ccc',
+      cursor: 'not-allowed'
+    }
   }
 };
 

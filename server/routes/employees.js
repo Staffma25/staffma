@@ -63,6 +63,19 @@ router.post('/', auth, async (req, res) => {
       });
     }
 
+    // Check if employee with this email already exists in the business
+    const existingEmployee = await Employee.findOne({
+      email: email.toLowerCase().trim(),
+      businessId: req.user.businessId
+    });
+
+    if (existingEmployee) {
+      return res.status(400).json({
+        error: 'Duplicate entry',
+        details: 'An employee with this email already exists in your business'
+      });
+    }
+
     // Validate salary
     if (!salary || !salary.basic || typeof salary.basic !== 'number' || salary.basic <= 0) {
       return res.status(400).json({ 
@@ -105,17 +118,44 @@ router.post('/', auth, async (req, res) => {
       employeeNumber
     };
     
-    const employee = new Employee(employeeData);
-    await employee.save();
+    let retries = 3;
+    let employee;
+    
+    while (retries > 0) {
+      try {
+        employee = new Employee(employeeData);
+        await employee.save();
+        break;
+      } catch (error) {
+        if (error.code === 11000 && error.keyPattern?.employeeNumber) {
+          // If duplicate employee number, generate a new one and retry
+          retries--;
+          if (retries === 0) {
+            throw new Error('Failed to generate unique employee number after multiple attempts');
+          }
+          employeeData.employeeNumber = await generateEmployeeNumber(business.businessName);
+          continue;
+        }
+        throw error;
+      }
+    }
     
     res.status(201).json(employee);
   } catch (error) {
     console.error('Error creating employee:', error);
     if (error.code === 11000) {
-      return res.status(400).json({ 
-        error: 'Duplicate entry',
-        details: 'An employee with this email already exists'
-      });
+      if (error.keyPattern?.email) {
+        return res.status(400).json({ 
+          error: 'Duplicate entry',
+          details: 'An employee with this email already exists'
+        });
+      }
+      if (error.keyPattern?.employeeNumber) {
+        return res.status(400).json({ 
+          error: 'System error',
+          details: 'Failed to generate unique employee number. Please try again.'
+        });
+      }
     }
     res.status(500).json({ 
       error: 'Failed to create employee',
@@ -173,4 +213,97 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// Check and create employee record for current user
+router.post('/check-and-create', auth, async (req, res) => {
+  try {
+    // Check if employee record exists for current user
+    const existingEmployee = await Employee.findOne({
+      email: req.user.email,
+      businessId: req.user.businessId
+    });
+
+    if (existingEmployee) {
+      // If employee exists but is missing businessId, update it
+      if (!existingEmployee.businessId) {
+        existingEmployee.businessId = req.user.businessId;
+        await existingEmployee.save();
+      }
+      return res.json(existingEmployee);
+    }
+
+    // If no employee record exists, create one
+    const business = await Business.findById(req.user.businessId);
+    if (!business) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    // Generate employee number
+    const employeeNumber = await generateEmployeeNumber(business.businessName);
+
+    const employeeData = {
+      firstName: req.user.firstName,
+      lastName: req.user.lastName,
+      email: req.user.email,
+      department: req.user.department || 'General',
+      position: req.user.position || 'Employee',
+      salary: {
+        basic: 0,
+        allowances: {
+          housing: 0,
+          transport: 0,
+          medical: 0,
+          other: 0
+        },
+        deductions: {
+          loans: 0,
+          other: 0
+        }
+      },
+      startDate: new Date(),
+      joiningDate: new Date(),
+      businessId: req.user.businessId,
+      employeeNumber
+    };
+
+    const employee = new Employee(employeeData);
+    await employee.save();
+
+    res.status(201).json(employee);
+  } catch (error) {
+    console.error('Error checking/creating employee record:', error);
+    res.status(500).json({ 
+      error: 'Failed to verify employee record',
+      details: error.message 
+    });
+  }
+});
+
+// Update employee's businessId
+router.patch('/:id/business', auth, async (req, res) => {
+  try {
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Update the businessId
+    employee.businessId = req.user.businessId;
+    await employee.save();
+
+    res.json(employee);
+  } catch (error) {
+    console.error('Error updating employee businessId:', error);
+    res.status(500).json({ 
+      error: 'Failed to update employee businessId',
+      details: error.message 
+    });
+  }
+});
+
 module.exports = router; 
+
+
+
+
+
+

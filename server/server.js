@@ -20,6 +20,10 @@ const PerformanceReview = require('./models/PerformanceReview');
 const performanceReviewsRouter = require('./routes/performanceReviews');
 const payrollRoutes = require('./routes/Payroll');
 const dashboardRoutes = require('./routes/dashboard');
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
+const employeeRoutes = require('./routes/employees');
+const leaveRoutes = require('./routes/leaves');
 
 // Initialize express app
 const app = express();
@@ -34,32 +38,68 @@ const s3Client = new S3Client({
   }
 });
 
-// Configure multer for S3 uploads
-const upload = multer({
-  storage: multerS3({
-    s3: s3Client,
-    bucket: process.env.AWS_BUCKET_NAME,
-    metadata: function (req, file, cb) {
-      cb(null, { fieldName: file.fieldname });
-    },
-    key: function (req, file, cb) {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, `${file.fieldname}-${uniqueSuffix}-${file.originalname}`);
-    }
-  })
-});
-
 // Middleware
 app.use(cors({
   origin: ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001', 'http://localhost:5000'],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-refresh-token'],
   exposedHeaders: ['x-new-token']
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Remove the global multer middleware since we're handling it in the routes
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  
+  // Handle multer errors
+  if (err.name === 'MulterError') {
+    return res.status(400).json({
+      error: 'File upload error',
+      details: err.message
+    });
+  }
+
+  // Handle validation errors
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      error: 'Validation error',
+      details: err.message
+    });
+  }
+
+  // Handle JWT errors
+  if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+    return res.status(401).json({
+      error: 'Authentication error',
+      details: err.message
+    });
+  }
+
+  // Handle mongoose errors
+  if (err.name === 'MongoError' || err.name === 'MongoServerError') {
+    if (err.code === 11000) {
+      return res.status(400).json({
+        error: 'Duplicate entry',
+        details: 'A record with this information already exists'
+      });
+    }
+    return res.status(500).json({
+      error: 'Database error',
+      details: err.message
+    });
+  }
+
+  // Default error
+  res.status(500).json({
+    error: 'Internal server error',
+    details: err.message
+  });
+});
 
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI)
@@ -581,12 +621,12 @@ app.put('/api/employees/:id/status', authenticateBusiness, async (req, res) => {
 });
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/business', require('./routes/business'));
-app.use('/api/employees', require('./routes/employees'));
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/employees', employeeRoutes);
 app.use('/api/payroll', payrollRoutes);
+app.use('/api/leaves', leaveRoutes);
 app.use('/api/performance-reviews', performanceReviewsRouter);
-app.use('/api/users', require('./routes/users'));
 app.use('/api/dashboard', dashboardRoutes);
 
 // Add health check endpoint

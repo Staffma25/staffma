@@ -330,12 +330,6 @@ function PayrollManagement() {
         <h1 style={styles.title}>Payroll Management</h1>
         <div style={styles.headerActions}>
           <button
-            style={styles.settingsButton}
-            onClick={() => navigate('/payroll/settings')}
-          >
-            Settings
-          </button>
-          <button
             style={styles.processButton}
             onClick={processPayroll}
             disabled={loading || !isValidPayrollPeriod(selectedMonth, selectedYear)}

@@ -16,7 +16,8 @@ export const fetchWithAuth = async (url, options = {}) => {
         ...options.headers,
         'Authorization': `Bearer ${token}`
       },
-      credentials: 'include'
+      credentials: 'include',
+      signal: options.signal
     });
 
     // If token expired, try to refresh
@@ -35,7 +36,8 @@ export const fetchWithAuth = async (url, options = {}) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ refreshToken }),
-        credentials: 'include'
+        credentials: 'include',
+        signal: options.signal
       });
 
       if (!refreshResponse.ok) {
@@ -54,7 +56,8 @@ export const fetchWithAuth = async (url, options = {}) => {
           ...options.headers,
           'Authorization': `Bearer ${newToken}`
         },
-        credentials: 'include'
+        credentials: 'include',
+        signal: options.signal
       });
     }
 
@@ -70,6 +73,10 @@ export const fetchWithAuth = async (url, options = {}) => {
 
     return response;
   } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Request was aborted');
+      throw error;
+    }
     console.error('Error in fetchWithAuth:', error);
     if (error.message === 'Failed to fetch') {
       throw new Error('Unable to connect to the server. Please check your internet connection and try again.');
@@ -78,7 +85,7 @@ export const fetchWithAuth = async (url, options = {}) => {
   }
 };
 
-export const refreshToken = async () => {
+export const refreshToken = async (signal) => {
   try {
     const refreshToken = localStorage.getItem('refreshToken');
     if (!refreshToken) {
@@ -91,7 +98,8 @@ export const refreshToken = async () => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ refreshToken }),
-      credentials: 'include'
+      credentials: 'include',
+      signal
     });
 
     if (!response.ok) {
@@ -102,6 +110,10 @@ export const refreshToken = async () => {
     localStorage.setItem('token', data.token);
     return data.token;
   } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Token refresh aborted');
+      throw error;
+    }
     console.error('Error refreshing token:', error);
     // If refresh fails, clear tokens and redirect to login
     localStorage.removeItem('token');

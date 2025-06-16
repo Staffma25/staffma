@@ -10,6 +10,10 @@ const PayrollSettings = require('../models/PayrollSettings');
 const PDFDocument = require('pdfkit');
 const { capitalize } = require('lodash');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const xlsx = require('xlsx');
+const fs = require('fs');
+const path = require('path');
 
 // Import tax calculation functions
 const {
@@ -18,6 +22,33 @@ const {
   calculateNSSF,
   calculatePayroll
 } = require('../utils/taxCalculations');
+
+// Configure multer for file upload
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    if (file.mimetype === 'text/csv' || 
+        file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        file.mimetype === 'application/vnd.ms-excel') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only CSV and Excel files are allowed'));
+    }
+  }
+});
 
 // Add this validation helper function
 const isValidPayrollPeriod = async (businessId, month, year) => {
@@ -824,6 +855,271 @@ router.get('/employee/:employeeId', auth, async (req, res) => {
       error: 'Failed to fetch employee payroll history',
       details: error.message 
     });
+  }
+});
+
+// Add tax bracket
+router.post('/settings/tax-brackets', auth, async (req, res) => {
+  try {
+    const { lowerBound, upperBound, rate, region, businessType } = req.body;
+
+    // Validate input
+    if (!lowerBound || !upperBound || !rate || !region || !businessType) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    if (lowerBound < 0 || upperBound <= lowerBound) {
+      return res.status(400).json({ error: 'Invalid bounds' });
+    }
+
+    if (rate < 0 || rate > 100) {
+      return res.status(400).json({ error: 'Tax rate must be between 0 and 100' });
+    }
+
+    // Find or create payroll settings
+    let settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
+    
+    if (!settings) {
+      settings = new PayrollSettings({
+        businessId: req.user.businessId,
+        taxRates: {
+          allowances: [],
+          customDeductions: [],
+          taxBrackets: {
+            region,
+            businessType,
+            source: 'manual',
+            brackets: []
+          }
+        }
+      });
+    }
+
+    // Initialize tax brackets if they don't exist or update existing ones
+    if (!settings.taxRates.taxBrackets) {
+      settings.taxRates.taxBrackets = {
+        region,
+        businessType,
+        source: 'manual',
+        brackets: []
+      };
+    } else {
+      // Update the tax bracket info
+      settings.taxRates.taxBrackets.region = region;
+      settings.taxRates.taxBrackets.businessType = businessType;
+      settings.taxRates.taxBrackets.source = 'manual';
+    }
+
+    // Add new tax bracket
+    settings.taxRates.taxBrackets.brackets.push({
+      lowerBound,
+      upperBound,
+      rate,
+      enabled: true
+    });
+
+    // Sort brackets by lower bound
+    settings.taxRates.taxBrackets.brackets.sort((a, b) => a.lowerBound - b.lowerBound);
+
+    await settings.save();
+    res.status(200).json(settings);
+  } catch (error) {
+    console.error('Error adding tax bracket:', error);
+    res.status(500).json({ error: 'Failed to add tax bracket' });
+  }
+});
+
+// Remove tax bracket
+router.delete('/settings/tax-brackets/:index', auth, async (req, res) => {
+  try {
+    const index = parseInt(req.params.index);
+    
+    const settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
+    if (!settings || !settings.taxRates.taxBrackets) {
+      return res.status(404).json({ error: 'Tax brackets not found' });
+    }
+
+    if (index < 0 || index >= settings.taxRates.taxBrackets.brackets.length) {
+      return res.status(400).json({ error: 'Invalid tax bracket index' });
+    }
+
+    // Remove the tax bracket
+    settings.taxRates.taxBrackets.brackets.splice(index, 1);
+    await settings.save();
+
+    res.status(200).json(settings);
+  } catch (error) {
+    console.error('Error removing tax bracket:', error);
+    res.status(500).json({ error: 'Failed to remove tax bracket' });
+  }
+});
+
+// Upload tax brackets
+router.post('/settings/tax-brackets/upload', auth, upload.single('file'), async (req, res) => {
+  try {
+    console.log('Received file upload request:', {
+      body: req.body,
+      file: req.file ? {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        path: req.file.path
+      } : null
+    });
+
+    const { region, businessType } = req.body;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    if (!region || !businessType) {
+      return res.status(400).json({ error: 'Region and business type are required' });
+    }
+
+    // Process the file based on its type
+    let brackets = [];
+    const filePath = file.path;
+    const fileExt = path.extname(file.originalname).toLowerCase();
+
+    try {
+      console.log('Processing file:', {
+        path: filePath,
+        extension: fileExt
+      });
+
+      if (fileExt === '.csv') {
+        // Process CSV file
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(worksheet);
+
+        console.log('Parsed CSV data:', data);
+
+        brackets = data.map(row => ({
+          lowerBound: Number(row['Lower Bound'] || row['lowerBound'] || row['Lower bound']),
+          upperBound: Number(row['Upper Bound'] || row['upperBound'] || row['Upper bound']),
+          rate: Number(row['Rate'] || row['rate'] || row['Tax Rate'] || row['taxRate'] || row['tax rate']),
+          enabled: true
+        }));
+      } else if (fileExt === '.xlsx' || fileExt === '.xls') {
+        // Process Excel file
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(worksheet);
+
+        console.log('Parsed Excel data:', data);
+
+        brackets = data.map(row => ({
+          lowerBound: Number(row['Lower Bound'] || row['lowerBound'] || row['Lower bound']),
+          upperBound: Number(row['Upper Bound'] || row['upperBound'] || row['Upper bound']),
+          rate: Number(row['Rate'] || row['rate'] || row['Tax Rate'] || row['taxRate'] || row['tax rate']),
+          enabled: true
+        }));
+      }
+
+      console.log('Processed brackets:', brackets);
+
+      // Validate brackets
+      for (const bracket of brackets) {
+        if (isNaN(bracket.lowerBound) || isNaN(bracket.upperBound) || isNaN(bracket.rate)) {
+          throw new Error('Invalid data in file. Please ensure all values are numbers.');
+        }
+        if (bracket.lowerBound < 0 || bracket.upperBound <= bracket.lowerBound) {
+          throw new Error('Invalid bounds in file. Lower bound must be >= 0 and upper bound must be > lower bound.');
+        }
+        if (bracket.rate < 0 || bracket.rate > 100) {
+          throw new Error('Invalid rate in file. Tax rate must be between 0 and 100.');
+        }
+      }
+
+      // Sort brackets by lower bound
+      brackets.sort((a, b) => a.lowerBound - b.lowerBound);
+
+      // Find or create payroll settings
+      let settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
+      if (!settings) {
+        settings = new PayrollSettings({
+          businessId: req.user.businessId,
+          taxRates: {
+            allowances: [],
+            customDeductions: [],
+            taxBrackets: {
+              region,
+              businessType,
+              source: 'upload',
+              brackets: []
+            }
+          }
+        });
+      }
+
+      // Update tax brackets
+      settings.taxRates.taxBrackets = {
+        region,
+        businessType,
+        source: 'upload',
+        brackets,
+        lastUpdated: new Date()
+      };
+
+      await settings.save();
+      console.log('Settings saved successfully');
+
+      // Clean up: delete the uploaded file
+      fs.unlinkSync(filePath);
+
+      res.status(200).json(settings);
+    } catch (error) {
+      console.error('Error processing file:', error);
+      // Clean up: delete the uploaded file in case of error
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error uploading tax brackets:', error);
+    res.status(500).json({ 
+      error: 'Failed to upload tax brackets',
+      details: error.message 
+    });
+  }
+});
+
+// Get tax bracket template
+router.get('/settings/tax-brackets/template', auth, async (req, res) => {
+  try {
+    const { region, businessType } = req.query;
+
+    if (!region || !businessType) {
+      return res.status(400).json({ error: 'Region and business type are required' });
+    }
+
+    // This is a placeholder - you'll need to implement the actual template loading
+    const templateBrackets = []; // Load template based on region and business type
+
+    const settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
+    if (!settings) {
+      return res.status(404).json({ error: 'Payroll settings not found' });
+    }
+
+    settings.taxRates.taxBrackets = {
+      region,
+      businessType,
+      source: 'template',
+      brackets: templateBrackets,
+      lastUpdated: new Date()
+    };
+
+    await settings.save();
+    res.status(200).json(settings);
+  } catch (error) {
+    console.error('Error loading tax bracket template:', error);
+    res.status(500).json({ error: 'Failed to load tax bracket template' });
   }
 });
 

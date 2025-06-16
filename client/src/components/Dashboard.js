@@ -1,19 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import EmployeeDetails from './EmployeeDetails';
 import PayrollCard from './PayrollCard';
 import { getDashboardData } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+
 function Dashboard() {
   const [dashboardData, setDashboardData] = useState({
     business: null,
     metrics: {
-      employeeCount: { total: 0, remaining: 100 },
+      employeeCount: { total: 0, remaining: 0 },
       userCount: { total: 0, active: 0 }
     },
-    payrollSummary: { totalGrossSalary: 0, totalNetSalary: 0 },
-    performanceReviewsStats: { pendingReviews: 0, completedReviews: 0 },
+    payrollSummary: { 
+      totalGrossSalary: 0, 
+      totalNetSalary: 0 
+    },
+    performanceReviewsStats: { 
+      pendingReviews: 0, 
+      completedReviews: 0 
+    },
+    leaveManagementStats: {
+      pendingLeaves: 0,
+      approvedLeaves: 0,
+      rejectedLeaves: 0
+    },
     employees: [],
     users: []
   });
@@ -100,25 +113,23 @@ function Dashboard() {
     }
   });
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedBusiness, setEditedBusiness] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [payrollSummary, setPayrollSummary] = useState(null);
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
   const [reviewStats, setReviewStats] = useState({ pendingReviews: 0, completedReviews: 0 });
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const token = getToken();
-        if (!token) {
-          console.error('No authentication token found');
-          navigate('/login');
-          return;
-        }
+  const fetchDashboardData = useCallback(async (abortController) => {
+    try {
+      const token = getToken();
+      if (!token) {
+        console.error('No authentication token found');
+        navigate('/login');
+        return;
+      }
 
-        const data = await getDashboardData();
+      const data = await getDashboardData(abortController?.signal);
+      
+      if (!abortController?.signal.aborted) {
         console.log('Dashboard data received:', data);
         setDashboardData(prevData => ({
           ...prevData,
@@ -129,10 +140,6 @@ function Dashboard() {
           total: data.metrics?.employeeCount?.total || 0,
           remaining: data.metrics?.employeeCount?.remaining || 100
         });
-        setPayrollSummary(data.payrollSummary || {
-          totalGrossSalary: 0,
-          totalNetSalary: 0
-        });
         setReviewStats(data.performanceReviewsStats || {
           pendingReviews: 0,
           completedReviews: 0
@@ -141,20 +148,27 @@ function Dashboard() {
           totalUsers: data.metrics?.userCount?.total || 0,
           activeUsers: data.metrics?.userCount?.active || 0
         });
-      } catch (error) {
+        setLoading(false);
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError' && !abortController?.signal.aborted) {
         console.error('Error fetching dashboard data:', error);
         setError(error.message);
         if (error.message.includes('Failed to fetch') || error.message.includes('No authentication token found')) {
           logout();
           navigate('/login');
         }
-      } finally {
-        setLoading(false);
       }
-    };
-
-    fetchDashboardData();
+    }
   }, [navigate, getToken, logout]);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+    fetchDashboardData(abortController);
+    return () => {
+      abortController.abort();
+    };
+  }, [fetchDashboardData]);
 
   const handleAddEmployee = async (e) => {
     e.preventDefault();
@@ -179,13 +193,16 @@ function Dashboard() {
         startDate: newEmployee.startDate
       };
 
+      const abortController = new AbortController();
+
       const response = await fetch('http://localhost:5001/api/employees', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(employeeData)
+        body: JSON.stringify(employeeData),
+        signal: abortController.signal
       });
 
       if (!response.ok) {
@@ -194,71 +211,20 @@ function Dashboard() {
       }
 
       const addedEmployee = await response.json();
+      if (!abortController.signal.aborted) {
       setDashboardData(prevData => ({
         ...prevData,
         employees: [...prevData.employees, addedEmployee]
       }));
-      
-      // Reset form
-      setShowAddEmployee(false);
-      setNewEmployee({
-        firstName: '',
-        lastName: '',
-        email: '',
-        department: '',
-        position: '',
-        salary: '',
-        joiningDate: '',
-        startDate: '',
-        offerLetter: null
-      });
+      }
 
-      alert('Employee added successfully!');
-
+      return () => {
+        abortController.abort();
+      };
     } catch (error) {
+      if (error.name !== 'AbortError') {
       console.error('Error adding employee:', error);
-      if (error.message.includes('No authentication token found')) {
-        logout();
-        navigate('/login');
-      } else {
-      alert(error.message || 'Failed to add employee. Please try again.');
-      }
-    }
-  };
-
-  const handleEditBusiness = async () => {
-    try {
-      const token = getToken();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch('http://localhost:5001/api/business/update', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(editedBusiness)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update business information');
-      }
-
-      const updatedBusiness = await response.json();
-      setDashboardData(prevData => ({
-        ...prevData,
-        business: updatedBusiness
-      }));
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Error updating business:', error);
-      if (error.message.includes('No authentication token found')) {
-        logout();
-        navigate('/login');
-      } else {
-        setError(error.message);
+        throw error;
       }
     }
   };
@@ -422,193 +388,42 @@ function Dashboard() {
         </button>
       </header>
 
-      {/* Business Info Card */}
-      <div style={styles.infoCard}>
-        <div style={styles.cardHeader}>
-          <h2 style={styles.cardTitle}>Business Information</h2>
-          {!isEditing ? (
-            <button onClick={() => setIsEditing(true)} style={styles.editBtn}>
-              Edit Info
-            </button>
-          ) : (
-            <div style={styles.editButtons}>
-              <button onClick={handleEditBusiness} style={styles.saveBtn}>
-                Save
-              </button>
-              <button 
-                onClick={() => {
-                  setIsEditing(false);
-                  setEditedBusiness(dashboardData.business);
-                }} 
-                style={styles.cancelEditBtn}
-              >
-                Cancel
-              </button>
+      {/* Dashboard Overview Grid */}
+      <div style={styles.overviewGrid}>
+        {/* Quick Stats */}
+        <div style={styles.quickStats}>
+          <h2 style={styles.sectionTitle}>
+            <span style={styles.icon}>📊</span>
+            Quick Overview
+          </h2>
+          <div style={styles.statsGrid}>
+            <div style={styles.statCard}>
+              <h3>Total Workforce</h3>
+              <p style={styles.statValue}>
+                {dashboardData?.metrics?.employeeCount?.total || 0}
+                <span style={styles.statLabel}>Employees</span>
+              </p>
             </div>
-          )}
-        </div>
-        <div style={styles.infoGrid}>
-          <div style={styles.infoItem}>
-            <span style={styles.label}>Business Type:</span>
-            {isEditing ? (
-              <select
-                style={styles.input}
-                value={editedBusiness?.businessType}
-                onChange={(e) => setEditedBusiness({
-                  ...editedBusiness,
-                  businessType: e.target.value
-                })}
-              >
-                <option value="limited">Limited Company</option>
-                <option value="sole">Sole Proprietorship</option>
-              </select>
-            ) : (
-              <span>{dashboardData.business?.businessType === 'limited' ? 'Limited Company' : 'Sole Proprietorship'}</span>
-            )}
-          </div>
-          <div style={styles.infoItem}>
-            <span style={styles.label}>Contact Email:</span>
-            <span>{dashboardData.business?.email}</span>
-          </div>
-          <div style={styles.infoItem}>
-            <span style={styles.label}>Contact Number:</span>
-            {isEditing ? (
-              <input
-                style={styles.input}
-                type="tel"
-                value={editedBusiness?.contactNumber}
-                onChange={(e) => setEditedBusiness({
-                  ...editedBusiness,
-                  contactNumber: e.target.value
-                })}
-              />
-            ) : (
-              <span>{dashboardData.business?.contactNumber}</span>
-            )}
-          </div>
-          <div style={styles.infoItem}>
-            <span style={styles.label}>Address:</span>
-            {isEditing ? (
-              <input
-                style={styles.input}
-                type="text"
-                value={editedBusiness?.businessAddress}
-                onChange={(e) => setEditedBusiness({
-                  ...editedBusiness,
-                  businessAddress: e.target.value
-                })}
-              />
-            ) : (
-              <span>{dashboardData.business?.businessAddress}</span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Three Main Cards Section */}
-      <div style={styles.cardsContainer}>
-        {/* Employees Card */}
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>Employees</h2>
-          <div style={styles.cardContent}>
-            <div style={styles.cardStats}>
-              <div style={styles.stat}>
-                <span>Total Employees</span>
-                <h3>{employeeCount.total}</h3>
-              </div>
-              <div style={styles.stat}>
-                <span>Remaining Slots</span>
-                <h3>{employeeCount.remaining}</h3>
-              </div>
+            <div style={styles.statCard}>
+              <h3>Monthly Payroll</h3>
+              <p style={styles.statValue}>
+                R{(dashboardData?.payrollSummary?.totalGrossSalary || 0).toLocaleString()}
+                <span style={styles.statLabel}>Gross Total</span>
+              </p>
             </div>
-            <div style={styles.cardActions}>
-              <button 
-                onClick={() => navigate('/employees')} 
-                style={styles.actionButton}
-              >
-                View Employee List
-              </button>
+            <div style={styles.statCard}>
+              <h3>System Users</h3>
+              <p style={styles.statValue}>
+                {dashboardData?.metrics?.userCount?.active || 0}
+                <span style={styles.statLabel}>Active Users</span>
+              </p>
             </div>
-          </div>
-        </div>
-
-        {/* Payroll Card */}
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>Payroll Management</h2>
-          <div style={styles.cardContent}>
-            <div style={styles.cardStats}>
-              <div style={styles.stat}>
-                <span>Total Gross Salary</span>
-                <h3>KES {payrollSummary?.totalGrossSalary?.toLocaleString() || 0}</h3>
-              </div>
-              <div style={styles.stat}>
-                <span>Total Net Salary</span>
-                <h3>KES {payrollSummary?.totalNetSalary?.toLocaleString() || 0}</h3>
-              </div>
-            </div>
-            <div style={styles.cardActions}>
-              <button 
-                onClick={() => navigate('/payroll')} 
-                style={styles.actionButton}
-              >
-                Manage Payroll
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Performance Reviews Card */}
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>Performance Reviews</h2>
-          <div style={styles.cardContent}>
-            <div style={styles.cardStats}>
-              <div style={styles.stat}>
-                <span>Pending Reviews</span>
-                <h3>{reviewStats.pendingReviews}</h3>
-              </div>
-              <div style={styles.stat}>
-                <span>Completed Reviews</span>
-                <h3>{reviewStats.completedReviews}</h3>
-              </div>
-            </div>
-            <div style={styles.cardActions}>
-              <button 
-                onClick={() => navigate('/performance-reviews')} 
-                style={styles.actionButton}
-              >
-                View Reviews
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* User Management Card */}
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>User Management</h2>
-          <div style={styles.cardContent}>
-            <div style={styles.cardStats}>
-              <div style={styles.stat}>
-                <span>Total Users</span>
-                <h3>{userManagementStats.totalUsers}</h3>
-              </div>
-              <div style={styles.stat}>
-                <span>Active Users</span>
-                <h3>{userManagementStats.activeUsers}</h3>
-              </div>
-            </div>
-            <div style={styles.cardActions}>
-              <button 
-                onClick={() => setShowAddUser(true)} 
-                style={styles.actionButton}
-              >
-                Add New User
-              </button>
-              <button 
-                onClick={() => navigate('/user-management')} 
-                style={styles.actionButton}
-              >
-                Manage Users
-              </button>
+            <div style={styles.statCard}>
+              <h3>Leave Requests</h3>
+              <p style={styles.statValue}>
+                {dashboardData?.leaveManagementStats?.pendingLeaves || 0}
+                <span style={styles.statLabel}>Pending</span>
+              </p>
             </div>
           </div>
         </div>
@@ -1017,94 +832,55 @@ const styles = {
       backgroundColor: '#c0392b',
     },
   },
-  infoCard: {
+  overviewGrid: {
+    marginTop: '2rem',
+  },
+  quickStats: {
     backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '1.5rem',
-    marginBottom: '2rem',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-  },
-  cardTitle: {
-    fontSize: '1.25rem',
-    color: '#2c3e50',
-    marginBottom: '1.5rem',
-    fontWeight: '600',
-    borderBottom: '2px solid #f0f0f0',
-    paddingBottom: '0.75rem',
-  },
-  infoGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '1rem',
-  },
-  infoItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.5rem',
-  },
-  label: {
-    color: '#7f8c8d',
-    fontSize: '0.9rem',
-  },
-  cardsContainer: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-    gap: '2rem',
-    margin: '2rem 0',
-  },
-  card: {
-    backgroundColor: '#ffffff',
     borderRadius: '12px',
     padding: '1.5rem',
     boxShadow: '0 4px 6px rgba(0, 0, 0, 0.07)',
-    transition: 'all 0.3s ease',
-    '&:hover': {
-      transform: 'translateY(-5px)',
-      boxShadow: '0 8px 15px rgba(0, 0, 0, 0.1)',
-    },
   },
-  cardContent: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1.5rem',
-  },
-  cardStats: {
+  statsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '1rem',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+    gap: '1.5rem',
+    marginTop: '1rem',
   },
-  stat: {
-    backgroundColor: '#f8f9fa',
-    padding: '1rem',
+  statCard: {
+    backgroundColor: '#f8fafc',
+    padding: '1.5rem',
     borderRadius: '8px',
-    textAlign: 'center',
-    transition: 'all 0.2s ease',
+    border: '1px solid #e2e8f0',
+    transition: 'transform 0.2s ease',
     '&:hover': {
-      backgroundColor: '#e9ecef',
+      transform: 'translateY(-2px)',
     },
   },
-  cardActions: {
+  statValue: {
+    fontSize: '1.8rem',
+    fontWeight: '600',
+    color: '#0f172a',
+    marginTop: '0.5rem',
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
   },
-  actionButton: {
-    width: '100%',
-    padding: '0.875rem',
-    backgroundColor: '#3498db',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '1rem',
-    fontWeight: '500',
-    transition: 'background-color 0.2s ease',
-    '&:hover': {
-      backgroundColor: '#2980b9',
-    },
-    '&:active': {
-      transform: 'scale(0.98)',
-    },
+  statLabel: {
+    fontSize: '0.875rem',
+    color: '#64748b',
+    fontWeight: '400',
+    marginTop: '0.25rem',
+  },
+  sectionTitle: {
+    fontSize: '1.25rem',
+    color: '#2c3e50',
+    marginBottom: '1rem',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  icon: {
+    fontSize: '1.5rem',
   },
   loading: {
     textAlign: 'center',
@@ -1116,82 +892,13 @@ const styles = {
     padding: '2rem',
     color: '#e74c3c',
   },
-  cardHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '1rem',
-  },
-  
-  editBtn: {
-    padding: '0.5rem 1rem',
-    backgroundColor: '#3498db',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '0.9rem',
-  },
-  
-  editButtons: {
-    display: 'flex',
-    gap: '0.5rem',
-  },
-  
-  saveBtn: {
-    padding: '0.5rem 1rem',
-    backgroundColor: '#27ae60',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '0.9rem',
-  },
-  
-  cancelEditBtn: {
-    padding: '0.5rem 1rem',
-    backgroundColor: '#e74c3c',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '0.9rem',
-  },
-  
-  input: {
-    padding: '0.5rem',
-    borderRadius: '4px',
-    border: '1px solid #dcdde1',
-    fontSize: '0.9rem',
-    width: '100%',
-  },
-  viewBtn: {
-    padding: '0.5rem 1rem',
-    backgroundColor: '#3498db',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '0.9rem',
-  },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   formGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, 1fr)',
     gap: '1.5rem',
     marginBottom: '1.5rem',
   },
-    '@media (max-width: 768px)': {
+  '@media (max-width: 768px)': {
     formGrid: {
       gridTemplateColumns: '1fr',
     },
@@ -1229,6 +936,17 @@ const styles = {
     '&:hover': {
       backgroundColor: '#c0392b',
     },
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
     backgroundColor: 'white',

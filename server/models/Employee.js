@@ -65,7 +65,8 @@ const employeeSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true,
-        lowercase: true
+        lowercase: true,
+        set: v => v.toLowerCase().trim()
     },
     position: {
         type: String,

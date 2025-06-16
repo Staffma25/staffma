@@ -46,7 +46,50 @@ const payrollSettingsSchema = new mongoose.Schema({
         type: Boolean,
         default: true
       }
-    }]
+    }],
+    taxBrackets: {
+      region: {
+        type: String,
+        required: true,
+        trim: true
+      },
+      businessType: {
+        type: String,
+        required: true,
+        trim: true
+      },
+      source: {
+        type: String,
+        enum: ['upload', 'template', 'manual'],
+        required: true
+      },
+      lastUpdated: {
+        type: Date,
+        default: Date.now
+      },
+      brackets: [{
+        lowerBound: {
+          type: Number,
+          required: true,
+          min: 0
+        },
+        upperBound: {
+          type: Number,
+          required: true,
+          min: 0
+        },
+        rate: {
+          type: Number,
+          required: true,
+          min: 0,
+          max: 100
+        },
+        enabled: {
+          type: Boolean,
+          default: true
+        }
+      }]
+    }
   },
   lastUpdated: {
     type: Date,
@@ -86,7 +129,13 @@ payrollSettingsSchema.statics.findOrCreate = async function(businessId) {
         businessId,
         taxRates: {
           allowances: [],
-          customDeductions: []
+          customDeductions: [],
+          taxBrackets: {
+            region: '',
+            businessType: '',
+            source: '',
+            brackets: []
+          }
         }
       });
       await settings.save();
@@ -102,3 +151,6 @@ payrollSettingsSchema.statics.findOrCreate = async function(businessId) {
 const PayrollSettings = mongoose.model('PayrollSettings', payrollSettingsSchema);
 
 module.exports = PayrollSettings; 
+
+
+

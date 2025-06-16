@@ -164,13 +164,24 @@ const calculatePayroll = async (employee, businessId) => {
       throw new Error('Payroll settings not found');
     }
 
+    console.log('Starting payroll calculation for employee:', {
+      id: employee._id,
+      name: `${employee.firstName} ${employee.lastName}`,
+      basicSalary: employee.salary.basic
+    });
+
     const basicSalary = employee.salary.basic;
 
     // Calculate allowances
     const { totalAllowances, allowanceDetails } = await calculateAllowances(basicSalary, businessId);
+    console.log('Allowances calculated:', {
+      totalAllowances,
+      allowanceDetails
+    });
   
-  // Calculate gross salary
+    // Calculate gross salary
     const grossSalary = basicSalary + totalAllowances;
+    console.log('Gross salary calculated:', grossSalary);
 
     // Calculate statutory deductions only if enabled in settings
     const statutoryDeductions = {};
@@ -180,22 +191,29 @@ const calculatePayroll = async (employee, businessId) => {
       const paye = calculatePAYE(grossSalary, settings);
       statutoryDeductions.paye = paye;
       totalStatutoryDeductions += paye;
+      console.log('PAYE calculated:', paye);
     }
 
     if (settings.taxRates.nhif?.enabled) {
       const nhif = calculateNHIF(grossSalary, settings);
       statutoryDeductions.nhif = nhif;
       totalStatutoryDeductions += nhif;
+      console.log('NHIF calculated:', nhif);
     }
 
     if (settings.taxRates.nssf?.enabled) {
       const nssf = calculateNSSF(grossSalary, settings);
       statutoryDeductions.nssf = nssf;
       totalStatutoryDeductions += nssf;
+      console.log('NSSF calculated:', nssf);
     }
 
     // Calculate custom deductions
     const { totalDeductions, deductionDetails } = await calculateDeductions(grossSalary, businessId);
+    console.log('Custom deductions calculated:', {
+      totalDeductions,
+      deductionDetails
+    });
 
     // Combine all deductions
     const allDeductions = {
@@ -203,11 +221,21 @@ const calculatePayroll = async (employee, businessId) => {
       ...deductionDetails
     };
 
-  // Calculate net salary
+    // Calculate net salary
     const totalDeductionsAmount = totalStatutoryDeductions + totalDeductions;
     const netSalary = grossSalary - totalDeductionsAmount;
 
-  return {
+    console.log('Final calculations:', {
+      basicSalary,
+      totalAllowances,
+      grossSalary,
+      totalStatutoryDeductions,
+      totalCustomDeductions: totalDeductions,
+      totalDeductionsAmount,
+      netSalary
+    });
+
+    return {
       employeeId: employee._id,
       employeeNumber: employee.employeeNumber,
       basicSalary,
@@ -218,16 +246,16 @@ const calculatePayroll = async (employee, businessId) => {
           amount
         })),
         total: totalAllowances
-    },
-    deductions: {
+      },
+      deductions: {
         items: Object.entries(allDeductions).map(([name, amount]) => ({
           name,
           amount
         })),
         total: totalDeductionsAmount
-    },
+      },
       netSalary: Math.round(netSalary)
-  };
+    };
   } catch (error) {
     console.error('Error calculating payroll:', error);
     throw error;

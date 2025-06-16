@@ -22,8 +22,17 @@ async function generateEmployeeNumber(businessName) {
     let nextNumber;
     if (latestEmployee && latestEmployee.employeeNumber) {
       // Extract the numeric part and increment
-      const currentNumber = parseInt(latestEmployee.employeeNumber.replace(initials, ''));
-      nextNumber = (currentNumber + 1).toString().padStart(4, '0');
+      const numericPart = latestEmployee.employeeNumber.replace(/[^0-9]/g, '');
+      const currentNumber = parseInt(numericPart, 10);
+      
+      if (isNaN(currentNumber)) {
+        // If parsing fails, start with 0001
+        nextNumber = '0001';
+      } else {
+        // Add a random number between 1-9 to avoid conflicts in concurrent requests
+        const randomIncrement = Math.floor(Math.random() * 9) + 1;
+        nextNumber = (currentNumber + randomIncrement).toString().padStart(4, '0');
+      }
     } else {
       // Start with 0001 if no employees exist
       nextNumber = '0001';
@@ -31,6 +40,13 @@ async function generateEmployeeNumber(businessName) {
 
     const employeeNumber = `${initials}${nextNumber}`;
     console.log('Generated employee number:', employeeNumber);
+
+    // Verify the number is unique
+    const existingEmployee = await Employee.findOne({ employeeNumber });
+    if (existingEmployee) {
+      // If number exists, try again with a different random increment
+      return generateEmployeeNumber(businessName);
+    }
 
     return employeeNumber;
   } catch (error) {

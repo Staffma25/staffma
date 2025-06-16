@@ -5,33 +5,8 @@ function EmployeesList() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
-
-  const [newEmployee, setNewEmployee] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    department: '',
-    position: '',
-    salary: {
-      basic: '',
-      allowances: {
-        housing: 0,
-        transport: 0,
-        medical: 0,
-        other: 0
-      },
-      deductions: {
-        loans: 0,
-        other: 0
-      }
-    },
-    joiningDate: '',
-    startDate: '',
-    offerLetter: null
-  });
 
   const fetchEmployees = async () => {
     try {
@@ -51,12 +26,6 @@ function EmployeesList() {
       }
 
       const data = await response.json();
-      console.log('Received employees data:', data.map(emp => ({
-        id: emp._id,
-        employeeNumber: emp.employeeNumber,
-        name: `${emp.firstName} ${emp.lastName}`
-      })));
-
       setEmployees(data);
     } catch (error) {
       console.error('Error fetching employees:', error);
@@ -68,96 +37,7 @@ function EmployeesList() {
 
   useEffect(() => {
     fetchEmployees();
-  }, [showAddForm]);
-
-  const handleAddEmployee = async (e) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem('token');
-      
-      // Validate salary
-      const salaryValue = parseFloat(newEmployee.salary.basic);
-      if (isNaN(salaryValue) || salaryValue <= 0) {
-        setError('Please enter a valid salary amount (must be greater than 0)');
-        return;
-      }
-
-      const employeeData = {
-        firstName: newEmployee.firstName,
-        lastName: newEmployee.lastName,
-        email: newEmployee.email,
-        department: newEmployee.department,
-        position: newEmployee.position,
-        salary: {
-          basic: salaryValue,
-          allowances: {
-            housing: 0,
-            transport: 0,
-            medical: 0,
-            other: 0
-          },
-          deductions: {
-            loans: 0,
-            other: 0
-          }
-        },
-        startDate: newEmployee.startDate,
-        joiningDate: newEmployee.joiningDate
-      };
-
-      console.log('Sending employee data:', employeeData);
-
-      const response = await fetch('http://localhost:5001/api/employees', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(employeeData)
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || data.details || 'Failed to add employee');
-      }
-
-      console.log('Employee created successfully:', data);
-
-      setShowAddForm(false);
-      setNewEmployee({
-        firstName: '',
-        lastName: '',
-        email: '',
-        department: '',
-        position: '',
-        salary: {
-          basic: '',
-          allowances: {
-            housing: 0,
-            transport: 0,
-            medical: 0,
-            other: 0
-          },
-          deductions: {
-            loans: 0,
-            other: 0
-          }
-        },
-        joiningDate: '',
-        startDate: '',
-        offerLetter: null
-      });
-
-      setError(null);
-      alert('Employee added successfully!');
-      await fetchEmployees();
-
-    } catch (error) {
-      console.error('Error adding employee:', error);
-      setError(error.message);
-    }
-  };
+  }, []);
 
   const viewEmployeeDetails = (employeeId) => {
     navigate(`/employee/${employeeId}`);
@@ -224,143 +104,6 @@ function EmployeesList() {
     );
   }
 
-  if (!employees || employees.length === 0) {
-    return (
-      <div style={styles.container}>
-        <div style={styles.header}>
-          <div style={styles.headerLeft}>
-            <button 
-              onClick={() => navigate('/dashboard')} 
-              style={styles.backButton}
-            >
-              ← Back to Dashboard
-            </button>
-            <h2 style={styles.title}>Employees Management</h2>
-          </div>
-          <button 
-            onClick={() => setShowAddForm(!showAddForm)} 
-            style={styles.addButton}
-          >
-            {showAddForm ? 'Cancel' : 'Add New Employee'}
-          </button>
-        </div>
-        <div style={styles.emptyState}>
-          <p>No employees found. Add your first employee to get started!</p>
-          {!showAddForm && (
-            <button 
-              onClick={() => setShowAddForm(true)} 
-              style={styles.addButton}
-            >
-              Add New Employee
-            </button>
-          )}
-        </div>
-        {showAddForm && (
-          <div style={styles.formContainer}>
-            <form onSubmit={handleAddEmployee} style={styles.form}>
-              <div style={styles.formGrid}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>First Name</label>
-                  <input
-                    style={styles.input}
-                    type="text"
-                    value={newEmployee.firstName}
-                    onChange={(e) => setNewEmployee({...newEmployee, firstName: e.target.value})}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Last Name</label>
-                  <input
-                    style={styles.input}
-                    type="text"
-                    value={newEmployee.lastName}
-                    onChange={(e) => setNewEmployee({...newEmployee, lastName: e.target.value})}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Email</label>
-                  <input
-                    style={styles.input}
-                    type="email"
-                    value={newEmployee.email}
-                    onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Department</label>
-                  <input
-                    style={styles.input}
-                    type="text"
-                    value={newEmployee.department}
-                    onChange={(e) => setNewEmployee({...newEmployee, department: e.target.value})}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Position</label>
-                  <input
-                    style={styles.input}
-                    type="text"
-                    value={newEmployee.position}
-                    onChange={(e) => setNewEmployee({...newEmployee, position: e.target.value})}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Basic Salary</label>
-                  <input
-                    style={styles.input}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={newEmployee.salary.basic}
-                    onChange={(e) => setNewEmployee({
-                      ...newEmployee,
-                      salary: {
-                        ...newEmployee.salary,
-                        basic: e.target.value
-                      }
-                    })}
-                    required
-                    placeholder="Enter basic salary amount"
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Start Date</label>
-                  <input
-                    style={styles.input}
-                    type="date"
-                    value={newEmployee.startDate}
-                    onChange={(e) => setNewEmployee({...newEmployee, startDate: e.target.value})}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Joining Date</label>
-                  <input
-                    style={styles.input}
-                    type="date"
-                    value={newEmployee.joiningDate}
-                    onChange={(e) => setNewEmployee({...newEmployee, joiningDate: e.target.value})}
-                    required
-                  />
-                </div>
-              </div>
-              <div style={styles.formButtons}>
-                <button type="submit" style={styles.submitButton}>
-                  Add Employee
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -373,12 +116,6 @@ function EmployeesList() {
           </button>
           <h2 style={styles.title}>Employees Management</h2>
         </div>
-        <button 
-          onClick={() => setShowAddForm(!showAddForm)} 
-          style={styles.addButton}
-        >
-          {showAddForm ? 'Cancel' : 'Add New Employee'}
-        </button>
       </div>
 
       {/* Search Bar */}
@@ -399,110 +136,6 @@ function EmployeesList() {
           </button>
         )}
       </div>
-
-      {/* Add Employee Form */}
-      {showAddForm && (
-        <div style={styles.formContainer}>
-          <form onSubmit={handleAddEmployee} style={styles.form}>
-            <div style={styles.formGrid}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>First Name</label>
-                <input
-                  style={styles.input}
-                  type="text"
-                  value={newEmployee.firstName}
-                  onChange={(e) => setNewEmployee({...newEmployee, firstName: e.target.value})}
-                  required
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Last Name</label>
-                <input
-                  style={styles.input}
-                  type="text"
-                  value={newEmployee.lastName}
-                  onChange={(e) => setNewEmployee({...newEmployee, lastName: e.target.value})}
-                  required
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Email</label>
-                <input
-                  style={styles.input}
-                  type="email"
-                  value={newEmployee.email}
-                  onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
-                  required
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Department</label>
-                <input
-                  style={styles.input}
-                  type="text"
-                  value={newEmployee.department}
-                  onChange={(e) => setNewEmployee({...newEmployee, department: e.target.value})}
-                  required
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Position</label>
-                <input
-                  style={styles.input}
-                  type="text"
-                  value={newEmployee.position}
-                  onChange={(e) => setNewEmployee({...newEmployee, position: e.target.value})}
-                  required
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Basic Salary</label>
-                <input
-                  style={styles.input}
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={newEmployee.salary.basic}
-                  onChange={(e) => setNewEmployee({
-                    ...newEmployee,
-                    salary: {
-                      ...newEmployee.salary,
-                      basic: e.target.value
-                    }
-                  })}
-                  required
-                  placeholder="Enter basic salary amount"
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Start Date</label>
-                <input
-                  style={styles.input}
-                  type="date"
-                  value={newEmployee.startDate}
-                  onChange={(e) => setNewEmployee({...newEmployee, startDate: e.target.value})}
-                  required
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Joining Date</label>
-                <input
-                  style={styles.input}
-                  type="date"
-                  value={newEmployee.joiningDate}
-                  onChange={(e) => setNewEmployee({...newEmployee, joiningDate: e.target.value})}
-                  required
-                />
-              </div>
-            </div>
-            <div style={styles.formButtons}>
-              <button type="submit" style={styles.submitButton}>
-                Add Employee
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
       
       {/* Employees Table */}
       <div style={styles.tableContainer}>

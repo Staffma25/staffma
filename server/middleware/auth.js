@@ -25,7 +25,15 @@ module.exports = async (req, res, next) => {
         ...business.toObject(),
         type: 'business',
         businessId: business._id,
-        hasPermission: () => true
+        permissions: {
+          leaveManagement: {
+            applyLeave: true,
+            approveLeave: true,
+            viewAllLeaves: true,
+            manageLeaveTypes: true,
+            generateLeaveReports: true
+          }
+        }
       };
       return next();
     }

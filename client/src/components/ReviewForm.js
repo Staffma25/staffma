@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const PERFORMANCE_CATEGORIES = [
@@ -10,17 +11,21 @@ const PERFORMANCE_CATEGORIES = [
   'Problem Solving'
 ];
 
-const ReviewForm = ({ onSubmitSuccess, onCancel, year, quarter }) => {
+const ReviewForm = () => {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
+  const currentYear = new Date().getFullYear();
+  const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
+  
   const [review, setReview] = useState({
     employeeId: '',
     reviewerName: '',
-    year: year,
-    quarter: quarter,
+    year: currentYear,
+    quarter: currentQuarter,
     overallRating: '',
     performanceMetrics: PERFORMANCE_CATEGORIES.map(category => ({
       category,
-    rating: '',
+      rating: '',
       comments: ''
     })),
     goals: '',
@@ -81,7 +86,7 @@ const ReviewForm = ({ onSubmitSuccess, onCancel, year, quarter }) => {
       return;
     }
     
-      const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token');
     
     try {
       const response = await axios.post(
@@ -101,7 +106,8 @@ const ReviewForm = ({ onSubmitSuccess, onCancel, year, quarter }) => {
         }
       );
       
-      onSubmitSuccess(response.data);
+      alert('Review submitted successfully!');
+      navigate('/performance-reviews');
     } catch (error) {
       console.error('Error submitting review:', error);
       if (error.response?.status === 400 && error.response?.data?.message?.includes('already exists')) {
@@ -140,7 +146,8 @@ const ReviewForm = ({ onSubmitSuccess, onCancel, year, quarter }) => {
                 }
               );
               
-              onSubmitSuccess(updateResponse.data);
+              alert('Review updated successfully!');
+              navigate('/performance-reviews');
               return;
             }
           } catch (updateError) {
@@ -158,14 +165,15 @@ const ReviewForm = ({ onSubmitSuccess, onCancel, year, quarter }) => {
   };
 
   return (
-    <div style={styles.modalOverlay}>
-      <div style={styles.modalContent}>
-      <form onSubmit={handleSubmit}>
-        <div style={styles.formHeader}>
-            <h2>New Performance Review - Q{quarter} {year}</h2>
-          <button type="button" onClick={onCancel} style={styles.closeButton}>×</button>
-        </div>
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <button onClick={() => navigate('/performance-reviews')} style={styles.backButton}>
+          ← Back to Reviews
+        </button>
+        <h1 style={styles.title}>Create Performance Review</h1>
+      </div>
 
+      <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.formSection}>
           <label style={styles.label}>Select Employee to Review</label>
           <select
@@ -195,127 +203,157 @@ const ReviewForm = ({ onSubmitSuccess, onCancel, year, quarter }) => {
         </div>
 
         <div style={styles.formSection}>
-            <h3 style={styles.sectionTitle}>Performance Metrics</h3>
-            {review.performanceMetrics.map((metric, index) => (
-              <div key={index} style={styles.metricContainer}>
-                <div style={styles.metricHeader}>
-                  <h4 style={styles.metricTitle}>{metric.category}</h4>
-                </div>
-                <div style={styles.metricContent}>
-                  <div style={styles.ratingContainer}>
-                    <label style={styles.label}>Rating (1-5):</label>
-          <input
-            type="number"
-            min="1"
-            max="5"
-                      value={metric.rating}
-                      onChange={(e) => handleMetricChange(index, 'rating', e.target.value)}
-            style={styles.input}
-            required
-          />
-        </div>
-                  <div style={styles.commentsContainer}>
-                    <label style={styles.label}>Comments:</label>
-          <textarea
-                      value={metric.comments}
-                      onChange={(e) => handleMetricChange(index, 'comments', e.target.value)}
-            style={styles.textarea}
-                      placeholder={`Enter comments about ${metric.category.toLowerCase()}`}
-          />
-        </div>
+          <div style={styles.periodSelectors}>
+            <div style={styles.periodSelector}>
+              <label style={styles.label}>Year</label>
+              <select
+                value={review.year}
+                onChange={(e) => setReview({ ...review, year: Number(e.target.value) })}
+                style={styles.select}
+                required
+              >
+                {[review.year - 1, review.year, review.year + 1].map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+            <div style={styles.periodSelector}>
+              <label style={styles.label}>Quarter</label>
+              <select
+                value={review.quarter}
+                onChange={(e) => setReview({ ...review, quarter: Number(e.target.value) })}
+                style={styles.select}
+                required
+              >
+                {[1, 2, 3, 4].map(quarter => (
+                  <option key={quarter} value={quarter}>Q{quarter}</option>
+                ))}
+              </select>
+            </div>
           </div>
+        </div>
+
+        <div style={styles.formSection}>
+          <h3 style={styles.sectionTitle}>Performance Metrics</h3>
+          {review.performanceMetrics.map((metric, index) => (
+            <div key={index} style={styles.metricContainer}>
+              <div style={styles.metricHeader}>
+                <h4 style={styles.metricTitle}>{metric.category}</h4>
+              </div>
+              <div style={styles.metricContent}>
+                <div style={styles.ratingContainer}>
+                  <label style={styles.label}>Rating (1-5):</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
+                    value={metric.rating}
+                    onChange={(e) => handleMetricChange(index, 'rating', e.target.value)}
+                    style={styles.input}
+                    required
+                  />
+                </div>
+                <div style={styles.commentsContainer}>
+                  <label style={styles.label}>Comments:</label>
+                  <textarea
+                    value={metric.comments}
+                    onChange={(e) => handleMetricChange(index, 'comments', e.target.value)}
+                    style={styles.textarea}
+                    placeholder={`Enter comments about ${metric.category.toLowerCase()}`}
+                  />
+                </div>
+              </div>
             </div>
           ))}
         </div>
 
         <div style={styles.formSection}>
-            <label style={styles.label}>Goals (one per line)</label>
-            <textarea
-              value={review.goals}
-              onChange={(e) => setReview({ ...review, goals: e.target.value })}
-              style={styles.textarea}
-              placeholder="Enter goals, one per line"
-            />
-          </div>
-
-          <div style={styles.formSection}>
-            <label style={styles.label}>Strengths (one per line)</label>
-            <textarea
-              value={review.strengths}
-              onChange={(e) => setReview({ ...review, strengths: e.target.value })}
-              style={styles.textarea}
-              placeholder="Enter strengths, one per line"
-            />
+          <label style={styles.label}>Goals (one per line)</label>
+          <textarea
+            value={review.goals}
+            onChange={(e) => setReview({ ...review, goals: e.target.value })}
+            style={styles.textarea}
+            placeholder="Enter goals, one per line"
+          />
         </div>
 
         <div style={styles.formSection}>
-            <label style={styles.label}>Areas for Improvement (one per line)</label>
-            <textarea
-              value={review.areasForImprovement}
-              onChange={(e) => setReview({ ...review, areasForImprovement: e.target.value })}
-              style={styles.textarea}
-              placeholder="Enter areas for improvement, one per line"
-            />
+          <label style={styles.label}>Strengths (one per line)</label>
+          <textarea
+            value={review.strengths}
+            onChange={(e) => setReview({ ...review, strengths: e.target.value })}
+            style={styles.textarea}
+            placeholder="Enter strengths, one per line"
+          />
         </div>
 
         <div style={styles.formSection}>
-            <label style={styles.label}>Training Recommendations (one per line)</label>
-            <textarea
-              value={review.trainingRecommendations}
-              onChange={(e) => setReview({ ...review, trainingRecommendations: e.target.value })}
-              style={styles.textarea}
-              placeholder="Enter training recommendations, one per line"
-            />
+          <label style={styles.label}>Areas for Improvement (one per line)</label>
+          <textarea
+            value={review.areasForImprovement}
+            onChange={(e) => setReview({ ...review, areasForImprovement: e.target.value })}
+            style={styles.textarea}
+            placeholder="Enter areas for improvement, one per line"
+          />
+        </div>
+
+        <div style={styles.formSection}>
+          <label style={styles.label}>Training Recommendations (one per line)</label>
+          <textarea
+            value={review.trainingRecommendations}
+            onChange={(e) => setReview({ ...review, trainingRecommendations: e.target.value })}
+            style={styles.textarea}
+            placeholder="Enter training recommendations, one per line"
+          />
         </div>
 
         <div style={styles.formActions}>
           <button type="submit" style={styles.submitButton}>
             Submit Review
           </button>
-          <button type="button" onClick={onCancel} style={styles.cancelButton}>
+          <button 
+            type="button" 
+            onClick={() => navigate('/performance-reviews')} 
+            style={styles.cancelButton}
+          >
             Cancel
           </button>
         </div>
       </form>
-      </div>
     </div>
   );
 };
 
 const styles = {
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  container: {
+    padding: '20px',
+    maxWidth: '1400px',
+    width: '95%',
+    margin: '0 auto',
+  },
+  header: {
     display: 'flex',
-    justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
+    gap: '20px',
+    marginBottom: '30px',
   },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '24px',
-    width: '90%',
-    maxWidth: '800px',
-    maxHeight: '90vh',
-    overflowY: 'auto',
+  title: {
+    margin: 0,
+    color: '#333',
   },
-  formHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '24px',
-  },
-  closeButton: {
-    background: 'none',
+  backButton: {
+    padding: '8px 16px',
+    backgroundColor: '#6c757d',
+    color: 'white',
     border: 'none',
-    fontSize: '24px',
+    borderRadius: '4px',
     cursor: 'pointer',
-    color: '#666',
+  },
+  form: {
+    backgroundColor: '#ffffff',
+    padding: '24px',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
   },
   formSection: {
     marginBottom: '20px',
@@ -376,8 +414,8 @@ const styles = {
   },
   ratingContainer: {
     display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
+    flexDirection: 'column',
+    gap: '8px',
   },
   commentsContainer: {
     flex: 1,
@@ -405,6 +443,14 @@ const styles = {
     borderRadius: '4px',
     cursor: 'pointer',
     fontSize: '14px',
+  },
+  periodSelectors: {
+    display: 'flex',
+    gap: '20px',
+    marginBottom: '20px',
+  },
+  periodSelector: {
+    flex: 1,
   },
 };
 
