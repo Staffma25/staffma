@@ -300,6 +300,70 @@ router.patch('/:id/business', auth, async (req, res) => {
   }
 });
 
+// Update employee numbers for employees missing them
+router.post('/update-missing-numbers', auth, async (req, res) => {
+  try {
+    // Check if user has permission to edit employees
+    if (!req.user.hasPermission('employeeManagement', 'edit')) {
+      return res.status(403).json({ message: 'You do not have permission to edit employees' });
+    }
+
+    // Get business details to generate employee numbers
+    const business = await Business.findById(req.user.businessId);
+    if (!business) {
+      return res.status(404).json({ message: 'Business not found' });
+    }
+
+    // Find all employees without employee numbers
+    const employeesWithoutNumbers = await Employee.find({
+      businessId: req.user.businessId,
+      $or: [
+        { employeeNumber: { $exists: false } },
+        { employeeNumber: null },
+        { employeeNumber: '' }
+      ]
+    });
+
+    const updatedEmployees = [];
+    const errors = [];
+
+    for (const employee of employeesWithoutNumbers) {
+      try {
+        // Generate new employee number
+        const employeeNumber = await generateEmployeeNumber(business.businessName);
+        
+        // Update employee with new number
+        employee.employeeNumber = employeeNumber;
+        await employee.save();
+        
+        updatedEmployees.push({
+          id: employee._id,
+          name: `${employee.firstName} ${employee.lastName}`,
+          employeeNumber
+        });
+      } catch (error) {
+        errors.push(`Failed to update employee ${employee.firstName} ${employee.lastName}: ${error.message}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        message: 'Some employees could not be updated',
+        updatedEmployees,
+        errors
+      });
+    }
+
+    res.json({
+      message: 'All employees updated successfully',
+      updatedEmployees
+    });
+  } catch (error) {
+    console.error('Error updating employee numbers:', error);
+    res.status(500).json({ error: 'Failed to update employee numbers' });
+  }
+});
+
 module.exports = router; 
 
 

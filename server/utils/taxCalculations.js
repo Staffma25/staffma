@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const PayrollSettings = require('../models/PayrollSettings');
 
 // Helper function to get settings for a business
@@ -5,154 +6,151 @@ const getBusinessSettings = async (businessId) => {
   try {
     const settings = await PayrollSettings.findOne({ businessId });
     if (!settings) {
-      throw new Error('Payroll settings not found for this business');
+      throw new Error('Payroll settings not found');
     }
-    console.log('Found settings:', settings);
     return settings;
   } catch (error) {
-    console.error('Error fetching business settings:', error);
+    console.error('Error getting business settings:', error);
     throw error;
   }
 };
 
-// Calculate PAYE based on rate
-const calculatePAYE = (taxableIncome, settings) => {
-  try {
-    const rates = settings.taxRates.paye.rates;
-    let tax = 0;
-    let remainingIncome = taxableIncome;
+// Calculate PAYE using tax brackets
+const calculatePAYE = (taxableIncome, taxBrackets) => {
+  // Default Kenya tax brackets if none provided
+  const brackets = taxBrackets || [
+    { lowerBound: 0, upperBound: 24000, rate: 10 },
+    { lowerBound: 24001, upperBound: 32333, rate: 25 },
+    { lowerBound: 32334, upperBound: 500000, rate: 30 },
+    { lowerBound: 500001, upperBound: 800000, rate: 32.5 },
+    { lowerBound: 800001, upperBound: Infinity, rate: 35 }
+  ];
 
-    for (const bracket of rates) {
-      if (remainingIncome <= 0) break;
+  console.log('Calculating PAYE for taxable income:', taxableIncome);
+  console.log('Using tax brackets:', brackets);
 
-      const bracketSize = bracket.max - bracket.min;
-      const taxableInBracket = Math.min(remainingIncome, bracketSize);
-      tax += (taxableInBracket * bracket.rate) / 100;
+  // Sort brackets by lower bound
+  brackets.sort((a, b) => a.lowerBound - b.lowerBound);
+
+  let remainingIncome = taxableIncome;
+  let totalTax = 0;
+  let bracketBreakdown = [];
+
+  // Calculate tax for each bracket
+  for (let i = 0; i < brackets.length; i++) {
+    const bracket = brackets[i];
+    const bracketWidth = bracket.upperBound - bracket.lowerBound;
+    
+    // Calculate taxable amount for this bracket
+    const taxableInBracket = Math.min(
+      remainingIncome,
+      bracketWidth
+    );
+
+    if (taxableInBracket > 0) {
+      const taxForBracket = Math.round(taxableInBracket * (bracket.rate / 100));
+      totalTax += taxForBracket;
       remainingIncome -= taxableInBracket;
+
+      bracketBreakdown.push({
+        bracket: i + 1,
+        range: `${bracket.lowerBound.toLocaleString()} - ${bracket.upperBound.toLocaleString()}`,
+        rate: `${bracket.rate}%`,
+        taxableAmount: taxableInBracket,
+        tax: taxForBracket
+      });
+
+      console.log(`Bucket ${i + 1} (${bracket.rate}%):`, {
+        range: `${bracket.lowerBound.toLocaleString()} - ${bracket.upperBound.toLocaleString()}`,
+        taxableAmount: taxableInBracket,
+        tax: taxForBracket
+      });
     }
 
-    // Apply reliefs
-    const reliefs = 
-      settings.taxRates.paye.personalRelief +
-      settings.taxRates.paye.insuranceRelief +
-      settings.taxRates.paye.housingRelief;
-
-    tax = Math.max(0, tax - reliefs);
-    return Math.round(tax);
-  } catch (error) {
-    console.error('Error calculating PAYE:', error);
-    return 0;
+    if (remainingIncome <= 0) break;
   }
+
+  // Apply personal relief (KSh 2,400 per month)
+  const personalRelief = 2400;
+  const finalPAYE = Math.max(0, totalTax - personalRelief);
+
+  console.log('PAYE calculation breakdown:', {
+    totalTaxBeforeRelief: totalTax,
+    personalRelief,
+    finalPAYE
+  });
+
+  return Math.round(finalPAYE);
 };
 
-// Calculate NHIF based on rate
-const calculateNHIF = (grossSalary, settings) => {
-  try {
-    const rates = settings.taxRates.nhif.rates;
-    for (const bracket of rates) {
-      if (grossSalary >= bracket.min && grossSalary <= bracket.max) {
-        return bracket.amount;
-      }
-    }
-    return rates[rates.length - 1].amount; // Return highest bracket if salary exceeds all brackets
-  } catch (error) {
-    console.error('Error calculating NHIF:', error);
-    return 0;
-  }
+// Calculate NHIF
+const calculateNHIF = (grossSalary) => {
+  return Math.round(grossSalary * 0.0275); // 2.75%
 };
 
-// Calculate NSSF based on rate
-const calculateNSSF = (grossSalary, settings) => {
-  try {
-    const { employeeRate, maxContribution, tier1Limit, tier2Limit } = settings.taxRates.nssf;
+// Calculate NSSF
+const calculateNSSF = (grossSalary) => {
+  return Math.min(Math.round(grossSalary * 0.06), 1080); // 6% capped at 1,080
+};
 
-    // Calculate tier 1 contribution
-    const tier1Amount = Math.min(grossSalary, tier1Limit);
-    const tier1Contribution = (tier1Amount * employeeRate) / 100;
-
-    // Calculate tier 2 contribution if applicable
-    let tier2Contribution = 0;
-  if (grossSalary > tier1Limit) {
-      const tier2Amount = Math.min(grossSalary - tier1Limit, tier2Limit - tier1Limit);
-      tier2Contribution = (tier2Amount * employeeRate) / 100;
-  }
-
-    const totalContribution = tier1Contribution + tier2Contribution;
-    return Math.min(totalContribution, maxContribution);
-  } catch (error) {
-    console.error('Error calculating NSSF:', error);
-    return 0;
-  }
+// Calculate Housing Levy
+const calculateHousingLevy = (grossSalary) => {
+  return Math.round(grossSalary * 0.015); // 1.5%
 };
 
 // Calculate allowances
 const calculateAllowances = async (basicSalary, businessId) => {
   try {
-    const settings = await PayrollSettings.findOne({ businessId });
-    if (!settings || !settings.taxRates.allowances) {
-      return { totalAllowances: 0, allowanceDetails: {} };
-    }
-
+    const settings = await getBusinessSettings(businessId);
+    const allowances = settings.taxRates.allowances || [];
     let totalAllowances = 0;
     const allowanceDetails = {};
 
-    // Process each allowance from settings
-    for (const allowance of settings.taxRates.allowances) {
-      if (!allowance.enabled) continue;
-
-      let amount = 0;
-      if (allowance.type === 'percentage') {
-        amount = (basicSalary * allowance.value) / 100;
-      } else {
-        amount = allowance.value;
+    for (const allowance of allowances) {
+      if (allowance.enabled) {
+        let amount = 0;
+        if (allowance.type === 'percentage') {
+          amount = Math.round(basicSalary * (allowance.value / 100));
+        } else {
+          amount = allowance.value;
+        }
+        allowanceDetails[allowance.name] = amount;
+        totalAllowances += amount;
       }
-
-      allowanceDetails[allowance.name] = Math.round(amount);
-      totalAllowances += amount;
     }
 
-    return {
-      totalAllowances: Math.round(totalAllowances),
-      allowanceDetails
-    };
+    return { totalAllowances, allowanceDetails };
   } catch (error) {
     console.error('Error calculating allowances:', error);
-    return { totalAllowances: 0, allowanceDetails: {} };
+    throw error;
   }
 };
   
 // Calculate custom deductions
 const calculateDeductions = async (grossSalary, businessId) => {
   try {
-    const settings = await PayrollSettings.findOne({ businessId });
-    if (!settings || !settings.taxRates.customDeductions) {
-      return { totalDeductions: 0, deductionDetails: {} };
-    }
-
+    const settings = await getBusinessSettings(businessId);
+    const deductions = settings.taxRates.customDeductions || [];
     let totalDeductions = 0;
     const deductionDetails = {};
 
-    for (const deduction of settings.taxRates.customDeductions) {
-      if (!deduction.enabled) continue;
-
-      let amount = 0;
-      if (deduction.type === 'percentage') {
-        amount = (grossSalary * deduction.value) / 100;
-      } else {
-        amount = deduction.value;
+    for (const deduction of deductions) {
+      if (deduction.enabled) {
+        let amount = 0;
+        if (deduction.type === 'percentage') {
+          amount = Math.round(grossSalary * (deduction.value / 100));
+        } else {
+          amount = deduction.value;
+        }
+        deductionDetails[deduction.name] = amount;
+        totalDeductions += amount;
       }
-
-      deductionDetails[deduction.name] = amount;
-      totalDeductions += amount;
     }
 
-    return {
-      totalDeductions: Math.round(totalDeductions),
-      deductionDetails
-    };
+    return { totalDeductions, deductionDetails };
   } catch (error) {
     console.error('Error calculating deductions:', error);
-    return { totalDeductions: 0, deductionDetails: {} };
+    throw error;
   }
 };
 
@@ -172,64 +170,45 @@ const calculatePayroll = async (employee, businessId) => {
 
     const basicSalary = employee.salary.basic;
 
-    // Calculate allowances
-    const { totalAllowances, allowanceDetails } = await calculateAllowances(basicSalary, businessId);
-    console.log('Allowances calculated:', {
-      totalAllowances,
-      allowanceDetails
+    // 1. Calculate Pre-Tax Deductions (Statutory)
+    const shif = Math.round(basicSalary * 0.0275); // 2.75%
+    const nssf = Math.min(Math.round(basicSalary * 0.06), 1080); // 6% capped at 1,080
+    const housingLevy = Math.round(basicSalary * 0.015); // 1.5%
+    const totalPreTaxDeductions = shif + nssf + housingLevy;
+
+    console.log('Pre-tax deductions calculated:', {
+      shif,
+      nssf,
+      housingLevy,
+      totalPreTaxDeductions
     });
-  
-    // Calculate gross salary
-    const grossSalary = basicSalary + totalAllowances;
-    console.log('Gross salary calculated:', grossSalary);
 
-    // Calculate statutory deductions only if enabled in settings
-    const statutoryDeductions = {};
-    let totalStatutoryDeductions = 0;
+    // 2. Calculate Taxable Income
+    const taxableIncome = basicSalary - totalPreTaxDeductions;
+    console.log('Taxable income calculated:', taxableIncome);
 
-    if (settings.taxRates.paye?.enabled) {
-      const paye = calculatePAYE(grossSalary, settings);
-      statutoryDeductions.paye = paye;
-      totalStatutoryDeductions += paye;
-      console.log('PAYE calculated:', paye);
-    }
+    // 3. Calculate PAYE using progressive tax brackets
+    const paye = calculatePAYE(taxableIncome, settings.taxRates.taxBrackets.brackets);
+    console.log('PAYE calculated:', paye);
 
-    if (settings.taxRates.nhif?.enabled) {
-      const nhif = calculateNHIF(grossSalary, settings);
-      statutoryDeductions.nhif = nhif;
-      totalStatutoryDeductions += nhif;
-      console.log('NHIF calculated:', nhif);
-    }
-
-    if (settings.taxRates.nssf?.enabled) {
-      const nssf = calculateNSSF(grossSalary, settings);
-      statutoryDeductions.nssf = nssf;
-      totalStatutoryDeductions += nssf;
-      console.log('NSSF calculated:', nssf);
-    }
-
-    // Calculate custom deductions
-    const { totalDeductions, deductionDetails } = await calculateDeductions(grossSalary, businessId);
+    // 4. Calculate Custom Deductions
+    const { totalDeductions, deductionDetails } = await calculateDeductions(basicSalary, businessId);
     console.log('Custom deductions calculated:', {
       totalDeductions,
       deductionDetails
     });
 
-    // Combine all deductions
-    const allDeductions = {
-      ...statutoryDeductions,
-      ...deductionDetails
-    };
+    // 5. Calculate Total Deductions
+    const totalDeductionsAmount = totalPreTaxDeductions + paye + totalDeductions;
 
-    // Calculate net salary
-    const totalDeductionsAmount = totalStatutoryDeductions + totalDeductions;
-    const netSalary = grossSalary - totalDeductionsAmount;
+    // 6. Calculate Net Salary
+    const netSalary = basicSalary - totalDeductionsAmount;
 
     console.log('Final calculations:', {
       basicSalary,
-      totalAllowances,
-      grossSalary,
-      totalStatutoryDeductions,
+      totalPreTaxDeductions,
+      taxableIncome,
+      paye,
       totalCustomDeductions: totalDeductions,
       totalDeductionsAmount,
       netSalary
@@ -239,19 +218,21 @@ const calculatePayroll = async (employee, businessId) => {
       employeeId: employee._id,
       employeeNumber: employee.employeeNumber,
       basicSalary,
-      grossSalary,
-      allowances: {
-        items: Object.entries(allowanceDetails).map(([name, amount]) => ({
-          name,
-          amount
-        })),
-        total: totalAllowances
-      },
+      taxableIncome,
       deductions: {
-        items: Object.entries(allDeductions).map(([name, amount]) => ({
-          name,
-          amount
-        })),
+        items: [
+          // Pre-tax deductions first
+          { name: 'SHIF', amount: shif },
+          { name: 'NSSF', amount: nssf },
+          { name: 'Housing Levy', amount: housingLevy },
+          // Custom deductions
+          ...Object.entries(deductionDetails).map(([name, amount]) => ({
+            name,
+            amount
+          })),
+          // PAYE last
+          { name: 'PAYE', amount: paye }
+        ],
         total: totalDeductionsAmount
       },
       netSalary: Math.round(netSalary)
@@ -266,6 +247,7 @@ module.exports = {
   calculatePAYE,
   calculateNHIF,
   calculateNSSF,
+  calculateHousingLevy,
   calculateAllowances,
   calculateDeductions,
   calculatePayroll

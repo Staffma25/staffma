@@ -150,9 +150,6 @@ router.post('/process', auth, async (req, res) => {
       return res.status(400).json({ error: 'Payroll settings not found' });
     }
 
-    // Log the entire settings object to see its structure
-    console.log('Full payroll settings:', JSON.stringify(payrollSettings, null, 2));
-
     // Get all active employees
     const employees = await Employee.find({ 
       businessId: req.user.businessId,
@@ -163,41 +160,13 @@ router.post('/process', auth, async (req, res) => {
       return res.status(400).json({ error: 'No active employees found' });
     }
 
-    // Validate employee data
-    const invalidEmployees = employees.filter(employee => 
-      !employee.salary?.basic || !employee.employeeNumber
-    );
-
-    if (invalidEmployees.length > 0) {
-      return res.status(400).json({
-        error: 'Invalid employee data',
-        message: 'Some employees are missing required data',
-        invalidEmployees: invalidEmployees.map(emp => ({
-          id: emp._id,
-          name: `${emp.firstName} ${emp.lastName}`,
-          missingData: [
-            !emp.salary?.basic && 'basic salary',
-            !emp.employeeNumber && 'employee number'
-          ].filter(Boolean)
-        }))
-      });
-    }
-
     // Process payroll for each employee
     const payrollResults = await Promise.all(employees.map(async (employee) => {
       const basicSalary = employee.salary.basic;
       let totalAllowances = 0;
-      let totalDeductions = 0;
       const allowanceItems = [];
-      const deductionItems = [];
 
-      console.log('Processing employee:', {
-        id: employee._id,
-        name: `${employee.firstName} ${employee.lastName}`,
-        basicSalary
-      });
-
-      // Calculate allowances based on settings
+      // Calculate Allowances (not included in net salary)
       if (payrollSettings.taxRates?.allowances) {
         payrollSettings.taxRates.allowances.forEach(allowance => {
           if (allowance.enabled) {
@@ -207,12 +176,6 @@ router.post('/process', auth, async (req, res) => {
             } else {
               amount = allowance.value;
             }
-            console.log('Allowance calculation:', {
-              name: allowance.name,
-              type: allowance.type,
-              value: allowance.value,
-              calculatedAmount: amount
-            });
             totalAllowances += amount;
             allowanceItems.push({
               name: allowance.name,
@@ -222,7 +185,24 @@ router.post('/process', auth, async (req, res) => {
         });
       }
 
-      // Calculate deductions based on settings
+      // 1. Calculate Pre-Tax Deductions (Statutory) from basic salary
+      const shif = Math.round(basicSalary * 0.0275); // 2.75%
+      const nssf = Math.round(Math.min(basicSalary * 0.06, 1080)); // 6% capped at 1,080
+      const housingLevy = Math.round(basicSalary * 0.015); // 1.5%
+      const totalPreTaxDeductions = shif + nssf + housingLevy;
+
+      // 2. Calculate Taxable Income
+      const taxableIncome = basicSalary - totalPreTaxDeductions;
+
+      // 3. Calculate PAYE using tax brackets (bucket method)
+      const paye = calculatePAYE(taxableIncome, payrollSettings.taxRates.taxBrackets.brackets);
+
+      // 4. Net Salary = basic salary - (pre-tax deductions + PAYE)
+      const netSalary = basicSalary - (totalPreTaxDeductions + paye);
+
+      // 5. Calculate Custom Deductions (if any, from basic salary)
+      let totalCustomDeductions = 0;
+      const customDeductionItems = [];
       if (payrollSettings.taxRates?.customDeductions) {
         payrollSettings.taxRates.customDeductions.forEach(deduction => {
           if (deduction.enabled) {
@@ -232,14 +212,8 @@ router.post('/process', auth, async (req, res) => {
             } else {
               amount = deduction.value;
             }
-            console.log('Deduction calculation:', {
-              name: deduction.name,
-              type: deduction.type,
-              value: deduction.value,
-              calculatedAmount: amount
-            });
-            totalDeductions += amount;
-            deductionItems.push({
+            totalCustomDeductions += amount;
+            customDeductionItems.push({
               name: deduction.name,
               amount: amount
             });
@@ -247,20 +221,8 @@ router.post('/process', auth, async (req, res) => {
         });
       }
 
-      // Calculate gross salary (basic + allowances)
-      const grossSalary = basicSalary + totalAllowances;
-
-      // Calculate net salary (gross - deductions)
-      const netSalary = grossSalary - totalDeductions;
-
-      console.log('Final calculations for employee:', {
-        id: employee._id,
-        basicSalary,
-        totalAllowances,
-        totalDeductions,
-        grossSalary,
-        netSalary
-      });
+      // 6. Total Deductions (for reporting, not used in net salary)
+      const totalDeductions = totalPreTaxDeductions + paye + totalCustomDeductions;
 
       // Create or update payroll record
       const payroll = await Payroll.findOneAndUpdate(
@@ -274,13 +236,20 @@ router.post('/process', auth, async (req, res) => {
           $set: {
             employeeNumber: employee.employeeNumber,
             basicSalary,
-            grossSalary,
+            grossSalary: basicSalary, // For reporting, gross = basic (allowances are separate)
+            taxableIncome,
             allowances: {
               items: allowanceItems,
               total: totalAllowances
             },
             deductions: {
-              items: deductionItems,
+              items: [
+                { name: 'SHIF', amount: shif },
+                { name: 'NSSF', amount: nssf },
+                { name: 'Housing Levy', amount: housingLevy },
+                ...customDeductionItems,
+                { name: 'PAYE', amount: paye }
+              ],
               total: totalDeductions
             },
             netSalary,

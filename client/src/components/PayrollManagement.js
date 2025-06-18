@@ -466,6 +466,11 @@ function PayrollManagement() {
                 ))}
                 <th style={styles.tableHeader}>Total Allowances</th>
                 <th style={styles.tableHeader}>Gross Salary</th>
+                <th style={styles.tableHeader}>SHIF</th>
+                <th style={styles.tableHeader}>NSSF</th>
+                <th style={styles.tableHeader}>Housing Levy</th>
+                <th style={styles.tableHeader}>Taxable Income</th>
+                <th style={styles.tableHeader}>PAYE</th>
                 {configuredDeductions.map(deduction => (
                   <th key={deduction} style={styles.tableHeader}>{deduction}</th>
                 ))}
@@ -502,8 +507,27 @@ function PayrollManagement() {
                       </td>
                     );
                   })}
-                  <td style={styles.tableCell}>KES {record.allowances?.total?.toLocaleString()}</td>
-                  <td style={styles.tableCell}>KES {record.grossSalary?.toLocaleString()}</td>
+                  <td style={styles.tableCell}>
+                    KES {record.allowances?.total?.toLocaleString()}
+                  </td>
+                  <td style={styles.tableCell}>
+                    KES {record.grossSalary?.toLocaleString()}
+                  </td>
+                  <td style={styles.tableCell}>
+                    KES {record.deductions?.items?.find(item => item.name === 'SHIF')?.amount?.toLocaleString() || '0'}
+                  </td>
+                  <td style={styles.tableCell}>
+                    KES {record.deductions?.items?.find(item => item.name === 'NSSF')?.amount?.toLocaleString() || '0'}
+                  </td>
+                  <td style={styles.tableCell}>
+                    KES {record.deductions?.items?.find(item => item.name === 'Housing Levy')?.amount?.toLocaleString() || '0'}
+                  </td>
+                  <td style={styles.tableCell}>
+                    KES {record.taxableIncome?.toLocaleString()}
+                  </td>
+                  <td style={styles.tableCell}>
+                    KES {record.deductions?.items?.find(item => item.name === 'PAYE')?.amount?.toLocaleString() || '0'}
+                  </td>
                   {configuredDeductions.map(deduction => {
                     const deductionItem = record.deductions?.items?.find(item => 
                       item.name.toLowerCase() === deduction.toLowerCase()
@@ -514,16 +538,20 @@ function PayrollManagement() {
                       </td>
                     );
                   })}
-                  <td style={styles.tableCell}>KES {record.deductions?.total?.toLocaleString()}</td>
-                  <td style={styles.tableCell}>KES {record.netSalary?.toLocaleString()}</td>
+                  <td style={styles.tableCell}>
+                    KES {record.deductions?.total?.toLocaleString()}
+                  </td>
+                  <td style={styles.tableCell}>
+                    KES {record.netSalary?.toLocaleString()}
+                  </td>
                   <td style={styles.tableCell}>
                     <div style={styles.actionButtons}>
-                    <button 
-                      onClick={() => downloadPayslip(record._id)}
-                      style={styles.downloadButton}
-                    >
-                      Download Payslip
-                    </button>
+                      <button 
+                        onClick={() => downloadPayslip(record._id)}
+                        style={styles.downloadButton}
+                      >
+                        Download Payslip
+                      </button>
                     </div>
                   </td>
                 </tr>

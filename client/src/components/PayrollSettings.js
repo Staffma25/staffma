@@ -535,6 +535,76 @@ const PayrollSettings = () => {
     }
   };
 
+  const handleResetTaxBrackets = async () => {
+    try {
+      setLoading(true);
+      const token = getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.post(
+        `${API_BASE_URL}/payroll/settings/tax-brackets/reset`,
+        {},
+        {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.data) {
+        throw new Error('No response data received');
+      }
+
+      setSettings(response.data);
+      setSuccess('Tax brackets reset successfully');
+      setError(null);
+    } catch (error) {
+      console.error('Error resetting tax brackets:', error);
+      setError(error.response?.data?.message || 'Failed to reset tax brackets');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setSuccess(null), 3000);
+    }
+  };
+
+  const handleSetDefaultTaxBrackets = async () => {
+    try {
+      setLoading(true);
+      const token = getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.post(
+        `${API_BASE_URL}/payroll/settings/tax-brackets/default`,
+        {},
+        {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.data) {
+        throw new Error('No response data received');
+      }
+
+      setSettings(response.data);
+      setSuccess('Default tax brackets set successfully');
+      setError(null);
+    } catch (error) {
+      console.error('Error setting default tax brackets:', error);
+      setError(error.response?.data?.message || 'Failed to set default tax brackets');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setSuccess(null), 3000);
+    }
+  };
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -779,6 +849,14 @@ const PayrollSettings = () => {
                   <option value="manual">Manual Entry</option>
                 </select>
               </div>
+
+              <button
+                onClick={handleSetDefaultTaxBrackets}
+                style={styles.resetButton}
+                disabled={loading}
+              >
+                Set Default Tax Brackets
+              </button>
             </div>
 
             {taxBracketInfo.source === 'upload' ? (
@@ -862,7 +940,7 @@ const PayrollSettings = () => {
                 <tr>
                   <th>Lower Bound (KES)</th>
                   <th>Upper Bound (KES)</th>
-                  <th>Tax Rate (%)</th>
+                  <th>PAYE %</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
