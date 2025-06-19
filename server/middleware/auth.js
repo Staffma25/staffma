@@ -21,18 +21,41 @@ module.exports = async (req, res, next) => {
         console.error('Business not found for ID:', decoded.businessId);
         return res.status(401).json({ message: 'Business not found' });
       }
+      
+      // Define business user permissions
+      const businessPermissions = {
+        leaveManagement: {
+          applyLeave: true,
+          approveLeave: true,
+          viewAllLeaves: true,
+          manageLeaveTypes: true,
+          generateLeaveReports: true
+        },
+        employeeManagement: {
+          view: true,
+          add: true,
+          edit: true,
+          delete: true
+        },
+        payrollManagement: {
+          view: true,
+          generate: true,
+          edit: true
+        },
+        performanceManagement: {
+          view: true,
+          create: true,
+          edit: true
+        }
+      };
+
       req.user = {
         ...business.toObject(),
         type: 'business',
         businessId: business._id,
-        permissions: {
-          leaveManagement: {
-            applyLeave: true,
-            approveLeave: true,
-            viewAllLeaves: true,
-            manageLeaveTypes: true,
-            generateLeaveReports: true
-          }
+        permissions: businessPermissions,
+        hasPermission: (module, action) => {
+          return businessPermissions[module] && businessPermissions[module][action] === true;
         }
       };
       return next();

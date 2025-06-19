@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import LeaveDetailsModal from './LeaveDetailsModal';
 
 function LeaveManagement() {
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedLeaveId, setSelectedLeaveId] = useState(null);
   const { getToken } = useAuth();
 
   useEffect(() => {
@@ -33,27 +35,17 @@ function LeaveManagement() {
     }
   };
 
-  const handleStatusUpdate = async (leaveId, status, rejectionReason = '') => {
-    try {
-      const token = getToken();
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/leaves/${leaveId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status, rejectionReason })
-      });
+  const handleViewDetails = (leaveId) => {
+    setSelectedLeaveId(leaveId);
+  };
 
-      if (!response.ok) {
-        throw new Error('Failed to update leave status');
-      }
+  const handleCloseModal = () => {
+    setSelectedLeaveId(null);
+  };
 
-      // Refresh the leaves list
-      fetchLeaves();
-    } catch (error) {
-      setError(error.message);
-    }
+  const handleStatusUpdate = () => {
+    // Refresh the leaves list when status is updated
+    fetchLeaves();
   };
 
   if (loading) return <div style={styles.loading}>Loading...</div>;
@@ -87,33 +79,14 @@ function LeaveManagement() {
               <p><strong>Reason:</strong> {leave.reason}</p>
             </div>
 
-            {leave.status === 'pending' && (
-              <div style={styles.actions}>
-                <button
-                  onClick={() => handleStatusUpdate(leave._id, 'approved')}
-                  style={styles.approveButton}
-                >
-                  Approve
-                </button>
-                <button
-                  onClick={() => {
-                    const reason = window.prompt('Please enter rejection reason:');
-                    if (reason) {
-                      handleStatusUpdate(leave._id, 'rejected', reason);
-                    }
-                  }}
-                  style={styles.rejectButton}
-                >
-                  Reject
-                </button>
-              </div>
-            )}
-
-            {leave.status === 'rejected' && leave.rejectionReason && (
-              <div style={styles.rejectionReason}>
-                <strong>Rejection Reason:</strong> {leave.rejectionReason}
-              </div>
-            )}
+            <div style={styles.actions}>
+              <button
+                onClick={() => handleViewDetails(leave._id)}
+                style={styles.viewButton}
+              >
+                View Details
+              </button>
+            </div>
 
             {leave.attachments && leave.attachments.length > 0 && (
               <div style={styles.attachments}>
@@ -132,6 +105,15 @@ function LeaveManagement() {
           </div>
         ))}
       </div>
+
+      {/* Leave Details Modal */}
+      {selectedLeaveId && (
+        <LeaveDetailsModal
+          leaveId={selectedLeaveId}
+          onClose={handleCloseModal}
+          onStatusUpdate={handleStatusUpdate}
+        />
+      )}
     </div>
   );
 }
@@ -197,34 +179,16 @@ const styles = {
     gap: '1rem',
     marginTop: '1rem',
   },
-  approveButton: {
+  viewButton: {
     padding: '0.5rem 1rem',
-    backgroundColor: '#4caf50',
+    backgroundColor: '#2c3e50',
     color: 'white',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
     '&:hover': {
-      backgroundColor: '#43a047',
+      backgroundColor: '#34495e',
     },
-  },
-  rejectButton: {
-    padding: '0.5rem 1rem',
-    backgroundColor: '#f44336',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: '#e53935',
-    },
-  },
-  rejectionReason: {
-    marginTop: '1rem',
-    padding: '1rem',
-    backgroundColor: '#fde8e8',
-    borderRadius: '4px',
-    color: '#c81e1e',
   },
   attachments: {
     marginTop: '1rem',

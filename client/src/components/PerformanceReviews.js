@@ -1,7 +1,7 @@
 // client/src/components/PerformanceReviews.js
-// client/src/components/PerformanceReviews.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ReviewDetailsModal from './ReviewDetailsModal';
 
 function PerformanceReviews() {
   const [reviews, setReviews] = useState([]);
@@ -95,81 +95,10 @@ function PerformanceReviews() {
       </div>
 
       {selectedReview && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <div style={styles.modalHeader}>
-              <h2>Q{selectedReview.quarter} {selectedReview.year} Performance Review</h2>
-              <button onClick={handleCloseReview} style={styles.closeButton}>×</button>
-            </div>
-            <div style={styles.modalBody}>
-              <div style={styles.reviewSection}>
-                <h3>Employee Information</h3>
-                <p><strong>Name:</strong> {selectedReview.employeeId?.firstName} {selectedReview.employeeId?.lastName}</p>
-                <p><strong>Review Date:</strong> {new Date(selectedReview.reviewDate).toLocaleDateString()}</p>
-                <p><strong>Reviewer:</strong> {selectedReview.reviewerName}</p>
-                <p><strong>Overall Rating:</strong> {selectedReview.overallRating}/5</p>
-              </div>
-
-              <div style={styles.reviewSection}>
-                <h3>Performance Metrics</h3>
-                <div style={styles.metricsGrid}>
-                  {selectedReview.performanceMetrics?.map((metric, index) => (
-                    <div key={index} style={styles.metricItem}>
-                      <p><strong>{metric.category}:</strong> {metric.rating}/5</p>
-                      {metric.comments && <p><em>{metric.comments}</em></p>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {selectedReview.goals?.length > 0 && (
-                <div style={styles.reviewSection}>
-                  <h3>Goals</h3>
-                  <ul style={styles.list}>
-                    {selectedReview.goals.map((goal, index) => (
-                      <li key={index} style={styles.listItem}>
-                        {typeof goal === 'object' ? goal.description : goal}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {selectedReview.strengths?.length > 0 && (
-                <div style={styles.reviewSection}>
-                  <h3>Strengths</h3>
-                  <ul style={styles.list}>
-                    {selectedReview.strengths.map((strength, index) => (
-                      <li key={index} style={styles.listItem}>{strength}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {selectedReview.areasForImprovement?.length > 0 && (
-                <div style={styles.reviewSection}>
-                  <h3>Areas for Improvement</h3>
-                  <ul style={styles.list}>
-                    {selectedReview.areasForImprovement.map((area, index) => (
-                      <li key={index} style={styles.listItem}>{area}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {selectedReview.trainingRecommendations?.length > 0 && (
-                <div style={styles.reviewSection}>
-                  <h3>Training Recommendations</h3>
-                  <ul style={styles.list}>
-                    {selectedReview.trainingRecommendations.map((rec, index) => (
-                      <li key={index} style={styles.listItem}>{rec}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <ReviewDetailsModal 
+          review={selectedReview} 
+          onClose={handleCloseReview} 
+        />
       )}
 
       <div style={styles.reviewsContainer}>
@@ -334,73 +263,6 @@ const styles = {
     textAlign: 'center',
     color: '#666',
     padding: '20px',
-  },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '24px',
-    maxWidth: '1400px',
-    width: '95%',
-    maxHeight: '90vh',
-    overflowY: 'auto',
-  },
-  modalHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-  },
-  modalBody: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px',
-  },
-  reviewSection: {
-    backgroundColor: '#f8f9fa',
-    padding: '16px',
-    borderRadius: '8px',
-  },
-  metricsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-    gap: '16px',
-  },
-  metricItem: {
-    backgroundColor: 'white',
-    padding: '12px',
-    borderRadius: '4px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-  },
-  list: {
-    listStyle: 'none',
-    padding: 0,
-    margin: 0,
-  },
-  listItem: {
-    padding: '8px 0',
-    borderBottom: '1px solid #eee',
-  },
-  listItemLast: {
-    borderBottom: 'none',
-  },
-  closeButton: {
-    background: 'none',
-    border: 'none',
-    fontSize: '24px',
-    cursor: 'pointer',
-    color: '#666',
   },
 };
 

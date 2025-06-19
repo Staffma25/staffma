@@ -14,6 +14,17 @@ function EmployeeDetails() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [customDeductions, setCustomDeductions] = useState([]);
+  const [newDeduction, setNewDeduction] = useState({
+    description: '',
+    amount: '',
+    type: 'salary_advance', // salary_advance, loan, other
+    startDate: '',
+    endDate: '',
+    monthlyAmount: '',
+    remainingAmount: '',
+    status: 'active' // active, completed, cancelled
+  });
 
   useEffect(() => {
     if (!id) {
@@ -229,6 +240,125 @@ function EmployeeDetails() {
     }));
   };
 
+  const handleAddCustomDeduction = async (e) => {
+    e.preventDefault();
+    
+    console.log('Submitting deduction:', newDeduction);
+    
+    if (!newDeduction.description || !newDeduction.amount || !newDeduction.monthlyAmount || !newDeduction.startDate) {
+      alert('Please fill in all required fields: Description, Total Amount, Monthly Amount, and Start Date');
+      return;
+    }
+
+    // Validate amounts
+    const amount = parseFloat(newDeduction.amount);
+    const monthlyAmount = parseFloat(newDeduction.monthlyAmount);
+    
+    if (amount <= 0 || monthlyAmount <= 0) {
+      alert('Amount and monthly amount must be greater than 0');
+      return;
+    }
+
+    if (monthlyAmount > amount) {
+      alert('Monthly deduction amount cannot exceed total amount');
+      return;
+    }
+
+    try {
+      console.log('Sending request to:', `http://localhost:5001/api/employees/${id}/custom-deductions`);
+      console.log('Request body:', newDeduction);
+      
+      const response = await fetchWithAuth(
+        `http://localhost:5001/api/employees/${id}/custom-deductions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(newDeduction)
+        }
+      );
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.log('Error response:', errorData);
+        throw new Error(errorData.error || errorData.details || 'Failed to add custom deduction');
+      }
+
+      const result = await response.json();
+      console.log('Success response:', result);
+
+      await fetchEmployeeDetails();
+      setNewDeduction({
+        description: '',
+        amount: '',
+        type: 'salary_advance',
+        startDate: '',
+        endDate: '',
+        monthlyAmount: '',
+        remainingAmount: '',
+        status: 'active'
+      });
+      alert('Custom deduction added successfully');
+    } catch (error) {
+      console.error('Error adding custom deduction:', error);
+      alert('Failed to add custom deduction: ' + error.message);
+    }
+  };
+
+  const handleUpdateDeductionStatus = async (deductionId, newStatus) => {
+    try {
+      const response = await fetchWithAuth(
+        `http://localhost:5001/api/employees/${id}/custom-deductions/${deductionId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: newStatus })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to update deduction status');
+      }
+
+      await fetchEmployeeDetails();
+      alert('Deduction status updated successfully');
+    } catch (error) {
+      console.error('Error updating deduction status:', error);
+      alert('Failed to update deduction status: ' + error.message);
+    }
+  };
+
+  const handleDeleteDeduction = async (deductionId) => {
+    if (!window.confirm('Are you sure you want to delete this deduction?')) {
+      return;
+    }
+
+    try {
+      const response = await fetchWithAuth(
+        `http://localhost:5001/api/employees/${id}/custom-deductions/${deductionId}`,
+        {
+          method: 'DELETE'
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to delete deduction');
+      }
+
+      await fetchEmployeeDetails();
+      alert('Deduction deleted successfully');
+    } catch (error) {
+      console.error('Error deleting deduction:', error);
+      alert('Failed to delete deduction: ' + error.message);
+    }
+  };
+
   if (loading) {
     return (
       <div style={styles.container}>
@@ -337,6 +467,12 @@ function EmployeeDetails() {
           onClick={() => setActiveTab('payroll')}
         >
           Payroll History
+        </button>
+        <button 
+          style={{...styles.tab, ...(activeTab === 'deductions' && styles.activeTab)}}
+          onClick={() => setActiveTab('deductions')}
+        >
+          Custom Deductions
         </button>
       </div>
 
@@ -578,6 +714,171 @@ function EmployeeDetails() {
             )}
           </div>
         )}
+
+        {activeTab === 'deductions' && (
+          <div style={styles.card}>
+            <h2 style={styles.subtitle}>Custom Deductions</h2>
+            
+            {/* Add New Deduction Form */}
+            <div style={styles.deductionForm}>
+              <h3 style={styles.formTitle}>Add New Deduction</h3>
+              <form onSubmit={handleAddCustomDeduction} style={styles.form}>
+                <div style={styles.formGrid}>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Description *</label>
+                    <input
+                      type="text"
+                      value={newDeduction.description}
+                      onChange={(e) => setNewDeduction({...newDeduction, description: e.target.value})}
+                      style={styles.input}
+                      placeholder="e.g., Salary Advance, Loan Repayment"
+                      required
+                    />
+                  </div>
+                  
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Type *</label>
+                    <select
+                      value={newDeduction.type}
+                      onChange={(e) => setNewDeduction({...newDeduction, type: e.target.value})}
+                      style={styles.select}
+                      required
+                    >
+                      <option value="salary_advance">Salary Advance</option>
+                      <option value="loan">Loan</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Total Amount *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newDeduction.amount}
+                      onChange={(e) => setNewDeduction({...newDeduction, amount: e.target.value})}
+                      style={styles.input}
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
+                  
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Monthly Deduction Amount *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newDeduction.monthlyAmount}
+                      onChange={(e) => setNewDeduction({...newDeduction, monthlyAmount: e.target.value})}
+                      style={styles.input}
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
+                  
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Start Date *</label>
+                    <input
+                      type="date"
+                      value={newDeduction.startDate}
+                      onChange={(e) => setNewDeduction({...newDeduction, startDate: e.target.value})}
+                      style={styles.input}
+                      required
+                    />
+                  </div>
+                  
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>End Date</label>
+                    <input
+                      type="date"
+                      value={newDeduction.endDate}
+                      onChange={(e) => setNewDeduction({...newDeduction, endDate: e.target.value})}
+                      style={styles.input}
+                    />
+                  </div>
+                </div>
+                
+                <div style={styles.formButtons}>
+                  <button type="submit" style={styles.submitButton}>
+                    Add Deduction
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Existing Deductions List */}
+            <div style={styles.deductionsList}>
+              <h3 style={styles.listTitle}>Current Deductions</h3>
+              {employee.customDeductions && employee.customDeductions.length > 0 ? (
+                <div style={styles.tableContainer}>
+                  <table style={styles.table}>
+                    <thead>
+                      <tr>
+                        <th style={styles.tableHeader}>Description</th>
+                        <th style={styles.tableHeader}>Type</th>
+                        <th style={styles.tableHeader}>Total Amount</th>
+                        <th style={styles.tableHeader}>Monthly Amount</th>
+                        <th style={styles.tableHeader}>Remaining</th>
+                        <th style={styles.tableHeader}>Status</th>
+                        <th style={styles.tableHeader}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {employee.customDeductions.map((deduction) => (
+                        <tr key={deduction._id} style={styles.tableRow}>
+                          <td style={styles.tableCell}>{deduction.description}</td>
+                          <td style={styles.tableCell}>
+                            <span style={getDeductionTypeStyle(deduction.type)}>
+                              {deduction.type.replace('_', ' ').toUpperCase()}
+                            </span>
+                          </td>
+                          <td style={styles.tableCell}>KES {parseFloat(deduction.amount).toLocaleString()}</td>
+                          <td style={styles.tableCell}>KES {parseFloat(deduction.monthlyAmount).toLocaleString()}</td>
+                          <td style={styles.tableCell}>KES {parseFloat(deduction.remainingAmount || deduction.amount).toLocaleString()}</td>
+                          <td style={styles.tableCell}>
+                            <span style={getStatusStyle(deduction.status)}>
+                              {deduction.status}
+                            </span>
+                          </td>
+                          <td style={styles.tableCell}>
+                            <div style={styles.actionButtons}>
+                              {deduction.status === 'active' && (
+                                <button
+                                  onClick={() => handleUpdateDeductionStatus(deduction._id, 'completed')}
+                                  style={styles.actionButton}
+                                >
+                                  Complete
+                                </button>
+                              )}
+                              {deduction.status === 'active' && (
+                                <button
+                                  onClick={() => handleUpdateDeductionStatus(deduction._id, 'cancelled')}
+                                  style={styles.actionButton}
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteDeduction(deduction._id)}
+                                style={{...styles.actionButton, backgroundColor: '#e74c3c'}}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p style={styles.noData}>No custom deductions found</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {showDeleteModal && (
@@ -652,6 +953,30 @@ function EmployeeDetails() {
     </div>
   );
 }
+
+const getDeductionTypeStyle = (type) => ({
+  padding: '4px 8px',
+  borderRadius: '4px',
+  fontSize: '12px',
+  fontWeight: '500',
+  backgroundColor: 
+    type === 'salary_advance' ? '#ffd700' :
+    type === 'loan' ? '#87CEEB' :
+    '#f0f0f0',
+  color: '#333'
+});
+
+const getStatusStyle = (status) => ({
+  padding: '4px 8px',
+  borderRadius: '4px',
+  fontSize: '12px',
+  fontWeight: '500',
+  backgroundColor: 
+    status === 'active' ? '#2ecc71' :
+    status === 'completed' ? '#ffd700' :
+    '#e74c3c',
+  color: 'white'
+});
 
 const styles = {
   container: {
@@ -826,17 +1151,19 @@ const styles = {
     gap: '10px',
   },
   input: {
-    padding: '8px',
+    padding: '8px 12px',
     border: '1px solid #ddd',
     borderRadius: '4px',
+    fontSize: '14px',
     width: '100%',
   },
   select: {
-    padding: '8px',
+    padding: '8px 12px',
     border: '1px solid #ddd',
     borderRadius: '4px',
-    width: '100%',
+    fontSize: '14px',
     backgroundColor: 'white',
+    width: '100%',
   },
   actionButtons: {
     display: 'flex',
@@ -850,6 +1177,8 @@ const styles = {
     color: 'white',
     cursor: 'pointer',
     fontWeight: '500',
+    fontSize: '12px',
+    backgroundColor: '#3498db',
     '&:disabled': {
       opacity: 0.7,
       cursor: 'not-allowed',
@@ -927,6 +1256,70 @@ const styles = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
     gap: '1rem',
+  },
+  deductionForm: {
+    backgroundColor: '#f8f9fa',
+    padding: '20px',
+    borderRadius: '8px',
+    marginBottom: '20px',
+  },
+  formTitle: {
+    margin: '0 0 15px 0',
+    color: '#2c3e50',
+    fontSize: '16px',
+    fontWeight: '600',
+  },
+  form: {
+    width: '100%',
+  },
+  formGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '15px',
+    marginBottom: '15px',
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '5px',
+  },
+  formButtons: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+  },
+  submitButton: {
+    padding: '10px 20px',
+    backgroundColor: '#3498db',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+  },
+  deductionsList: {
+    marginTop: '20px',
+  },
+  listTitle: {
+    margin: '0 0 15px 0',
+    color: '#2c3e50',
+    fontSize: '16px',
+    fontWeight: '600',
+  },
+  tableContainer: {
+    overflowX: 'auto',
+  },
+  noData: {
+    textAlign: 'center',
+    padding: '20px',
+    color: '#666',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '4px',
+  },
+  subtitle: {
+    margin: '0 0 20px 0',
+    color: '#2c3e50',
+    fontSize: '18px',
+    fontWeight: '600',
   },
 };
 

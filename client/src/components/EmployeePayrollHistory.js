@@ -119,27 +119,20 @@ function EmployeePayrollHistory({ employeeId }) {
   };
 
   const renderDeductions = (record) => {
-    if (!record.deductions?.items || !payrollSettings?.taxRates) return null;
+    if (!record.deductions?.items) return null;
 
-    // Get enabled deductions from settings
-    const enabledDeductions = [];
-    if (payrollSettings.taxRates.paye?.enabled) enabledDeductions.push('PAYE');
-    if (payrollSettings.taxRates.nhif?.enabled) enabledDeductions.push('NHIF');
-    if (payrollSettings.taxRates.nssf?.enabled) enabledDeductions.push('NSSF');
-    
-    // Add enabled custom deductions
-    if (payrollSettings.taxRates.customDeductions) {
-      payrollSettings.taxRates.customDeductions
-        .filter(d => d.enabled)
-        .forEach(d => enabledDeductions.push(d.name));
-    }
+    // Separate standard deductions from individual custom deductions
+    const standardDeductions = [];
+    const individualDeductions = [];
 
-    // Filter deductions to only show enabled ones
-    const filteredItems = record.deductions.items.filter(item => 
-      enabledDeductions.some(d => d.toLowerCase() === item.name.toLowerCase())
-    );
-
-    if (filteredItems.length === 0) return null;
+    record.deductions.items.forEach(item => {
+      // Check if this is an individual deduction (has type property)
+      if (item.type) {
+        individualDeductions.push(item);
+      } else {
+        standardDeductions.push(item);
+      }
+    });
 
     return (
       <div style={styles.detailsContainer}>
@@ -149,14 +142,36 @@ function EmployeePayrollHistory({ employeeId }) {
             KES {record.deductions.total?.toLocaleString()}
           </span>
         </div>
-        {filteredItems.map((item, index) => (
-          <div key={index} style={styles.detailsRow}>
+        
+        {/* Standard Deductions */}
+        {standardDeductions.map((item, index) => (
+          <div key={`standard-${index}`} style={styles.detailsRow}>
             <span style={styles.detailsLabel}>{item.name}:</span>
             <span style={styles.detailsValue}>
               KES {item.amount?.toLocaleString()}
             </span>
           </div>
         ))}
+        
+        {/* Individual Custom Deductions */}
+        {individualDeductions.length > 0 && (
+          <>
+            <div style={styles.detailsRow}>
+              <span style={styles.detailsLabel}><strong>Custom Deductions:</strong></span>
+              <span style={styles.detailsValue}></span>
+            </div>
+            {individualDeductions.map((item, index) => (
+              <div key={`individual-${index}`} style={styles.detailsRow}>
+                <span style={styles.detailsLabel}>
+                  {item.name} ({item.type?.replace('_', ' ').toUpperCase()}):
+                </span>
+                <span style={styles.detailsValue}>
+                  KES {item.amount?.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
       </div>
     );
   };

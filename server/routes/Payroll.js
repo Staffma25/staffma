@@ -23,6 +23,9 @@ const {
   calculatePayroll
 } = require('../utils/taxCalculations');
 
+// Import tax bracket templates
+const { getTaxBracketTemplate } = require('../utils/taxBracketTemplates');
+
 // Configure multer for file upload
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -197,10 +200,7 @@ router.post('/process', auth, async (req, res) => {
       // 3. Calculate PAYE using tax brackets (bucket method)
       const paye = calculatePAYE(taxableIncome, payrollSettings.taxRates.taxBrackets.brackets);
 
-      // 4. Net Salary = basic salary - (pre-tax deductions + PAYE)
-      const netSalary = basicSalary - (totalPreTaxDeductions + paye);
-
-      // 5. Calculate Custom Deductions (if any, from basic salary)
+      // 4. Calculate Custom Deductions (if any, from basic salary)
       let totalCustomDeductions = 0;
       const customDeductionItems = [];
       if (payrollSettings.taxRates?.customDeductions) {
@@ -221,8 +221,157 @@ router.post('/process', auth, async (req, res) => {
         });
       }
 
-      // 6. Total Deductions (for reporting, not used in net salary)
-      const totalDeductions = totalPreTaxDeductions + paye + totalCustomDeductions;
+      // 5. Calculate Individual Employee Custom Deductions
+      let totalIndividualDeductions = 0;
+      const individualDeductionItems = [];
+      
+      console.log('=== INDIVIDUAL DEDUCTIONS DEBUG START ===');
+      console.log('Processing individual deductions for employee:', {
+        employeeId: employee._id,
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        customDeductions: employee.customDeductions,
+        customDeductionsLength: employee.customDeductions?.length || 0,
+        currentMonth: month,
+        currentYear: year
+      });
+      
+      // Debug: Check if employee has any custom deductions
+      if (employee.customDeductions && employee.customDeductions.length > 0) {
+        console.log('✅ Found custom deductions for employee:');
+        employee.customDeductions.forEach((deduction, index) => {
+          console.log(`  Deduction ${index + 1}:`, {
+            description: deduction.description,
+            type: deduction.type,
+            status: deduction.status,
+            amount: deduction.amount,
+            monthlyAmount: deduction.monthlyAmount,
+            remainingAmount: deduction.remainingAmount,
+            startDate: deduction.startDate,
+            endDate: deduction.endDate
+          });
+        });
+        
+        // Process each deduction
+        employee.customDeductions.forEach((deduction, index) => {
+          console.log(`\n--- Processing Deduction ${index + 1} ---`);
+          
+          if (deduction.status === 'active') {
+            // Check if deduction should be applied for this month
+            const deductionStartDate = new Date(deduction.startDate);
+            const currentMonth = new Date(year, month - 1, 1); // month is 0-based
+            const deductionEndDate = deduction.endDate ? new Date(deduction.endDate) : null;
+            
+            // For date comparison, we need to compare year and month only
+            const deductionStartYear = deductionStartDate.getFullYear();
+            const deductionStartMonth = deductionStartDate.getMonth() + 1; // Convert to 1-based
+            const deductionEndYear = deductionEndDate ? deductionEndDate.getFullYear() : null;
+            const deductionEndMonth = deductionEndDate ? deductionEndDate.getMonth() + 1 : null;
+            
+            // More flexible date comparison - allow deductions to start in the current month
+            const isAfterStart = (year > deductionStartYear) || 
+                               (year === deductionStartYear && month >= deductionStartMonth);
+            const isBeforeEnd = !deductionEndDate || 
+                              (year < deductionEndYear) || 
+                              (year === deductionEndYear && month <= deductionEndMonth);
+            const hasRemaining = deduction.remainingAmount > 0;
+            
+            // Special case: if deduction starts in the current month, allow it
+            const isCurrentMonth = (year === deductionStartYear && month === deductionStartMonth);
+            const shouldApply = (isAfterStart && isBeforeEnd && hasRemaining) || (isCurrentMonth && hasRemaining);
+            
+            console.log('Date comparison:', {
+              deductionStartDate: deductionStartDate.toISOString(),
+              currentMonth: currentMonth.toISOString(),
+              deductionEndDate: deductionEndDate?.toISOString() || 'null',
+              deductionStartYear,
+              deductionStartMonth,
+              deductionEndYear,
+              deductionEndMonth,
+              currentYear: year,
+              currentMonth: month,
+              isAfterStart,
+              isBeforeEnd,
+              hasRemaining,
+              isCurrentMonth,
+              shouldApply
+            });
+            
+            // Apply deduction if conditions are met
+            if (shouldApply) {
+              const deductionAmount = Math.min(deduction.monthlyAmount, deduction.remainingAmount);
+              totalIndividualDeductions += deductionAmount;
+              individualDeductionItems.push({
+                name: deduction.description,
+                amount: deductionAmount,
+                type: deduction.type || 'individual', // Default to 'individual' if no type
+                deductionId: deduction._id,
+                isIndividual: true // Add a flag to identify individual deductions
+              });
+              
+              console.log('✅ Applied deduction:', {
+                description: deduction.description,
+                amount: deductionAmount,
+                type: deduction.type || 'individual',
+                reason: 'Normal application'
+              });
+            } else {
+              console.log('❌ Deduction not applied:', {
+                description: deduction.description,
+                reason: !shouldApply ? 
+                  (!isAfterStart && !isCurrentMonth ? 'Before start date' :
+                   !isBeforeEnd ? 'After end date' :
+                   !hasRemaining ? 'No remaining amount' : 'Unknown') : 'Unknown'
+              });
+            }
+          } else {
+            console.log('❌ Deduction not active:', {
+              description: deduction.description,
+              status: deduction.status
+            });
+          }
+        });
+      } else {
+        console.log('❌ No custom deductions found for employee');
+        console.log('Employee customDeductions field:', employee.customDeductions);
+      }
+      
+      console.log('=== INDIVIDUAL DEDUCTIONS SUMMARY ===');
+      console.log('Individual deductions summary:', {
+        totalIndividualDeductions,
+        individualDeductionItems,
+        itemsCount: individualDeductionItems.length
+      });
+      console.log('=== INDIVIDUAL DEDUCTIONS DEBUG END ===\n');
+
+      // 6. Calculate Net Salary = basic salary - (pre-tax deductions + PAYE + individual deductions)
+      const netSalary = basicSalary - (totalPreTaxDeductions + paye + totalIndividualDeductions);
+
+      // 7. Total Deductions (for reporting)
+      const totalDeductions = totalPreTaxDeductions + paye + totalCustomDeductions + totalIndividualDeductions;
+
+      console.log('Final salary calculation:', {
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        basicSalary,
+        totalPreTaxDeductions,
+        paye,
+        totalIndividualDeductions,
+        netSalary,
+        totalDeductions
+      });
+
+      // Debug: Show all deduction items being saved
+      const allDeductionItems = [
+        { name: 'SHIF', amount: shif },
+        { name: 'NSSF', amount: nssf },
+        { name: 'Housing Levy', amount: housingLevy },
+        ...customDeductionItems,
+        ...individualDeductionItems,
+        { name: 'PAYE', amount: paye }
+      ];
+      
+      console.log('All deduction items being saved:', JSON.stringify(allDeductionItems, null, 2));
+      console.log('Individual deduction items count:', individualDeductionItems.length);
+      console.log('Individual deduction items:', JSON.stringify(individualDeductionItems, null, 2));
 
       // Create or update payroll record
       const payroll = await Payroll.findOneAndUpdate(
@@ -244,11 +393,7 @@ router.post('/process', auth, async (req, res) => {
             },
             deductions: {
               items: [
-                { name: 'SHIF', amount: shif },
-                { name: 'NSSF', amount: nssf },
-                { name: 'Housing Levy', amount: housingLevy },
-                ...customDeductionItems,
-                { name: 'PAYE', amount: paye }
+                ...allDeductionItems
               ],
               total: totalDeductions
             },
@@ -264,6 +409,21 @@ router.post('/process', auth, async (req, res) => {
           runValidators: true
         }
       );
+
+      // Update remaining amounts for individual deductions
+      if (individualDeductionItems.length > 0) {
+        for (const deductionItem of individualDeductionItems) {
+          const deduction = employee.customDeductions.id(deductionItem.deductionId);
+          if (deduction) {
+            deduction.remainingAmount = Math.max(0, deduction.remainingAmount - deductionItem.amount);
+            if (deduction.remainingAmount === 0) {
+              deduction.status = 'completed';
+            }
+            deduction.updatedAt = new Date();
+          }
+        }
+        await employee.save();
+      }
 
       return payroll;
     }));
@@ -1068,14 +1228,28 @@ router.get('/settings/tax-brackets/template', auth, async (req, res) => {
       return res.status(400).json({ error: 'Region and business type are required' });
     }
 
-    // This is a placeholder - you'll need to implement the actual template loading
-    const templateBrackets = []; // Load template based on region and business type
+    // Get the template brackets for the specified region and business type
+    const templateBrackets = getTaxBracketTemplate(region, businessType);
 
-    const settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
+    // Find or create payroll settings
+    let settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
     if (!settings) {
-      return res.status(404).json({ error: 'Payroll settings not found' });
+      settings = new PayrollSettings({
+        businessId: req.user.businessId,
+        taxRates: {
+          allowances: [],
+          customDeductions: [],
+          taxBrackets: {
+            region,
+            businessType,
+            source: 'template',
+            brackets: []
+          }
+        }
+      });
     }
 
+    // Update tax brackets with template data
     settings.taxRates.taxBrackets = {
       region,
       businessType,
@@ -1089,6 +1263,209 @@ router.get('/settings/tax-brackets/template', auth, async (req, res) => {
   } catch (error) {
     console.error('Error loading tax bracket template:', error);
     res.status(500).json({ error: 'Failed to load tax bracket template' });
+  }
+});
+
+// Set default tax brackets (Kenya template)
+router.post('/settings/tax-brackets/default', auth, async (req, res) => {
+  try {
+    // Get the default Kenya template
+    const defaultBrackets = getTaxBracketTemplate('Kenya', 'Small Business');
+
+    // Find or create payroll settings
+    let settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
+    if (!settings) {
+      settings = new PayrollSettings({
+        businessId: req.user.businessId,
+        taxRates: {
+          allowances: [],
+          customDeductions: [],
+          taxBrackets: {
+            region: 'Kenya',
+            businessType: 'Small Business',
+            source: 'template',
+            brackets: []
+          }
+        }
+      });
+    }
+
+    // Update tax brackets with default data
+    settings.taxRates.taxBrackets = {
+      region: 'Kenya',
+      businessType: 'Small Business',
+      source: 'template',
+      brackets: defaultBrackets,
+      lastUpdated: new Date()
+    };
+
+    await settings.save();
+    res.status(200).json(settings);
+  } catch (error) {
+    console.error('Error setting default tax brackets:', error);
+    res.status(500).json({ error: 'Failed to set default tax brackets' });
+  }
+});
+
+// Reset tax brackets
+router.post('/settings/tax-brackets/reset', auth, async (req, res) => {
+  try {
+    const settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
+    if (!settings) {
+      return res.status(404).json({ error: 'Payroll settings not found' });
+    }
+
+    // Reset tax brackets to empty
+    settings.taxRates.taxBrackets = {
+      region: '',
+      businessType: '',
+      source: '',
+      brackets: [],
+      lastUpdated: new Date()
+    };
+
+    await settings.save();
+    res.status(200).json(settings);
+  } catch (error) {
+    console.error('Error resetting tax brackets:', error);
+    res.status(500).json({ error: 'Failed to reset tax brackets' });
+  }
+});
+
+// Debug endpoint to check payroll data structure
+router.get('/debug/:payrollId', auth, async (req, res) => {
+  try {
+    const payroll = await Payroll.findById(req.params.payrollId)
+      .populate('employeeId', 'firstName lastName position department employeeNumber');
+    
+    if (!payroll) {
+      return res.status(404).json({ message: 'Payroll record not found' });
+    }
+
+    // Check for individual deductions
+    const individualDeductions = payroll.deductions?.items?.filter(item => 
+      item.type && ['salary_advance', 'loan', 'other'].includes(item.type)
+    ) || [];
+
+    res.json({
+      payrollId: payroll._id,
+      employeeName: `${payroll.employeeId?.firstName} ${payroll.employeeId?.lastName}`,
+      allDeductions: payroll.deductions?.items || [],
+      individualDeductions,
+      individualDeductionsCount: individualDeductions.length,
+      totalIndividualAmount: individualDeductions.reduce((sum, item) => sum + (item.amount || 0), 0)
+    });
+  } catch (error) {
+    console.error('Error in debug endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Debug endpoint to check employee custom deductions
+router.get('/debug-employee/:employeeId', auth, async (req, res) => {
+  try {
+    const employee = await Employee.findOne({
+      _id: req.params.employeeId,
+      businessId: req.user.businessId
+    }).populate('businessId', 'businessName');
+    
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    res.json({
+      employeeId: employee._id,
+      employeeName: `${employee.firstName} ${employee.lastName}`,
+      employeeNumber: employee.employeeNumber,
+      businessName: employee.businessId?.businessName,
+      customDeductions: employee.customDeductions || [],
+      customDeductionsCount: employee.customDeductions?.length || 0,
+      activeDeductions: employee.customDeductions?.filter(d => d.status === 'active') || [],
+      activeDeductionsCount: employee.customDeductions?.filter(d => d.status === 'active').length || 0
+    });
+  } catch (error) {
+    console.error('Error in employee debug endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Debug endpoint to check current payroll data
+router.get('/debug-current/:month/:year', auth, async (req, res) => {
+  try {
+    const { month, year } = req.params;
+    
+    const payrollData = await Payroll.find({
+      businessId: req.user.businessId,
+      month: Number(month),
+      year: Number(year)
+    }).populate('employeeId', 'firstName lastName employeeNumber');
+    
+    const debugData = payrollData.map(payroll => {
+      const individualDeductions = payroll.deductions?.items?.filter(item => 
+        item.type && ['salary_advance', 'loan', 'other'].includes(item.type)
+      ) || [];
+      
+      return {
+        employeeName: `${payroll.employeeId?.firstName} ${payroll.employeeId?.lastName}`,
+        employeeNumber: payroll.employeeId?.employeeNumber,
+        allDeductions: payroll.deductions?.items || [],
+        individualDeductions,
+        individualDeductionsCount: individualDeductions.length,
+        totalIndividualAmount: individualDeductions.reduce((sum, item) => sum + (item.amount || 0), 0),
+        netSalary: payroll.netSalary
+      };
+    });
+    
+    res.json({
+      month,
+      year,
+      totalRecords: payrollData.length,
+      records: debugData
+    });
+  } catch (error) {
+    console.error('Error in debug endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Debug endpoint to add test custom deduction
+router.post('/debug-add-deduction/:employeeId', auth, async (req, res) => {
+  try {
+    const employee = await Employee.findOne({
+      _id: req.params.employeeId,
+      businessId: req.user.businessId
+    });
+    
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Add a test custom deduction
+    const testDeduction = {
+      description: 'Test Salary Advance',
+      type: 'salary_advance',
+      amount: 10000,
+      monthlyAmount: 2000,
+      remainingAmount: 10000,
+      startDate: new Date(),
+      endDate: null,
+      status: 'active'
+    };
+
+    employee.customDeductions.push(testDeduction);
+    await employee.save();
+
+    res.json({
+      message: 'Test deduction added successfully',
+      employee: {
+        id: employee._id,
+        name: `${employee.firstName} ${employee.lastName}`,
+        customDeductions: employee.customDeductions
+      }
+    });
+  } catch (error) {
+    console.error('Error adding test deduction:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

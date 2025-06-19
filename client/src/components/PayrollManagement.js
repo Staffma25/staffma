@@ -42,53 +42,52 @@ function PayrollManagement() {
 
   const fetchPayrollHistory = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem('token');
       
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-      
-      console.log('Fetching payroll history with params:', {
-        month: selectedMonth,
-        year: selectedYear
-      });
-
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/payroll/history?month=${selectedMonth}&year=${selectedYear}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          credentials: 'include'
+      const response = await fetch(`http://localhost:5001/api/payroll/history?month=${selectedMonth}&year=${selectedYear}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-      );
-
-      const data = await response.json();
-      
-      console.log('Payroll history response:', {
-        ok: response.ok,
-        status: response.status,
-        data
       });
 
       if (!response.ok) {
-        if (response.status === 401) {
-          // Token expired or invalid
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          navigate('/login');
-          return;
-        }
-        throw new Error(data.message || data.error || 'Failed to fetch payroll history');
+        throw new Error('Failed to fetch payroll history');
       }
 
+      const data = await response.json();
+      console.log('=== PAYROLL DATA DEBUG ===');
+      console.log('Fetched payroll data:', data);
+      
+      // Debug individual deductions in each record
+      data.forEach((record, index) => {
+        console.log(`Record ${index + 1} - ${record.employeeId?.firstName} ${record.employeeId?.lastName}:`);
+        console.log('  All deductions:', record.deductions?.items || []);
+        
+        // Show all deduction names
+        const deductionNames = (record.deductions?.items || []).map(item => item.name);
+        console.log('  Deduction names:', deductionNames);
+        
+        const individualDeductions = (record.deductions?.items || []).filter(item => 
+          item.type && ['salary_advance', 'loan', 'other', 'individual'].includes(item.type)
+        );
+        console.log('  Individual deductions (by type):', individualDeductions);
+        
+        // Show any deductions with isIndividual flag
+        const flaggedDeductions = (record.deductions?.items || []).filter(item => item.isIndividual === true);
+        console.log('  Flagged deductions:', flaggedDeductions);
+        
+        const total = individualDeductions.reduce((sum, item) => sum + (item.amount || 0), 0);
+        console.log('  Individual total:', total);
+      });
+      console.log('=== END PAYROLL DATA DEBUG ===');
+      
       setPayrollHistory(data);
-      await fetchPayrollSummary();
     } catch (error) {
       console.error('Error fetching payroll history:', error);
-      setError('Failed to fetch payroll history: ' + error.message);
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -258,6 +257,10 @@ function PayrollManagement() {
       totalNetSalary: records.reduce((sum, record) => sum + (record.netSalary || 0), 0),
       totalAllowances: records.reduce((sum, record) => sum + (record.allowances?.total || 0), 0),
       totalDeductions: records.reduce((sum, record) => sum + (record.deductions?.total || 0), 0),
+      totalIndividualDeductions: records.reduce((sum, record) => {
+        const individualDeductions = record.deductions?.items?.filter(item => item.type) || [];
+        return sum + individualDeductions.reduce((itemSum, item) => itemSum + (item.amount || 0), 0);
+      }, 0),
       // Calculate individual deduction totals based on configured deductions
       deductionTotals: records.reduce((totals, record) => {
         if (record.deductions?.items) {
@@ -419,6 +422,11 @@ function PayrollManagement() {
             <span style={styles.cardLabel}>Total Deductions</span>
             <span style={styles.cardValue}>KES {currentSummary.totalDeductions?.toLocaleString()}</span>
           </div>
+          <div style={styles.summaryCard}>
+            <div style={styles.cardIcon}>💳</div>
+            <span style={styles.cardLabel}>Individual Deductions</span>
+            <span style={styles.cardValue}>KES {currentSummary.totalIndividualDeductions?.toLocaleString()}</span>
+          </div>
           {/* Dynamically render configured deductions */}
           {configuredDeductions.map(deduction => (
             <div key={deduction} style={styles.summaryCard}>
@@ -474,6 +482,7 @@ function PayrollManagement() {
                 {configuredDeductions.map(deduction => (
                   <th key={deduction} style={styles.tableHeader}>{deduction}</th>
                 ))}
+                <th style={styles.tableHeader}>Individual Deductions</th>
                 <th style={styles.tableHeader}>Total Deductions</th>
                 <th style={styles.tableHeader}>Net Salary</th>
                 <th style={styles.tableHeader}>Actions</th>
@@ -538,6 +547,69 @@ function PayrollManagement() {
                       </td>
                     );
                   })}
+                  <td style={styles.tableCell}>
+                    KES {(() => {
+                      const allDeductions = record.deductions?.items || [];
+                      
+                      // Debug: Show all deductions for this employee
+                      console.log('=== PAYROLL DEDUCTIONS DEBUG ===');
+                      console.log('Employee:', `${record.employeeId?.firstName} ${record.employeeId?.lastName}`);
+                      console.log('All deductions:', JSON.stringify(allDeductions, null, 2));
+                      
+                      // Simple approach: Look for deductions that are NOT standard deductions
+                      const standardDeductionNames = [
+                        'PAYE', 'NHIF', 'NSSF', 'SHIF', 'Housing Levy', 'housing levy'
+                      ];
+                      
+                      const individualDeductions = allDeductions.filter(item => {
+                        // Check if it's NOT a standard deduction
+                        const isStandardDeduction = standardDeductionNames.some(name => 
+                          item.name.toLowerCase() === name.toLowerCase()
+                        );
+                        
+                        // Check if it has individual deduction indicators
+                        const hasType = item.type && ['salary_advance', 'loan', 'other', 'individual'].includes(item.type);
+                        const hasIndividualFlag = item.isIndividual === true;
+                        const hasIndividualName = item.name && [
+                          'salary advance', 'advance', 'loan', 'loan repayment', 
+                          'personal loan', 'emergency loan', 'advance payment',
+                          'test salary advance'
+                        ].some(name => item.name.toLowerCase().includes(name.toLowerCase()));
+                        
+                        // It's an individual deduction if it's not standard AND has any individual indicator
+                        // OR if it's not a standard deduction and we can't identify it otherwise
+                        const isIndividual = !isStandardDeduction && (hasType || hasIndividualFlag || hasIndividualName);
+                        
+                        // Fallback: If it's not a standard deduction and has a significant amount, treat as individual
+                        const isSignificantAmount = item.amount > 0;
+                        const isIndividualFallback = !isStandardDeduction && isSignificantAmount && !hasType && !hasIndividualFlag && !hasIndividualName;
+                        
+                        const finalIsIndividual = isIndividual || isIndividualFallback;
+                        
+                        console.log('Deduction check:', {
+                          name: item.name,
+                          type: item.type,
+                          amount: item.amount,
+                          isIndividual: item.isIndividual,
+                          isStandardDeduction: isStandardDeduction,
+                          hasType: hasType,
+                          hasIndividualFlag: hasIndividualFlag,
+                          hasIndividualName: hasIndividualName,
+                          isIndividual: finalIsIndividual
+                        });
+                        
+                        return finalIsIndividual;
+                      });
+                      
+                      const total = individualDeductions.reduce((sum, item) => sum + (item.amount || 0), 0);
+                      
+                      console.log('Individual deductions found:', individualDeductions);
+                      console.log('Total individual deductions:', total);
+                      console.log('=== END PAYROLL DEDUCTIONS DEBUG ===');
+                      
+                      return total.toLocaleString();
+                    })()}
+                  </td>
                   <td style={styles.tableCell}>
                     KES {record.deductions?.total?.toLocaleString()}
                   </td>

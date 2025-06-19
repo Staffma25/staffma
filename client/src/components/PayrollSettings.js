@@ -403,15 +403,21 @@ const PayrollSettings = () => {
   const handleLoadTemplate = async () => {
     try {
       if (!taxBracketInfo.region || !taxBracketInfo.businessType) {
-        setError('Please select both region and business type');
+        setError('Please select both region and business type before loading template');
         return;
       }
 
       setLoading(true);
+      setError(null);
       const token = getToken();
       if (!token) {
         throw new Error('No authentication token found');
       }
+
+      console.log('Loading template for:', {
+        region: taxBracketInfo.region,
+        businessType: taxBracketInfo.businessType
+      });
 
       const response = await axios.get(
         `${API_BASE_URL}/payroll/settings/tax-brackets/template`,
@@ -431,14 +437,14 @@ const PayrollSettings = () => {
       }
 
       setSettings(response.data);
-      setSuccess('Tax bracket template loaded successfully');
+      setSuccess(`Tax bracket template loaded successfully for ${taxBracketInfo.region} (${taxBracketInfo.businessType})`);
       setError(null);
     } catch (error) {
       console.error('Error loading template:', error);
-      setError(error.response?.data?.message || 'Failed to load tax bracket template');
+      setError(error.response?.data?.error || error.response?.data?.message || 'Failed to load tax bracket template');
     } finally {
       setLoading(false);
-      setTimeout(() => setSuccess(null), 3000);
+      setTimeout(() => setSuccess(null), 5000);
     }
   };
 
@@ -538,10 +544,13 @@ const PayrollSettings = () => {
   const handleResetTaxBrackets = async () => {
     try {
       setLoading(true);
+      setError(null);
       const token = getToken();
       if (!token) {
         throw new Error('No authentication token found');
       }
+
+      console.log('Resetting tax brackets');
 
       const response = await axios.post(
         `${API_BASE_URL}/payroll/settings/tax-brackets/reset`,
@@ -563,20 +572,23 @@ const PayrollSettings = () => {
       setError(null);
     } catch (error) {
       console.error('Error resetting tax brackets:', error);
-      setError(error.response?.data?.message || 'Failed to reset tax brackets');
+      setError(error.response?.data?.error || error.response?.data?.message || 'Failed to reset tax brackets');
     } finally {
       setLoading(false);
-      setTimeout(() => setSuccess(null), 3000);
+      setTimeout(() => setSuccess(null), 5000);
     }
   };
 
   const handleSetDefaultTaxBrackets = async () => {
     try {
       setLoading(true);
+      setError(null);
       const token = getToken();
       if (!token) {
         throw new Error('No authentication token found');
       }
+
+      console.log('Setting default tax brackets (Kenya template)');
 
       const response = await axios.post(
         `${API_BASE_URL}/payroll/settings/tax-brackets/default`,
@@ -594,14 +606,14 @@ const PayrollSettings = () => {
       }
 
       setSettings(response.data);
-      setSuccess('Default tax brackets set successfully');
+      setSuccess('Default Kenya tax brackets set successfully');
       setError(null);
     } catch (error) {
       console.error('Error setting default tax brackets:', error);
-      setError(error.response?.data?.message || 'Failed to set default tax brackets');
+      setError(error.response?.data?.error || error.response?.data?.message || 'Failed to set default tax brackets');
     } finally {
       setLoading(false);
-      setTimeout(() => setSuccess(null), 3000);
+      setTimeout(() => setSuccess(null), 5000);
     }
   };
 
@@ -888,13 +900,19 @@ const PayrollSettings = () => {
               </div>
             ) : taxBracketInfo.source === 'template' ? (
               <div style={styles.templateSection}>
-                <button
-                  onClick={handleLoadTemplate}
-                  style={styles.templateButton}
-                  disabled={loading}
-                >
-                  Load Template
-                </button>
+                <div style={styles.templateInfo}>
+                  <p style={styles.templateDescription}>
+                    Load pre-configured tax brackets for {taxBracketInfo.region || 'your region'} 
+                    {taxBracketInfo.businessType && ` (${taxBracketInfo.businessType})`}
+                  </p>
+                  <button
+                    onClick={handleLoadTemplate}
+                    style={styles.templateButton}
+                    disabled={loading || !taxBracketInfo.region || !taxBracketInfo.businessType}
+                  >
+                    {loading ? 'Loading...' : 'Load Template'}
+                  </button>
+                </div>
               </div>
             ) : (
               <div style={styles.manualEntrySection}>
@@ -982,10 +1000,14 @@ const PayrollSettings = () => {
 
             {settings.taxRates?.taxBrackets?.region && (
               <div style={styles.currentConfig}>
-                <p>Current Configuration:</p>
-                <p>Region: {settings.taxRates.taxBrackets.region}</p>
-                <p>Business Type: {settings.taxRates.taxBrackets.businessType}</p>
-                <p>Last Updated: {new Date(settings.taxRates.taxBrackets.lastUpdated).toLocaleDateString()}</p>
+                <h4 style={styles.configTitle}>Current Configuration:</h4>
+                <div style={styles.configDetails}>
+                  <p><strong>Region:</strong> {settings.taxRates.taxBrackets.region}</p>
+                  <p><strong>Business Type:</strong> {settings.taxRates.taxBrackets.businessType}</p>
+                  <p><strong>Source:</strong> {settings.taxRates.taxBrackets.source}</p>
+                  <p><strong>Brackets:</strong> {settings.taxRates.taxBrackets.brackets.length} configured</p>
+                  <p><strong>Last Updated:</strong> {new Date(settings.taxRates.taxBrackets.lastUpdated).toLocaleDateString()}</p>
+                </div>
               </div>
             )}
           </section>
@@ -1418,6 +1440,55 @@ const styles = {
       backgroundColor: '#ccc',
       cursor: 'not-allowed'
     }
+  },
+  templateSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+    marginBottom: '30px',
+    padding: '20px',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '10px'
+  },
+  templateInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px'
+  },
+  templateDescription: {
+    fontSize: '14px',
+    color: '#2c3e50',
+    fontWeight: '500'
+  },
+  uploadActions: {
+    display: 'flex',
+    gap: '10px',
+    marginTop: '10px'
+  },
+  clearButton: {
+    padding: '12px 24px',
+    backgroundColor: '#f44336',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+    '&:disabled': {
+      backgroundColor: '#ccc',
+      cursor: 'not-allowed'
+    }
+  },
+  configTitle: {
+    fontSize: '18px',
+    marginBottom: '10px',
+    color: '#2c3e50',
+    fontWeight: '600'
+  },
+  configDetails: {
+    fontSize: '14px',
+    color: '#666',
+    fontWeight: '500'
   }
 };
 

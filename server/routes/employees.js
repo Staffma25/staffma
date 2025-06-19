@@ -364,6 +364,206 @@ router.post('/update-missing-numbers', auth, async (req, res) => {
   }
 });
 
+// Add custom deduction to employee
+router.post('/:id/custom-deductions', auth, async (req, res) => {
+  try {
+    console.log('Adding custom deduction for employee:', req.params.id);
+    console.log('Request body:', req.body);
+    console.log('User:', req.user);
+
+    // Check if user has permission to edit employees
+    if (!req.user.hasPermission('employeeManagement', 'edit')) {
+      console.log('Permission denied for employee management edit');
+      return res.status(403).json({ message: 'You do not have permission to edit employees' });
+    }
+
+    const { description, type, amount, monthlyAmount, startDate, endDate } = req.body;
+
+    // Validate required fields
+    if (!description || !type || !amount || !monthlyAmount || !startDate) {
+      console.log('Missing required fields:', { description, type, amount, monthlyAmount, startDate });
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        details: 'Description, type, amount, monthly amount, and start date are required'
+      });
+    }
+
+    // Validate amount
+    if (amount <= 0 || monthlyAmount <= 0) {
+      console.log('Invalid amount:', { amount, monthlyAmount });
+      return res.status(400).json({ 
+        error: 'Invalid amount',
+        details: 'Amount and monthly amount must be greater than 0'
+      });
+    }
+
+    // Validate monthly amount doesn't exceed total amount
+    if (monthlyAmount > amount) {
+      console.log('Monthly amount exceeds total amount:', { monthlyAmount, amount });
+      return res.status(400).json({ 
+        error: 'Invalid monthly amount',
+        details: 'Monthly deduction amount cannot exceed total amount'
+      });
+    }
+
+    console.log('Looking for employee with ID:', req.params.id, 'and businessId:', req.user.businessId);
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.user.businessId
+    });
+
+    if (!employee) {
+      console.log('Employee not found');
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    console.log('Employee found:', employee._id);
+
+    const newDeduction = {
+      description,
+      type,
+      amount: parseFloat(amount),
+      monthlyAmount: parseFloat(monthlyAmount),
+      remainingAmount: parseFloat(amount),
+      startDate: new Date(startDate),
+      endDate: endDate ? new Date(endDate) : null,
+      status: 'active'
+    };
+
+    console.log('New deduction object:', newDeduction);
+
+    employee.customDeductions.push(newDeduction);
+    console.log('Deduction added to employee array');
+    
+    await employee.save();
+    console.log('Employee saved successfully');
+
+    res.status(201).json(employee);
+  } catch (error) {
+    console.error('Error adding custom deduction:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to add custom deduction',
+      details: error.message 
+    });
+  }
+});
+
+// Update custom deduction status
+router.put('/:id/custom-deductions/:deductionId', auth, async (req, res) => {
+  try {
+    // Check if user has permission to edit employees
+    if (!req.user.hasPermission('employeeManagement', 'edit')) {
+      return res.status(403).json({ message: 'You do not have permission to edit employees' });
+    }
+
+    const { status } = req.body;
+
+    if (!status || !['active', 'completed', 'cancelled'].includes(status)) {
+      return res.status(400).json({ 
+        error: 'Invalid status',
+        details: 'Status must be active, completed, or cancelled'
+      });
+    }
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.user.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    const deduction = employee.customDeductions.id(req.params.deductionId);
+    if (!deduction) {
+      return res.status(404).json({ message: 'Deduction not found' });
+    }
+
+    deduction.status = status;
+    deduction.updatedAt = new Date();
+    await employee.save();
+
+    res.json(employee);
+  } catch (error) {
+    console.error('Error updating custom deduction:', error);
+    res.status(500).json({ 
+      error: 'Failed to update custom deduction',
+      details: error.message 
+    });
+  }
+});
+
+// Delete custom deduction
+router.delete('/:id/custom-deductions/:deductionId', auth, async (req, res) => {
+  try {
+    // Check if user has permission to edit employees
+    if (!req.user.hasPermission('employeeManagement', 'edit')) {
+      return res.status(403).json({ message: 'You do not have permission to edit employees' });
+    }
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.user.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    const deduction = employee.customDeductions.id(req.params.deductionId);
+    if (!deduction) {
+      return res.status(404).json({ message: 'Deduction not found' });
+    }
+
+    // Only allow deletion if deduction is not active
+    if (deduction.status === 'active') {
+      return res.status(400).json({ 
+        error: 'Cannot delete active deduction',
+        details: 'Please cancel or complete the deduction before deleting'
+      });
+    }
+
+    employee.customDeductions.pull(req.params.deductionId);
+    await employee.save();
+
+    res.json({ message: 'Deduction deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting custom deduction:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete custom deduction',
+      details: error.message 
+    });
+  }
+});
+
+// Get employee's custom deductions
+router.get('/:id/custom-deductions', auth, async (req, res) => {
+  try {
+    // Check if user has permission to view employees
+    if (!req.user.hasPermission('employeeManagement', 'view')) {
+      return res.status(403).json({ message: 'You do not have permission to view employee details' });
+    }
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.user.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    res.json(employee.customDeductions);
+  } catch (error) {
+    console.error('Error fetching custom deductions:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch custom deductions',
+      details: error.message 
+    });
+  }
+});
+
 module.exports = router; 
 
 

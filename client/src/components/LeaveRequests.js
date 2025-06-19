@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import LeaveDetailsModal from './LeaveDetailsModal';
 
 function LeaveRequests() {
   const [leaves, setLeaves] = useState([]);
@@ -8,6 +9,7 @@ function LeaveRequests() {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all'); // all, pending, approved, rejected
   const [sortBy, setSortBy] = useState('date'); // date, type, status
+  const [selectedLeaveId, setSelectedLeaveId] = useState(null);
   const { getToken } = useAuth();
   const navigate = useNavigate();
 
@@ -43,6 +45,21 @@ function LeaveRequests() {
 
   const handleSortChange = (e) => {
     setSortBy(e.target.value);
+  };
+
+  const handleViewDetails = (leaveId) => {
+    console.log('Opening modal for leave ID:', leaveId);
+    setSelectedLeaveId(leaveId);
+  };
+
+  const handleCloseModal = () => {
+    console.log('Closing modal');
+    setSelectedLeaveId(null);
+  };
+
+  const handleStatusUpdate = () => {
+    // Refresh the leaves list when status is updated
+    fetchLeaves();
   };
 
   const getStatusColor = (status) => {
@@ -152,7 +169,7 @@ function LeaveRequests() {
                 </td>
                 <td style={styles.td}>
                   <button
-                    onClick={() => navigate(`/leave-details/${leave._id}`)}
+                    onClick={() => handleViewDetails(leave._id)}
                     style={styles.viewButton}
                   >
                     View Details
@@ -168,6 +185,15 @@ function LeaveRequests() {
         <div style={styles.noData}>
           No leave requests found
         </div>
+      )}
+
+      {/* Leave Details Modal */}
+      {selectedLeaveId && (
+        <LeaveDetailsModal
+          leaveId={selectedLeaveId}
+          onClose={handleCloseModal}
+          onStatusUpdate={handleStatusUpdate}
+        />
       )}
     </div>
   );

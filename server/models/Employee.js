@@ -45,6 +45,55 @@ const insuranceSchema = new mongoose.Schema({
     }
 });
 
+const customDeductionSchema = new mongoose.Schema({
+    description: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    type: {
+        type: String,
+        enum: ['salary_advance', 'loan', 'other'],
+        required: true
+    },
+    amount: {
+        type: Number,
+        required: true,
+        min: 0
+    },
+    monthlyAmount: {
+        type: Number,
+        required: true,
+        min: 0
+    },
+    remainingAmount: {
+        type: Number,
+        default: function() {
+            return this.amount;
+        }
+    },
+    startDate: {
+        type: Date,
+        required: true
+    },
+    endDate: {
+        type: Date
+    },
+    status: {
+        type: String,
+        enum: ['active', 'completed', 'cancelled'],
+        default: 'active'
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
+    }
+});
+
 const employeeSchema = new mongoose.Schema({
     employeeNumber: {
         type: String,
@@ -116,6 +165,7 @@ const employeeSchema = new mongoose.Schema({
         type: insuranceSchema,
         default: () => ({})
     },
+    customDeductions: [customDeductionSchema],
     salary: {
         basic: {
             type: Number,
