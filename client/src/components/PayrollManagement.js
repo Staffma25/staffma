@@ -46,7 +46,7 @@ function PayrollManagement() {
       const token = localStorage.getItem('token');
       
       const response = await fetch(`http://localhost:5001/api/payroll/history?month=${selectedMonth}&year=${selectedYear}`, {
-        headers: {
+          headers: {
           'Authorization': `Bearer ${token}`
         }
       });
@@ -81,7 +81,7 @@ function PayrollManagement() {
         console.log('  Individual total:', total);
       });
       console.log('=== END PAYROLL DATA DEBUG ===');
-      
+
       setPayrollHistory(data);
     } catch (error) {
       console.error('Error fetching payroll history:', error);

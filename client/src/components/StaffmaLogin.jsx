@@ -2,20 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-function LogIn() {
+function StaffmaLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated, getCurrentUser } = useAuth();
+  const { staffmaLogin, isAuthenticated, getCurrentUser } = useAuth();
 
   useEffect(() => {
-    // If already logged in as business user, redirect to business dashboard
-    if (isAuthenticated('business')) {
-      console.log('LogIn: User is already authenticated as business user');
-      const from = location.state?.from?.pathname || '/dashboard';
+    // If already logged in as Staffma user, redirect to Staffma dashboard
+    if (isAuthenticated('staffma')) {
+      console.log('StaffmaLogin: User is already authenticated as Staffma user');
+      const from = location.state?.from?.pathname || '/staffma/dashboard';
       navigate(from, { replace: true });
     }
   }, [navigate, location, isAuthenticated]);
@@ -26,17 +26,18 @@ function LogIn() {
     setLoading(true);
 
     try {
-      const result = await login(email, password);
+      console.log('StaffmaLogin: Attempting login with email:', email);
+      const result = await staffmaLogin(email, password);
 
       if (result.success) {
-        console.log('LogIn: Login successful, redirecting to business dashboard');
-        const from = location.state?.from?.pathname || '/dashboard';
-        navigate(from, { replace: true });
+        console.log('StaffmaLogin: Login successful, redirecting to Staffma dashboard');
+        navigate('/staffma/dashboard', { replace: true });
       } else {
+        console.log('StaffmaLogin: Login failed:', result.error);
         setError(result.error || 'Failed to login. Please try again.');
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('StaffmaLogin: Login error:', error);
       setError('Failed to login. Please try again.');
     } finally {
       setLoading(false);
@@ -47,15 +48,15 @@ function LogIn() {
     <div style={styles.container}>
       <div style={styles.formCard}>
         <div style={styles.header}>
-          <h2 style={styles.title}>Business Login</h2>
-          <p style={styles.subtitle}>Access your business dashboard</p>
+          <h2 style={styles.title}>Staffma Login</h2>
+          <p style={styles.subtitle}>System Administrator Access</p>
         </div>
         
         {error && <div style={styles.error}>{error}</div>}
         
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.inputGroup}>
-            <label htmlFor="email">Business Email</label>
+            <label htmlFor="email">Email Address</label>
             <input
               type="email"
               id="email"
@@ -63,7 +64,7 @@ function LogIn() {
               onChange={(e) => setEmail(e.target.value)}
               required
               style={styles.input}
-              placeholder="your-business@example.com"
+              placeholder="admin@staffma.com"
             />
           </div>
           
@@ -85,13 +86,13 @@ function LogIn() {
             style={styles.button}
             disabled={loading}
           >
-            {loading ? 'Signing in...' : 'Sign In to Dashboard'}
+            {loading ? 'Signing in...' : 'Sign In to Staffma'}
           </button>
         </form>
 
         <div style={styles.footer}>
           <button 
-            onClick={() => navigate('/')} 
+            onClick={() => navigate('/', { replace: true })} 
             style={styles.backButton}
           >
             ← Back to Home
@@ -102,22 +103,16 @@ function LogIn() {
           </div>
           
           <button 
-            onClick={() => {
-              console.log('Navigating to Staffma login from LogIn component');
-              navigate('/staffma/login', { replace: true });
-            }} 
-            style={styles.staffmaLoginButton}
+            onClick={() => navigate('/login', { replace: true })} 
+            style={styles.businessLoginButton}
           >
-            Staffma System Login
+            Business User Login
           </button>
           
           <p style={styles.footerText}>
-            Don't have an account?{' '}
-            <span 
-              onClick={() => navigate('/register')} 
-              style={styles.footerLink}
-            >
-              Register your business
+            Need help? Contact{' '}
+            <span style={styles.footerLink}>
+              system support
             </span>
           </p>
         </div>
@@ -132,17 +127,17 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: '100vh',
-    backgroundColor: '#f5f6fa',
-    backgroundImage: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+    backgroundColor: '#1a1a2e',
+    backgroundImage: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'
   },
   formCard: {
     backgroundColor: 'white',
     padding: '40px',
     borderRadius: '15px',
-    boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
     width: '100%',
     maxWidth: '450px',
-    border: '1px solid rgba(255,255,255,0.2)'
+    border: '1px solid rgba(255,255,255,0.1)'
   },
   header: {
     textAlign: 'center',
@@ -152,7 +147,11 @@ const styles = {
     fontSize: '2.2rem',
     fontWeight: 'bold',
     color: '#2c3e50',
-    margin: '0 0 10px 0'
+    margin: '0 0 10px 0',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text'
   },
   subtitle: {
     fontSize: '1rem',
@@ -178,24 +177,32 @@ const styles = {
     transition: 'border-color 0.3s ease',
     backgroundColor: '#f8f9fa'
   },
+  inputFocus: {
+    borderColor: '#667eea',
+    outline: 'none',
+    backgroundColor: 'white'
+  },
   button: {
     padding: '15px',
-    backgroundColor: '#3498db',
+    backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
     fontSize: '16px',
     fontWeight: 'bold',
-    transition: 'background-color 0.3s ease',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
     marginTop: '10px'
   },
   buttonHover: {
-    backgroundColor: '#2980b9'
+    transform: 'translateY(-2px)',
+    boxShadow: '0 5px 15px rgba(102, 126, 234, 0.4)'
   },
   buttonDisabled: {
     backgroundColor: '#95a5a6',
-    cursor: 'not-allowed'
+    cursor: 'not-allowed',
+    transform: 'none'
   },
   error: {
     backgroundColor: '#fee',
@@ -230,7 +237,7 @@ const styles = {
     color: '#7f8c8d',
     fontSize: '14px'
   },
-  staffmaLoginButton: {
+  businessLoginButton: {
     padding: '12px 24px',
     backgroundColor: 'transparent',
     color: '#667eea',
@@ -242,7 +249,7 @@ const styles = {
     transition: 'all 0.3s ease',
     marginBottom: '20px'
   },
-  staffmaLoginButtonHover: {
+  businessLoginButtonHover: {
     backgroundColor: '#667eea',
     color: 'white'
   },
@@ -252,11 +259,11 @@ const styles = {
     margin: '10px 0 0 0'
   },
   footerLink: {
-    color: '#3498db',
+    color: '#667eea',
     cursor: 'pointer',
     textDecoration: 'underline',
     fontWeight: '500'
   }
 };
 
-export default LogIn;
+export default StaffmaLogin; 

@@ -91,3 +91,162 @@ export const resetPassword = async (token, password, signal) => {
     throw new Error('Failed to reset password: ' + error.message);
   }
 }; 
+
+// Activities API calls
+export const getActivities = async (filters = {}, signal) => {
+  try {
+    const queryParams = new URLSearchParams();
+    
+    if (filters.category) queryParams.append('category', filters.category);
+    if (filters.severity) queryParams.append('severity', filters.severity);
+    if (filters.status) queryParams.append('status', filters.status);
+    if (filters.dateRange) queryParams.append('dateRange', filters.dateRange);
+    if (filters.businessId) queryParams.append('businessId', filters.businessId);
+    if (filters.userId) queryParams.append('userId', filters.userId);
+    if (filters.employeeId) queryParams.append('employeeId', filters.employeeId);
+    if (filters.limit) queryParams.append('limit', filters.limit);
+    if (filters.page) queryParams.append('page', filters.page);
+
+    const url = `${API_BASE_URL}/activities${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await fetchWithAuth(url, { signal }, 'staffma');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch activities');
+    }
+    
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Activities fetch aborted');
+      throw error;
+    }
+    throw new Error('Failed to fetch activities: ' + error.message);
+  }
+};
+
+export const getActivity = async (id, signal) => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/activities/${id}`, { signal }, 'staffma');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch activity');
+    }
+    
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Activity fetch aborted');
+      throw error;
+    }
+    throw new Error('Failed to fetch activity: ' + error.message);
+  }
+};
+
+export const getActivitySummary = async (signal) => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/activities/summary`, { signal }, 'staffma');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch activity summary');
+    }
+    
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Activity summary fetch aborted');
+      throw error;
+    }
+    throw new Error('Failed to fetch activity summary: ' + error.message);
+  }
+};
+
+export const exportActivities = async (filters = {}, signal) => {
+  try {
+    const queryParams = new URLSearchParams();
+    
+    if (filters.category) queryParams.append('category', filters.category);
+    if (filters.severity) queryParams.append('severity', filters.severity);
+    if (filters.status) queryParams.append('status', filters.status);
+    if (filters.dateRange) queryParams.append('dateRange', filters.dateRange);
+    if (filters.businessId) queryParams.append('businessId', filters.businessId);
+    if (filters.userId) queryParams.append('userId', filters.userId);
+    if (filters.employeeId) queryParams.append('employeeId', filters.employeeId);
+
+    const url = `${API_BASE_URL}/activities/export${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await fetchWithAuth(url, { signal }, 'staffma');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to export activities');
+    }
+    
+    const blob = await response.blob();
+    const url2 = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url2;
+    a.download = `activities-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url2);
+    document.body.removeChild(a);
+    
+    return { success: true };
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Activity export aborted');
+      throw error;
+    }
+    throw new Error('Failed to export activities: ' + error.message);
+  }
+};
+
+export const deleteActivity = async (id, signal) => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/activities/${id}`, {
+      method: 'DELETE',
+      signal
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to delete activity');
+    }
+    
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Activity deletion aborted');
+      throw error;
+    }
+    throw new Error('Failed to delete activity: ' + error.message);
+  }
+};
+
+export const bulkDeleteActivities = async (ids, signal) => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/activities`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ ids }),
+      signal
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to delete activities');
+    }
+    
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Bulk activity deletion aborted');
+      throw error;
+    }
+    throw new Error('Failed to delete activities: ' + error.message);
+  }
+}; 

@@ -24,6 +24,8 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const employeeRoutes = require('./routes/employees');
 const leaveRoutes = require('./routes/leaves');
+const activitiesRoutes = require('./routes/activities');
+const staffmaRoutes = require('./routes/staffma');
 
 // Initialize express app
 const app = express();
@@ -628,6 +630,8 @@ app.use('/api/payroll', payrollRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/performance-reviews', performanceReviewsRouter);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/activities', activitiesRoutes);
+app.use('/api/staffma', staffmaRoutes);
 
 // Add health check endpoint
 app.get('/api/health', (req, res) => {

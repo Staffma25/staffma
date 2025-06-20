@@ -1,12 +1,13 @@
 // Authentication utility functions
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
-export const fetchWithAuth = async (url, options = {}) => {
+export const fetchWithAuth = async (url, options = {}, userType = 'business') => {
   try {
-    const token = localStorage.getItem('token');
+    const tokenKey = userType === 'staffma' ? 'staffmaToken' : 'businessToken';
+    const token = localStorage.getItem(tokenKey);
     if (!token) {
-      console.error('No authentication token found');
-      throw new Error('No authentication token found');
+      console.error(`No ${userType} authentication token found`);
+      throw new Error(`No ${userType} authentication token found`);
     }
 
     console.log('Making authenticated request to:', url);
@@ -23,7 +24,8 @@ export const fetchWithAuth = async (url, options = {}) => {
     // If token expired, try to refresh
     if (response.status === 401) {
       console.log('Token expired, attempting to refresh...');
-      const refreshToken = localStorage.getItem('refreshToken');
+      const refreshTokenKey = userType === 'staffma' ? 'staffmaRefreshToken' : 'businessRefreshToken';
+      const refreshToken = localStorage.getItem(refreshTokenKey);
       if (!refreshToken) {
         console.error('No refresh token available');
         throw new Error('No refresh token available');
@@ -46,7 +48,7 @@ export const fetchWithAuth = async (url, options = {}) => {
       }
 
       const { token: newToken } = await refreshResponse.json();
-      localStorage.setItem('token', newToken);
+      localStorage.setItem(tokenKey, newToken);
       console.log('Token refreshed successfully');
 
       // Retry the original request with new token
@@ -85,9 +87,11 @@ export const fetchWithAuth = async (url, options = {}) => {
   }
 };
 
-export const refreshToken = async (signal) => {
+export const refreshToken = async (signal, userType = 'business') => {
   try {
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshTokenKey = userType === 'staffma' ? 'staffmaRefreshToken' : 'businessRefreshToken';
+    const tokenKey = userType === 'staffma' ? 'staffmaToken' : 'businessToken';
+    const refreshToken = localStorage.getItem(refreshTokenKey);
     if (!refreshToken) {
       throw new Error('No refresh token available');
     }
@@ -107,7 +111,7 @@ export const refreshToken = async (signal) => {
     }
 
     const data = await response.json();
-    localStorage.setItem('token', data.token);
+    localStorage.setItem(tokenKey, data.token);
     return data.token;
   } catch (error) {
     if (error.name === 'AbortError') {
@@ -115,11 +119,13 @@ export const refreshToken = async (signal) => {
       throw error;
     }
     console.error('Error refreshing token:', error);
-    // If refresh fails, clear tokens and redirect to login
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
+    // If refresh fails, clear tokens and redirect to appropriate login
+    const tokenKey = userType === 'staffma' ? 'staffmaToken' : 'businessToken';
+    const refreshTokenKey = userType === 'staffma' ? 'staffmaRefreshToken' : 'businessRefreshToken';
+    localStorage.removeItem(tokenKey);
+    localStorage.removeItem(refreshTokenKey);
+    const loginUrl = userType === 'staffma' ? '/staffma/login' : '/login';
+    window.location.href = loginUrl;
     throw error;
   }
 }; 

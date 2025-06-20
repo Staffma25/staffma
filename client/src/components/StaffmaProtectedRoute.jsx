@@ -2,7 +2,7 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-function ProtectedRoute({ children }) {
+function StaffmaProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
@@ -10,12 +10,12 @@ function ProtectedRoute({ children }) {
     return <div>Loading...</div>;
   }
 
-  if (!isAuthenticated('business')) {
-    // Redirect to login while saving the attempted location
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!isAuthenticated('staffma')) {
+    // Redirect to Staffma login while saving the attempted location
+    return <Navigate to="/staffma/login" state={{ from: location }} replace />;
   }
 
   return children;
 }
 
-export default ProtectedRoute; 
+export default StaffmaProtectedRoute; 

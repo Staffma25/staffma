@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Business = require('../models/Business');
+const StaffmaUser = require('../models/StaffmaUser');
 
 module.exports = async (req, res, next) => {
   try {
@@ -13,6 +14,28 @@ module.exports = async (req, res, next) => {
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Handle Staffma user
+    if (decoded.type === 'staffma') {
+      const staffmaUser = await StaffmaUser.findById(decoded.userId).select('-password');
+      if (!staffmaUser) {
+        console.error('Staffma user not found for ID:', decoded.userId);
+        return res.status(401).json({ message: 'Staffma user not found' });
+      }
+
+      // Check if user is active
+      if (staffmaUser.status !== 'active') {
+        return res.status(401).json({ message: 'Staffma user account is not active' });
+      }
+
+      req.user = {
+        ...staffmaUser.toObject(),
+        type: 'staffma',
+        userId: staffmaUser._id,
+        hasPermission: staffmaUser.hasPermission.bind(staffmaUser)
+      };
+      return next();
+    }
     
     // Handle business user
     if (decoded.type === 'business') {

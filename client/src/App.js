@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
 import LogIn from './components/LogIn';
+import StaffmaLogin from './components/StaffmaLogin';
+import StaffmaRegister from './components/StaffmaRegister';
 import Register from './components/Register';
 import EmployeesList from './components/EmployeesList';
 import EmployeeDetails from './components/EmployeeDetails';
@@ -23,6 +25,9 @@ import LeaveRequests from './components/LeaveRequests';
 import AddEmployee from './components/AddEmployee';
 import Settings from './components/Settings';
 import LeaveRequestDetails from './components/LeaveRequestDetails';
+import StaffmaDashboard from './components/StaffmaDashboard';
+import StaffmaLayout from './components/StaffmaLayout';
+import StaffmaProtectedRoute from './components/StaffmaProtectedRoute';
 
 const DashboardLayout = ({ children }) => {
   const [expandedSections, setExpandedSections] = useState({
@@ -195,6 +200,9 @@ function App() {
             {/* Public routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LogIn />} />
+            <Route path="/staffma/login" element={<StaffmaLogin />} />
+            <Route path="/staffma/register" element={<StaffmaRegister />} />
+            <Route path="//staffma/login" element={<Navigate to="/staffma/login" replace />} />
             <Route path="/register" element={<Register />} />
             <Route path="/verify-email/:token" element={<EmailVerification />} />
             <Route path="/reset-password/:token" element={<ResetPassword />} />
@@ -350,6 +358,31 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* Staffma Routes */}
+            <Route 
+              path="/staffma/dashboard" 
+              element={
+                <StaffmaProtectedRoute>
+                  <StaffmaLayout>
+                    <StaffmaDashboard />
+                  </StaffmaLayout>
+                </StaffmaProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/staffma/activities" 
+              element={
+                <StaffmaProtectedRoute>
+                  <StaffmaLayout>
+                    <StaffmaDashboard />
+                  </StaffmaLayout>
+                </StaffmaProtectedRoute>
+              } 
+            />
+
+            {/* Catch-all route for malformed URLs */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </Router>

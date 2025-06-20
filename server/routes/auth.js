@@ -39,7 +39,7 @@ router.post('/register', async (req, res) => {
     const token = jwt.sign(
       { businessId: business._id },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '1h' }
     );
 
     // Return token and business data (excluding password)
@@ -80,7 +80,7 @@ router.post('/login', async (req, res) => {
             type: 'business'
           },
           process.env.JWT_SECRET,
-          { expiresIn: '24h' }
+          { expiresIn: '1h' }
         );
 
         // Return token and business data
@@ -130,7 +130,7 @@ router.post('/login', async (req, res) => {
         role: user.role
       },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '1h' }
     );
 
     // Return token and user data

@@ -73,6 +73,59 @@ function LandingPage() {
           Register Your Business
         </button>
       </div>
+
+      {/* Footer Section */}
+      <div style={styles.footer}>
+        <div style={styles.footerContent}>
+          <div style={styles.footerSection}>
+            <h3 style={styles.footerTitle}>For Businesses</h3>
+            <p style={styles.footerText}>
+              Manage your employees, payroll, and HR processes efficiently
+            </p>
+            <button 
+              onClick={() => navigate('/login')} 
+              style={styles.footerButton}
+            >
+              Business Login
+            </button>
+          </div>
+          
+          <div style={styles.footerDivider}></div>
+          
+          <div style={styles.footerSection}>
+            <h3 style={styles.footerTitle}>For System Administrators</h3>
+            <p style={styles.footerText}>
+              Access Staffma system administration and monitoring tools
+            </p>
+            <div style={styles.staffmaButtons}>
+              <button 
+                onClick={() => {
+                  console.log('Navigating to Staffma registration from LandingPage');
+                  navigate('/staffma/register', { replace: true });
+                }} 
+                style={styles.staffmaRegisterButton}
+              >
+                Register Staffma Account
+              </button>
+              <button 
+                onClick={() => {
+                  console.log('Navigating to Staffma login from LandingPage');
+                  navigate('/staffma/login', { replace: true });
+                }} 
+                style={styles.footerButton}
+              >
+                Staffma System Login
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div style={styles.footerBottom}>
+          <p style={styles.copyright}>
+            © 2024 STAFMA. All rights reserved.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -192,6 +245,72 @@ const styles = {
     color: '#ecf0f1',
   },
   ctaButton: {
+    padding: '15px 40px',
+    backgroundColor: 'white',
+    color: '#3498db',
+    border: 'none',
+    borderRadius: '30px',
+    fontSize: '1.1rem',
+    cursor: 'pointer',
+    transition: 'transform 0.2s',
+    '&:hover': {
+      transform: 'translateY(-2px)',
+    },
+  },
+  footer: {
+    backgroundColor: '#2c3e50',
+    color: 'white',
+    padding: '80px 20px',
+    textAlign: 'center',
+  },
+  footerContent: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    maxWidth: '1200px',
+    margin: '0 auto',
+  },
+  footerSection: {
+    textAlign: 'left',
+  },
+  footerTitle: {
+    fontSize: '2rem',
+    marginBottom: '20px',
+    fontWeight: 'bold',
+  },
+  footerText: {
+    fontSize: '1.2rem',
+    marginBottom: '20px',
+  },
+  footerButton: {
+    padding: '15px 40px',
+    backgroundColor: 'white',
+    color: '#3498db',
+    border: 'none',
+    borderRadius: '30px',
+    fontSize: '1.1rem',
+    cursor: 'pointer',
+    transition: 'transform 0.2s',
+    '&:hover': {
+      transform: 'translateY(-2px)',
+    },
+  },
+  footerDivider: {
+    width: '2px',
+    height: '100%',
+    backgroundColor: 'white',
+  },
+  footerBottom: {
+    marginTop: '40px',
+  },
+  copyright: {
+    fontSize: '1rem',
+  },
+  staffmaButtons: {
+    display: 'flex',
+    gap: '20px',
+    justifyContent: 'center',
+  },
+  staffmaRegisterButton: {
     padding: '15px 40px',
     backgroundColor: 'white',
     color: '#3498db',

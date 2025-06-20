@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 function LeaveDetailsModal({ leaveId, onClose, onStatusUpdate }) {
-  const { getToken, user } = useAuth();
+  const { getToken, businessUser, staffmaUser } = useAuth();
   const [leaveRequest, setLeaveRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -11,6 +11,9 @@ function LeaveDetailsModal({ leaveId, onClose, onStatusUpdate }) {
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+
+  // Get the current user (either business or staffma)
+  const user = businessUser || staffmaUser;
 
   useEffect(() => {
     if (leaveId) {
@@ -21,7 +24,7 @@ function LeaveDetailsModal({ leaveId, onClose, onStatusUpdate }) {
   const fetchLeaveRequest = async () => {
     try {
       setLoading(true);
-      const token = getToken();
+      const token = getToken(businessUser ? 'business' : 'staffma');
       const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/leaves/${leaveId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -47,7 +50,7 @@ function LeaveDetailsModal({ leaveId, onClose, onStatusUpdate }) {
     setSuccess(null);
 
     try {
-      const token = getToken();
+      const token = getToken(businessUser ? 'business' : 'staffma');
       const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/leaves/${leaveId}/status`, {
         method: 'PATCH',
         headers: {
@@ -93,7 +96,7 @@ function LeaveDetailsModal({ leaveId, onClose, onStatusUpdate }) {
     setSuccess(null);
 
     try {
-      const token = getToken();
+      const token = getToken(businessUser ? 'business' : 'staffma');
       const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/leaves/${leaveId}/status`, {
         method: 'PATCH',
         headers: {
@@ -133,10 +136,10 @@ function LeaveDetailsModal({ leaveId, onClose, onStatusUpdate }) {
     }
   };
 
-  const canApprove = user.type === 'hr_manager' || 
+  const canApprove = user && (user.type === 'hr_manager' || 
                     user.type === 'business' ||
                     (user.type === 'department_head' && user.department === leaveRequest?.department) ||
-                    user.permissions?.leaveManagement?.approveLeave;
+                    user.permissions?.leaveManagement?.approveLeave);
 
   const handleClose = () => {
     setIsClosing(true);

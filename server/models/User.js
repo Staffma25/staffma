@@ -244,7 +244,7 @@ userSchema.methods.generateAuthToken = function() {
       businessId: this.businessId
     },
     process.env.JWT_SECRET,
-    { expiresIn: '24h' }
+    { expiresIn: '1h' }
   );
 };
 

@@ -905,13 +905,13 @@ const PayrollSettings = () => {
                     Load pre-configured tax brackets for {taxBracketInfo.region || 'your region'} 
                     {taxBracketInfo.businessType && ` (${taxBracketInfo.businessType})`}
                   </p>
-                  <button
-                    onClick={handleLoadTemplate}
-                    style={styles.templateButton}
+                <button
+                  onClick={handleLoadTemplate}
+                  style={styles.templateButton}
                     disabled={loading || !taxBracketInfo.region || !taxBracketInfo.businessType}
-                  >
+                >
                     {loading ? 'Loading...' : 'Load Template'}
-                  </button>
+                </button>
                 </div>
               </div>
             ) : (

@@ -45,7 +45,7 @@ function LeaveManagement() {
 
   const handleStatusUpdate = () => {
     // Refresh the leaves list when status is updated
-    fetchLeaves();
+      fetchLeaves();
   };
 
   if (loading) return <div style={styles.loading}>Loading...</div>;
@@ -79,14 +79,14 @@ function LeaveManagement() {
               <p><strong>Reason:</strong> {leave.reason}</p>
             </div>
 
-            <div style={styles.actions}>
-              <button
+              <div style={styles.actions}>
+                <button
                 onClick={() => handleViewDetails(leave._id)}
                 style={styles.viewButton}
-              >
+                >
                 View Details
-              </button>
-            </div>
+                </button>
+              </div>
 
             {leave.attachments && leave.attachments.length > 0 && (
               <div style={styles.attachments}>
