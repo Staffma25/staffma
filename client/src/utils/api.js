@@ -249,4 +249,52 @@ export const bulkDeleteActivities = async (ids, signal) => {
     }
     throw new Error('Failed to delete activities: ' + error.message);
   }
+};
+
+export const getBusinessActivities = async (signal) => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/activities/businesses`, { signal }, 'staffma');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch business activities');
+    }
+    
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Business activities fetch aborted');
+      throw error;
+    }
+    throw new Error('Failed to fetch business activities: ' + error.message);
+  }
+};
+
+export const getBusinessActivityDetails = async (businessId, filters = {}, signal) => {
+  try {
+    const queryParams = new URLSearchParams();
+    
+    if (filters.category) queryParams.append('category', filters.category);
+    if (filters.severity) queryParams.append('severity', filters.severity);
+    if (filters.status) queryParams.append('status', filters.status);
+    if (filters.dateRange) queryParams.append('dateRange', filters.dateRange);
+    if (filters.limit) queryParams.append('limit', filters.limit);
+    if (filters.page) queryParams.append('page', filters.page);
+
+    const url = `${API_BASE_URL}/activities/business/${businessId}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await fetchWithAuth(url, { signal }, 'staffma');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch business activity details');
+    }
+    
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Business activity details fetch aborted');
+      throw error;
+    }
+    throw new Error('Failed to fetch business activity details: ' + error.message);
+  }
 }; 

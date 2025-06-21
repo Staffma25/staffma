@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReviewDetailsModal from './ReviewDetailsModal';
+import { fetchWithAuth } from '../utils/auth';
 
 function PerformanceReviews() {
   const [reviews, setReviews] = useState([]);
@@ -17,13 +18,21 @@ function PerformanceReviews() {
 
   const fetchReviews = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
+      const response = await fetchWithAuth(
         `http://localhost:5001/api/performance-reviews/performance-reviews?year=${selectedYear}&quarter=${selectedQuarter}`,
         {
-          headers: { 'Authorization': `Bearer ${token}` }
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
         }
       );
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch reviews');
+      }
+      
       const data = await response.json();
       setReviews(data);
       setLoading(false);

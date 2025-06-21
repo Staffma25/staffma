@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { uploadDocument, deleteDocument } from '../utils/s3Upload';
+import { fetchWithAuth } from '../utils/auth';
 
 const ALLOWED_FILE_TYPES = {
   'application/pdf': true,
@@ -48,11 +49,10 @@ const InsuranceDocumentUpload = ({ employeeId, insuranceType, currentDocument, o
       const fileUrl = await uploadDocument(file, employeeId, `insurance_${insuranceType}`);
       
       // Update the insurance document with both file URL and insurance details
-      const response = await fetch(`http://localhost:5001/api/employees/${employeeId}/insurance/${insuranceType}`, {
+      const response = await fetchWithAuth(`http://localhost:5001/api/employees/${employeeId}/insurance/${insuranceType}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           fileUrl,
@@ -61,7 +61,8 @@ const InsuranceDocumentUpload = ({ employeeId, insuranceType, currentDocument, o
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update insurance document');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update insurance document');
       }
 
       const updatedEmployee = await response.json();
@@ -79,15 +80,16 @@ const InsuranceDocumentUpload = ({ employeeId, insuranceType, currentDocument, o
   const handleDelete = async () => {
     try {
       setError(null);
-      const response = await fetch(`http://localhost:5001/api/employees/${employeeId}/insurance/${insuranceType}`, {
+      const response = await fetchWithAuth(`http://localhost:5001/api/employees/${employeeId}/insurance/${insuranceType}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         }
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete insurance document');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete insurance document');
       }
 
       const updatedEmployee = await response.json();

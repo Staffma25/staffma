@@ -914,16 +914,36 @@ app.post('/api/register', async (req, res) => {
       email: email.toLowerCase(),
       password: hashedPassword,
       businessType: businessType || 'sole',
-      applicantName,
-      applicantRole,
-      businessAddress,
-      contactNumber,
-      status: 'active'
+      applicantName: applicantName || '',
+      applicantRole: applicantRole || '',
+      businessAddress: businessAddress || '',
+      contactNumber: contactNumber || ''
     });
 
     await business.save();
 
-    res.status(201).json({ message: 'Registration successful' });
+    // Create JWT token for automatic login
+    const token = jwt.sign(
+      { 
+        businessId: business._id,
+        type: 'business'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    // Return token and business data for automatic login
+    res.status(201).json({ 
+      message: 'Registration successful',
+      token,
+      user: {
+        id: business._id,
+        businessName: business.businessName,
+        email: business.email,
+        applicantName: business.applicantName,
+        type: 'business'
+      }
+    });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Registration failed. Please try again.' });

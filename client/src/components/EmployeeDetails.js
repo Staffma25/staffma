@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DocumentUpload from './DocumentUpload';
 import InsuranceDocumentUpload from './InsuranceDocumentUpload';
+import { fetchWithAuth } from '../utils/auth';
 
 function EmployeeDetails() {
   const { id } = useParams();
@@ -34,73 +35,6 @@ function EmployeeDetails() {
     }
     fetchEmployeeDetails();
   }, [id]);
-
-  const refreshToken = async () => {
-    try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) {
-        throw new Error('No refresh token available');
-      }
-
-      const response = await fetch('http://localhost:5001/api/refresh-token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ refreshToken })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to refresh token');
-      }
-
-      const data = await response.json();
-      localStorage.setItem('token', data.token);
-      return data.token;
-    } catch (error) {
-      console.error('Error refreshing token:', error);
-      // If refresh fails, redirect to login
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      navigate('/login');
-      throw error;
-    }
-  };
-
-  const fetchWithAuth = async (url, options = {}) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No token available');
-      }
-
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          ...options.headers,
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      // If token expired, try to refresh
-      if (response.status === 401) {
-        const newToken = await refreshToken();
-        // Retry the request with new token
-        return fetch(url, {
-          ...options,
-          headers: {
-            ...options.headers,
-            'Authorization': `Bearer ${newToken}`
-          }
-        });
-      }
-
-      return response;
-    } catch (error) {
-      console.error('Error in fetchWithAuth:', error);
-      throw error;
-        }
-  };
 
   const fetchEmployeeDetails = async () => {
     try {

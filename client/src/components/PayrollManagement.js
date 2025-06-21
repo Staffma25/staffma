@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { fetchWithAuth } from '../utils/auth';
 
 function PayrollManagement() {
   const [employees, setEmployees] = useState([]);
@@ -25,34 +26,40 @@ function PayrollManagement() {
 
   const fetchEmployees = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5001/api/employees', {
+      const response = await fetchWithAuth('http://localhost:5001/api/employees', {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         }
       });
-      if (!response.ok) throw new Error('Failed to fetch employees');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch employees');
+      }
+      
       const data = await response.json();
       setEmployees(data);
     } catch (error) {
-      setError('Failed to fetch employees');
-      console.error(error);
+      console.error('Error fetching employees:', error);
+      setError(error.message);
     }
   };
 
   const fetchPayrollHistory = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       
-      const response = await fetch(`http://localhost:5001/api/payroll/history?month=${selectedMonth}&year=${selectedYear}`, {
-          headers: {
-          'Authorization': `Bearer ${token}`
+      const response = await fetchWithAuth(`http://localhost:5001/api/payroll/history?month=${selectedMonth}&year=${selectedYear}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
         }
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch payroll history');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch payroll history');
       }
 
       const data = await response.json();
@@ -93,35 +100,41 @@ function PayrollManagement() {
 
   const fetchPayrollSummary = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
+      const response = await fetchWithAuth(
         `http://localhost:5001/api/payroll/summary?month=${selectedMonth}&year=${selectedYear}`,
         {
+          method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Content-Type': 'application/json'
           }
         }
       );
-      if (!response.ok) throw new Error('Failed to fetch payroll summary');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch payroll summary');
+      }
+      
       const data = await response.json();
       setPayrollSummary(data);
     } catch (error) {
-      setError('Failed to fetch payroll summary');
-      console.error(error);
+      console.error('Error fetching payroll summary:', error);
+      setError(error.message);
     }
   };
 
   const fetchPayrollSettings = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5001/api/payroll/settings', {
+      const response = await fetchWithAuth('http://localhost:5001/api/payroll/settings', {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         }
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch payroll settings');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch payroll settings');
       }
 
       const data = await response.json();
@@ -129,7 +142,7 @@ function PayrollManagement() {
       setPayrollSettings(data);
     } catch (error) {
       console.error('Error fetching payroll settings:', error);
-      setError('Failed to fetch payroll settings');
+      setError(error.message);
     }
   };
 
@@ -142,11 +155,9 @@ function PayrollManagement() {
         throw new Error('Please configure your payroll settings before processing payroll');
       }
       
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5001/api/payroll/process', {
+      const response = await fetchWithAuth('http://localhost:5001/api/payroll/process', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -191,35 +202,42 @@ function PayrollManagement() {
 
   const downloadPayslip = async (payrollId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:5001/api/payroll/download/${payrollId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        responseType: 'blob'
+      const response = await fetchWithAuth(`http://localhost:5001/api/payroll/download/${payrollId}`, {
+        method: 'GET'
       });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      
+      if (!response.ok) {
+        throw new Error('Failed to download payslip');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `payslip-${payrollId}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url);
     } catch (error) {
+      console.error('Error downloading payslip:', error);
       setError(error.message || 'Failed to download payslip. Please try again.');
     }
   };
 
   const fetchBusinessDetails = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5001/api/business', {
+      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         }
       });
       
-      if (!response.ok) throw new Error('Failed to fetch business details');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch business details');
+      }
       
       const data = await response.json();
       setRegistrationDate(new Date(data.createdAt));

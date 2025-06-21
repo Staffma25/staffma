@@ -42,9 +42,20 @@ router.post('/register', async (req, res) => {
       { expiresIn: '1h' }
     );
 
+    // Create refresh token
+    const refreshToken = jwt.sign(
+      { 
+        businessId: business._id,
+        type: 'business'
+      },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+
     // Return token and business data (excluding password)
     res.json({
       token,
+      refreshToken,
       user: {
         id: business._id,
         businessName: business.businessName,
@@ -83,9 +94,20 @@ router.post('/login', async (req, res) => {
           { expiresIn: '1h' }
         );
 
+        // Create refresh token
+        const refreshToken = jwt.sign(
+          { 
+            businessId: business._id,
+            type: 'business'
+          },
+          process.env.JWT_REFRESH_SECRET,
+          { expiresIn: '7d' }
+        );
+
         // Return token and business data
         return res.json({
           token,
+          refreshToken,
           user: {
             id: business._id,
             businessName: business.businessName,
@@ -133,9 +155,22 @@ router.post('/login', async (req, res) => {
       { expiresIn: '1h' }
     );
 
+    // Create refresh token
+    const refreshToken = jwt.sign(
+      { 
+        userId: user._id,
+        businessId: user.businessId,
+        type: 'user',
+        role: user.role
+      },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+
     // Return token and user data
     res.json({
       token,
+      refreshToken,
       user: {
         id: user._id,
         firstName: user.firstName,
@@ -420,6 +455,91 @@ router.post('/create-user', auth, async (req, res) => {
   } catch (error) {
     console.error('Error creating user:', error);
     res.status(500).json({ error: 'Server error during user creation' });
+  }
+});
+
+// @route   POST api/auth/refresh-token
+// @desc    Refresh access token using refresh token
+// @access  Public
+router.post('/refresh-token', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'Refresh token is required' });
+    }
+
+    // Verify refresh token
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    
+    // Handle different user types
+    if (decoded.type === 'business') {
+      const business = await Business.findById(decoded.businessId);
+      if (!business) {
+        return res.status(401).json({ error: 'Invalid refresh token' });
+      }
+
+      // Generate new access token
+      const newToken = jwt.sign(
+        { 
+          businessId: business._id,
+          type: 'business'
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+
+      res.json({ token: newToken });
+    } else if (decoded.type === 'user') {
+      const user = await User.findById(decoded.userId);
+      if (!user || !user.isActive) {
+        return res.status(401).json({ error: 'Invalid refresh token' });
+      }
+
+      // Generate new access token
+      const newToken = jwt.sign(
+        { 
+          userId: user._id,
+          businessId: user.businessId,
+          type: 'user',
+          role: user.role
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+
+      res.json({ token: newToken });
+    } else if (decoded.type === 'staffma') {
+      const staffmaUser = await StaffmaUser.findById(decoded.userId);
+      if (!staffmaUser || staffmaUser.status !== 'active') {
+        return res.status(401).json({ error: 'Invalid refresh token' });
+      }
+
+      // Generate new access token
+      const newToken = jwt.sign(
+        { 
+          userId: staffmaUser._id,
+          email: staffmaUser.email,
+          role: staffmaUser.role,
+          type: 'staffma'
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+
+      res.json({ token: newToken });
+    } else {
+      return res.status(401).json({ error: 'Invalid token type' });
+    }
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Invalid refresh token' });
+    }
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Refresh token has expired' });
+    }
+    res.status(500).json({ error: 'Server error during token refresh' });
   }
 });
 

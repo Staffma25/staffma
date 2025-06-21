@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { fetchWithAuth } from '../utils/auth';
 
 function EmployeePayrollHistory({ employeeId }) {
   const [payrollHistory, setPayrollHistory] = useState([]);
@@ -13,14 +14,18 @@ function EmployeePayrollHistory({ employeeId }) {
 
   const fetchPayrollSettings = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5001/api/payroll/settings', {
+      const response = await fetchWithAuth('http://localhost:5001/api/payroll/settings', {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         }
       });
 
-      if (!response.ok) throw new Error('Failed to fetch payroll settings');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch payroll settings');
+      }
+      
       const data = await response.json();
       console.log('Fetched payroll settings:', data);
       setPayrollSettings(data);
@@ -31,21 +36,24 @@ function EmployeePayrollHistory({ employeeId }) {
 
   const fetchEmployeePayrollHistory = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5001/api/payroll/employee/${employeeId}`, {
+      const response = await fetchWithAuth(`http://localhost:5001/api/payroll/employee/${employeeId}`, {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         }
       });
 
-      if (!response.ok) throw new Error('Failed to fetch payroll history');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch payroll history');
+      }
       
       const data = await response.json();
       console.log('Fetched payroll history:', data);
       setPayrollHistory(data);
     } catch (error) {
-      setError('Failed to fetch payroll history');
-      console.error(error);
+      console.error('Error fetching payroll history:', error);
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -53,11 +61,9 @@ function EmployeePayrollHistory({ employeeId }) {
 
   const downloadPayslip = async (month, year) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5001/api/payroll/generate-pdf-payslip', {
+      const response = await fetchWithAuth('http://localhost:5001/api/payroll/generate-pdf-payslip', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -67,7 +73,10 @@ function EmployeePayrollHistory({ employeeId }) {
         })
       });
 
-      if (!response.ok) throw new Error('Failed to generate payslip');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate payslip');
+      }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -77,9 +86,10 @@ function EmployeePayrollHistory({ employeeId }) {
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
-      setError('Failed to download payslip');
-      console.error(error);
+      console.error('Error downloading payslip:', error);
+      setError(error.message || 'Failed to download payslip');
     }
   };
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
 import LogIn from './components/LogIn';
 import StaffmaLogin from './components/StaffmaLogin';
@@ -13,7 +13,7 @@ import PerformanceReviews from './components/PerformanceReviews';
 import ReviewForm from './components/ReviewForm';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './components/LandingPage';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import UserManagement from './components/UserManagement';
 import AddUser from './components/AddUser';
 import EmailVerification from './components/EmailVerification';
@@ -39,6 +39,9 @@ const DashboardLayout = ({ children }) => {
     system: true
   });
 
+  const { businessUser, logout } = useAuth();
+  const navigate = useNavigate();
+
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
       ...prev,
@@ -46,11 +49,27 @@ const DashboardLayout = ({ children }) => {
     }));
   };
 
+  const handleLogout = () => {
+    logout('business');
+    navigate('/login');
+  };
+
   return (
     <div style={styles.dashboardContainer}>
       <div style={styles.sidebar}>
         <div style={styles.sidebarHeader}>
-          <h2 style={styles.logo}>Lola</h2>
+          <h2 style={styles.logo}>
+            {businessUser?.businessName || 'Business Dashboard'}
+          </h2>
+          {businessUser?.applicantName && (
+            <p style={styles.userInfo}>
+              {businessUser.applicantName}
+              <br />
+              <span style={styles.userRole}>
+                {businessUser.applicantRole || 'Business Owner'}
+              </span>
+            </p>
+          )}
         </div>
         <nav style={styles.nav}>
           <a href="/dashboard" style={styles.navItem}>
@@ -183,6 +202,14 @@ const DashboardLayout = ({ children }) => {
             </div>
           </div>
         </nav>
+        
+        {/* Logout Button */}
+        <div style={styles.logoutSection}>
+          <button onClick={handleLogout} style={styles.logoutButton}>
+            <span style={styles.icon}>🚪</span>
+            Logout
+          </button>
+        </div>
       </div>
       <div style={styles.content}>
         {children}
@@ -494,6 +521,31 @@ const styles = {
     flexDirection: 'column',
     overflow: 'hidden',
     transition: 'height 0.2s ease',
+  },
+  userInfo: {
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.8)',
+  },
+  userRole: {
+    fontWeight: 500,
+  },
+  logoutSection: {
+    padding: '20px',
+    borderTop: '1px solid rgba(255,255,255,0.1)',
+  },
+  logoutButton: {
+    width: '100%',
+    padding: '12px',
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: 'white',
+    fontSize: '14px',
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'background-color 0.2s',
+    '&:hover': {
+      backgroundColor: 'rgba(255,255,255,0.1)',
+    },
   },
 };
 

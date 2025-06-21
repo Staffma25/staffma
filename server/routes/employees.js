@@ -8,12 +8,26 @@ const { generateEmployeeNumber } = require('../utils/employeeNumberGenerator');
 // Get all employees
 router.get('/', auth, async (req, res) => {
   try {
+    console.log('Employees request received for user:', {
+      userId: req.user._id,
+      userType: req.user.type,
+      businessId: req.user.businessId,
+      email: req.user.email
+    });
+
     // Check if user has permission to view employees
     if (!req.user.hasPermission('employeeManagement', 'view')) {
       return res.status(403).json({ message: 'You do not have permission to view employees' });
     }
 
     const employees = await Employee.find({ businessId: req.user.businessId });
+    
+    console.log('Found employees for business:', {
+      businessId: req.user.businessId,
+      employeeCount: employees.length,
+      employeeIds: employees.map(emp => emp._id)
+    });
+
     res.json(employees);
   } catch (error) {
     console.error('Error fetching employees:', error);
@@ -48,6 +62,13 @@ router.get('/:id', auth, async (req, res) => {
 // Create new employee
 router.post('/', auth, async (req, res) => {
   try {
+    console.log('Create employee request received for user:', {
+      userId: req.user._id,
+      userType: req.user.type,
+      businessId: req.user.businessId,
+      email: req.user.email
+    });
+
     // Check if user has permission to add employees
     if (!req.user.hasPermission('employeeManagement', 'add')) {
       return res.status(403).json({ message: 'You do not have permission to add employees' });
@@ -89,6 +110,13 @@ router.post('/', auth, async (req, res) => {
     if (!business) {
       return res.status(404).json({ message: 'Business not found' });
     }
+
+    console.log('Creating employee for business:', {
+      businessId: req.user.businessId,
+      businessName: business.businessName,
+      employeeEmail: email,
+      employeeName: `${firstName} ${lastName}`
+    });
 
     // Generate employee number
     const employeeNumber = await generateEmployeeNumber(business.businessName);

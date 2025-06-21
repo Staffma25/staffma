@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 function Register() {
   const navigate = useNavigate();
+  const { login, setBusinessUser } = useAuth();
   const [formData, setFormData] = useState({
     businessName: '',
     email: '',
@@ -62,10 +64,10 @@ function Register() {
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
         businessType: formData.businessType || 'sole',
-        applicantName: formData.applicantName.trim(),
-        applicantRole: formData.applicantRole.trim(),
-        businessAddress: formData.businessAddress.trim(),
-        contactNumber: formData.contactNumber.trim()
+        applicantName: formData.applicantName ? formData.applicantName.trim() : '',
+        applicantRole: formData.applicantRole ? formData.applicantRole.trim() : '',
+        businessAddress: formData.businessAddress ? formData.businessAddress.trim() : '',
+        contactNumber: formData.contactNumber ? formData.contactNumber.trim() : ''
       };
 
       console.log('Attempting registration with data:', {
@@ -89,9 +91,34 @@ function Register() {
         throw new Error(data.error || data.details || 'Registration failed');
       }
 
-      // Registration successful
-      alert('Registration successful! Please log in.');
-      navigate('/login');
+      // Registration successful - now automatically log in the user
+      console.log('Registration successful, attempting auto-login...');
+      
+      if (data.token && data.user) {
+        // Store the token and user data directly
+        localStorage.setItem('businessToken', data.token);
+        if (data.refreshToken) {
+          localStorage.setItem('businessRefreshToken', data.refreshToken);
+        }
+        
+        // Set the user in the auth context
+        setBusinessUser(data.user);
+        
+        console.log('Auto-login successful, redirecting to dashboard');
+        navigate('/dashboard', { replace: true });
+      } else {
+        // Fallback to regular login
+        const loginResult = await login(formData.email, formData.password);
+        
+        if (loginResult.success) {
+          console.log('Auto-login successful, redirecting to dashboard');
+          navigate('/dashboard', { replace: true });
+        } else {
+          console.log('Auto-login failed, redirecting to login page');
+          alert('Registration successful! Please log in with your credentials.');
+          navigate('/login');
+        }
+      }
     } catch (err) {
       console.error('Registration error:', err);
       setError(err.message || 'Registration failed. Please try again.');

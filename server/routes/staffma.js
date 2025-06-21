@@ -107,6 +107,18 @@ router.post('/login', async (req, res) => {
       { expiresIn: '1h' }
     );
 
+    // Generate refresh token
+    const refreshToken = jwt.sign(
+      { 
+        userId: staffmaUser._id,
+        email: staffmaUser.email,
+        role: staffmaUser.role,
+        type: 'staffma'
+      },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+
     console.log('Staffma login successful:', {
       id: staffmaUser._id,
       email: staffmaUser.email,
@@ -118,6 +130,7 @@ router.post('/login', async (req, res) => {
     res.json({
       message: 'Login successful',
       token,
+      refreshToken,
       user: {
         id: staffmaUser._id,
         firstName: staffmaUser.firstName,

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { fetchWithAuth } from '../utils/auth';
 
 function AddEmployee() {
   const navigate = useNavigate();
@@ -31,8 +32,6 @@ function AddEmployee() {
   const handleAddEmployee = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
-      
       // Validate salary
       const salaryValue = parseFloat(newEmployee.salary.basic);
       if (isNaN(salaryValue) || salaryValue <= 0) {
@@ -63,10 +62,9 @@ function AddEmployee() {
         joiningDate: newEmployee.joiningDate
       };
 
-      const response = await fetch('http://localhost:5001/api/employees', {
+      const response = await fetchWithAuth('http://localhost:5001/api/employees', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(employeeData)

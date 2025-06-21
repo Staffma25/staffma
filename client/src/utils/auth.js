@@ -70,7 +70,22 @@ export const fetchWithAuth = async (url, options = {}, userType = 'business') =>
         statusText: response.statusText,
         error: errorData
       });
-      throw new Error(errorData.message || `Request failed with status ${response.status}`);
+      
+      // Handle specific error cases
+      if (response.status === 401) {
+        if (errorData.error === 'Token expired, no refresh token provided') {
+          // Clear tokens and redirect to login
+          const tokenKey = userType === 'staffma' ? 'staffmaToken' : 'businessToken';
+          const refreshTokenKey = userType === 'staffma' ? 'staffmaRefreshToken' : 'businessRefreshToken';
+          localStorage.removeItem(tokenKey);
+          localStorage.removeItem(refreshTokenKey);
+          const loginUrl = userType === 'staffma' ? '/staffma/login' : '/login';
+          window.location.href = loginUrl;
+        }
+        throw new Error(errorData.message || 'Authentication failed. Please log in again.');
+      }
+      
+      throw new Error(errorData.message || errorData.error || `Request failed with status ${response.status}`);
     }
 
     return response;

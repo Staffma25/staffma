@@ -4,19 +4,42 @@ const auth = require('../middleware/auth');
 const Employee = require('../models/Employee');
 const User = require('../models/User');
 const Business = require('../models/Business');
+const Leave = require('../models/Leave');
 
 // Get dashboard data
 router.get('/', auth, async (req, res) => {
   try {
+    console.log('Dashboard request received for user:', {
+      userId: req.user._id,
+      userType: req.user.type,
+      businessId: req.user.businessId,
+      email: req.user.email
+    });
+
     // Get business details
     const business = await Business.findById(req.user.businessId);
     if (!business) {
+      console.error('Business not found for ID:', req.user.businessId);
       return res.status(404).json({ error: 'Business not found' });
     }
 
+    console.log('Found business:', {
+      businessId: business._id,
+      businessName: business.businessName,
+      email: business.email
+    });
+
     // Get employee count
     const employeeCount = await Employee.countDocuments({ businessId: req.user.businessId });
-    const remainingSlots = business.maxEmployees - employeeCount;
+    const maxEmployees = business.maxEmployees || 100; // Default to 100 if not set
+    const remainingSlots = maxEmployees - employeeCount;
+
+    console.log('Employee count for business:', {
+      businessId: req.user.businessId,
+      totalEmployees: employeeCount,
+      maxEmployees: maxEmployees,
+      remainingSlots
+    });
 
     // Get user count
     const userCount = await User.countDocuments({ businessId: req.user.businessId });
@@ -25,8 +48,20 @@ router.get('/', auth, async (req, res) => {
       isActive: true 
     });
 
+    console.log('User count for business:', {
+      businessId: req.user.businessId,
+      totalUsers: userCount,
+      activeUsers
+    });
+
     // Get payroll summary
     const employees = await Employee.find({ businessId: req.user.businessId });
+    console.log('Found employees for business:', {
+      businessId: req.user.businessId,
+      employeeCount: employees.length,
+      employeeIds: employees.map(emp => emp._id)
+    });
+
     const payrollSummary = employees.reduce((acc, employee) => {
       const basic = employee.salary.basic || 0;
       const allowances = Object.values(employee.salary.allowances || {}).reduce((sum, val) => sum + (val || 0), 0);
@@ -37,10 +72,32 @@ router.get('/', auth, async (req, res) => {
       return acc;
     }, { totalGrossSalary: 0, totalNetSalary: 0 });
 
+    console.log('Payroll summary for business:', {
+      businessId: req.user.businessId,
+      totalGrossSalary: payrollSummary.totalGrossSalary,
+      totalNetSalary: payrollSummary.totalNetSalary
+    });
+
     // Get performance review stats
     const performanceReviewsStats = {
       pendingReviews: 0, // You can implement this based on your performance review model
       completedReviews: 0
+    };
+
+    // Get leave management stats
+    const leaveManagementStats = {
+      pendingLeaves: await Leave.countDocuments({ 
+        businessId: req.user.businessId, 
+        status: 'pending' 
+      }),
+      approvedLeaves: await Leave.countDocuments({ 
+        businessId: req.user.businessId, 
+        status: 'approved' 
+      }),
+      rejectedLeaves: await Leave.countDocuments({ 
+        businessId: req.user.businessId, 
+        status: 'rejected' 
+      })
     };
 
     // Get recent employees
@@ -49,13 +106,23 @@ router.get('/', auth, async (req, res) => {
       .limit(5)
       .select('firstName lastName position department startDate');
 
+    console.log('Recent employees for business:', {
+      businessId: req.user.businessId,
+      recentEmployeeCount: recentEmployees.length
+    });
+
     // Get recent users
     const recentUsers = await User.find({ businessId: req.user.businessId })
       .sort({ createdAt: -1 })
       .limit(5)
       .select('firstName lastName email role isActive');
 
-    res.json({
+    console.log('Recent users for business:', {
+      businessId: req.user.businessId,
+      recentUserCount: recentUsers.length
+    });
+
+    const responseData = {
       business,
       metrics: {
         employeeCount: {
@@ -69,9 +136,19 @@ router.get('/', auth, async (req, res) => {
       },
       payrollSummary,
       performanceReviewsStats,
+      leaveManagementStats,
       recentEmployees,
       recentUsers
+    };
+
+    console.log('Sending dashboard response for business:', {
+      businessId: req.user.businessId,
+      businessName: business.businessName,
+      employeeCount: responseData.metrics.employeeCount,
+      userCount: responseData.metrics.userCount
     });
+
+    res.json(responseData);
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
     res.status(500).json({ error: 'Failed to fetch dashboard data' });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { fetchWithAuth } from '../utils/auth';
 import { useAuth } from '../contexts/AuthContext';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
@@ -81,29 +81,33 @@ const PayrollSettings = () => {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const token = getToken();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await axios.get(`${API_BASE_URL}/payroll/settings`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetchWithAuth(`${API_BASE_URL}/payroll/settings`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
       
-      if (!response.data) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch payroll settings');
+      }
+      
+      const responseData = await response.json();
+      if (!responseData) {
         throw new Error('No settings data received');
       }
 
       // Ensure all required fields exist with default values
       const settingsData = {
         taxRates: {
-          allowances: Array.isArray(response.data.taxRates?.allowances) 
-            ? response.data.taxRates.allowances 
+          allowances: Array.isArray(responseData.taxRates?.allowances) 
+            ? responseData.taxRates.allowances 
             : [],
-          customDeductions: Array.isArray(response.data.taxRates?.customDeductions)
-            ? response.data.taxRates.customDeductions
+          customDeductions: Array.isArray(responseData.taxRates?.customDeductions)
+            ? responseData.taxRates.customDeductions
             : [],
-          taxBrackets: response.data.taxRates?.taxBrackets || {
+          taxBrackets: responseData.taxRates?.taxBrackets || {
             region: '',
             businessType: '',
             source: 'upload',
@@ -115,14 +119,14 @@ const PayrollSettings = () => {
       setSettings(settingsData);
       // Update taxBracketInfo with values from server
       setTaxBracketInfo({
-        region: response.data.taxRates?.taxBrackets?.region || '',
-        businessType: response.data.taxRates?.taxBrackets?.businessType || '',
-        source: response.data.taxRates?.taxBrackets?.source || 'upload'
+        region: responseData.taxRates?.taxBrackets?.region || '',
+        businessType: responseData.taxRates?.taxBrackets?.businessType || '',
+        source: responseData.taxRates?.taxBrackets?.source || 'upload'
       });
       setError(null);
     } catch (error) {
       console.error('Error fetching settings:', error);
-      setError(error.response?.data?.message || 'Failed to fetch payroll settings');
+      setError(error.message || 'Failed to fetch payroll settings');
     } finally {
       setLoading(false);
     }
@@ -131,32 +135,35 @@ const PayrollSettings = () => {
   const handleSave = async () => {
     try {
       setLoading(true);
-      const token = getToken();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
 
       if (!settings) {
         throw new Error('No settings to save');
       }
 
-      const response = await axios.put(`${API_BASE_URL}/payroll/settings`, settings, {
-        headers: { 
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithAuth(`${API_BASE_URL}/payroll/settings`, {
+        method: 'PUT',
+        headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify(settings)
       });
 
-      if (!response.data) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save settings');
+      }
+
+      const data = await response.json();
+      if (!data) {
         throw new Error('No response data received');
       }
 
-      setSettings(response.data);
+      setSettings(data);
       setSuccess('Settings saved successfully');
       setError(null);
     } catch (error) {
       console.error('Error saving settings:', error);
-      setError(error.response?.data?.message || 'Failed to save settings');
+      setError(error.message || 'Failed to save settings');
     } finally {
       setLoading(false);
       setTimeout(() => setSuccess(null), 3000);
@@ -165,16 +172,26 @@ const PayrollSettings = () => {
 
   const handleAddDeduction = async () => {
     try {
-      const token = getToken();
-      await axios.post(`${API_BASE_URL}/payroll/settings/deductions`, newDeduction, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetchWithAuth(`${API_BASE_URL}/payroll/settings/deductions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newDeduction)
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add custom deduction');
+      }
+      
       setNewDeduction({ name: '', type: 'percentage', value: 0 });
       fetchSettings();
       setSuccess('Custom deduction added successfully');
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
-      setError('Failed to add custom deduction');
+      console.error('Error adding deduction:', error);
+      setError(error.message || 'Failed to add custom deduction');
       setTimeout(() => setError(null), 3000);
     }
   };
@@ -182,28 +199,30 @@ const PayrollSettings = () => {
   const handleRemoveDeduction = async (index) => {
     try {
       setLoading(true);
-      const token = getToken();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
 
-      const response = await axios.delete(`${API_BASE_URL}/payroll/settings/deductions/${index}`, {
-        headers: { 
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithAuth(`${API_BASE_URL}/payroll/settings/deductions/${index}`, {
+        method: 'DELETE',
+        headers: {
           'Content-Type': 'application/json'
         }
       });
 
-      if (!response.data) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to remove deduction');
+      }
+
+      const data = await response.json();
+      if (!data) {
         throw new Error('No response data received');
       }
 
-      setSettings(response.data);
+      setSettings(data);
       setSuccess('Deduction removed successfully');
       setError(null);
     } catch (error) {
       console.error('Error removing deduction:', error);
-      setError(error.response?.data?.message || 'Failed to remove custom deduction');
+      setError(error.message || 'Failed to remove deduction');
     } finally {
       setLoading(false);
       setTimeout(() => setSuccess(null), 3000);
@@ -234,28 +253,31 @@ const PayrollSettings = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await axios.post(
-        `${API_BASE_URL}/payroll/settings/allowances`,
-        newAllowance,
-        {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      const response = await fetchWithAuth(`${API_BASE_URL}/payroll/settings/allowances`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newAllowance)
+      });
 
-      if (!response.data) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add custom allowance');
+      }
+
+      const data = await response.json();
+      if (!data) {
         throw new Error('No response data received');
       }
 
-      setSettings(response.data);
+      setSettings(data);
       setNewAllowance({ name: '', type: 'percentage', value: 0 });
       setSuccess('Custom allowance added successfully');
       setError(null);
     } catch (error) {
       console.error('Error adding allowance:', error);
-      setError(error.response?.data?.message || 'Failed to add custom allowance');
+      setError(error.message || 'Failed to add custom allowance');
     } finally {
       setLoading(false);
       setTimeout(() => setSuccess(null), 3000);
@@ -270,23 +292,29 @@ const PayrollSettings = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await axios.delete(`${API_BASE_URL}/payroll/settings/allowances/${index}`, {
-        headers: { 
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithAuth(`${API_BASE_URL}/payroll/settings/allowances/${index}`, {
+        method: 'DELETE',
+        headers: {
           'Content-Type': 'application/json'
         }
       });
 
-      if (!response.data) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to remove custom allowance');
+      }
+
+      const data = await response.json();
+      if (!data) {
         throw new Error('No response data received');
       }
 
-      setSettings(response.data);
+      setSettings(data);
       setSuccess('Allowance removed successfully');
       setError(null);
     } catch (error) {
       console.error('Error removing allowance:', error);
-      setError(error.response?.data?.message || 'Failed to remove custom allowance');
+      setError(error.message || 'Failed to remove custom allowance');
     } finally {
       setLoading(false);
       setTimeout(() => setSuccess(null), 3000);
@@ -306,27 +334,35 @@ const PayrollSettings = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await axios.put(`${API_BASE_URL}/payroll/settings`, {
-        taxRates: {
-          allowances: [],
-          customDeductions: [],
-          taxBrackets: []
-        }
-      }, {
-        headers: { 
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithAuth(`${API_BASE_URL}/payroll/settings`, {
+        method: 'PUT',
+        headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+          taxRates: {
+            allowances: [],
+            customDeductions: [],
+            taxBrackets: []
+          }
+        })
       });
 
-      if (!response.data) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to reset payroll settings');
+      }
+
+      const data = await response.json();
+      if (!data) {
         throw new Error('Failed to reset payroll settings');
       }
 
-      setSettings(response.data);
+      setSettings(data);
       setSuccess('Payroll settings reset successfully');
     } catch (error) {
-      setError(error.response?.data?.message || 'Failed to reset payroll settings');
+      console.error('Error resetting payroll settings:', error);
+      setError(error.message || 'Failed to reset payroll settings');
     } finally {
       setLoading(false);
       setTimeout(() => setSuccess(null), 3000);
@@ -368,23 +404,30 @@ const PayrollSettings = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await axios.post(
-        `${API_BASE_URL}/payroll/settings/tax-brackets/upload`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
+      const response = await fetchWithAuth(`${API_BASE_URL}/payroll/settings/tax-brackets/upload`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        body: formData
+      });
 
-      setSettings(response.data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload tax brackets');
+      }
+
+      const data = await response.json();
+      if (!data) {
+        throw new Error('No response data received');
+      }
+
+      setSettings(data);
       setSuccess('Tax brackets uploaded successfully');
       setError(null);
     } catch (error) {
       console.error('Error uploading tax brackets:', error);
-      setError(error.response?.data?.details || 'Failed to upload tax brackets');
+      setError(error.message || 'Failed to upload tax brackets');
     } finally {
       setLoading(false);
       // Clear the file input
@@ -419,29 +462,33 @@ const PayrollSettings = () => {
         businessType: taxBracketInfo.businessType
       });
 
-      const response = await axios.get(
-        `${API_BASE_URL}/payroll/settings/tax-brackets/template`,
-        {
-          params: {
-            region: taxBracketInfo.region,
-            businessType: taxBracketInfo.businessType
-          },
-          headers: { 
-            Authorization: `Bearer ${token}`
-          }
+      const response = await fetchWithAuth(`${API_BASE_URL}/payroll/settings/tax-brackets/template`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        params: {
+          region: taxBracketInfo.region,
+          businessType: taxBracketInfo.businessType
         }
-      );
+      });
 
-      if (!response.data) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to load tax bracket template');
+      }
+
+      const data = await response.json();
+      if (!data) {
         throw new Error('No response data received');
       }
 
-      setSettings(response.data);
+      setSettings(data);
       setSuccess(`Tax bracket template loaded successfully for ${taxBracketInfo.region} (${taxBracketInfo.businessType})`);
       setError(null);
     } catch (error) {
       console.error('Error loading template:', error);
-      setError(error.response?.data?.error || error.response?.data?.message || 'Failed to load tax bracket template');
+      setError(error.message || 'Failed to load tax bracket template');
     } finally {
       setLoading(false);
       setTimeout(() => setSuccess(null), 5000);
@@ -478,32 +525,35 @@ const PayrollSettings = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await axios.post(
-        `${API_BASE_URL}/payroll/settings/tax-brackets`,
-        {
+      const response = await fetchWithAuth(`${API_BASE_URL}/payroll/settings/tax-brackets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           ...newTaxBracket,
           region: taxBracketInfo.region,
           businessType: taxBracketInfo.businessType
-        },
-        {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+        })
+      });
 
-      if (!response.data) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add tax bracket');
+      }
+
+      const data = await response.json();
+      if (!data) {
         throw new Error('No response data received');
       }
 
-      setSettings(response.data);
+      setSettings(data);
       setNewTaxBracket({ lowerBound: 0, upperBound: 0, rate: 0 });
       setSuccess('Tax bracket added successfully');
       setError(null);
     } catch (error) {
       console.error('Error adding tax bracket:', error);
-      setError(error.response?.data?.message || 'Failed to add tax bracket');
+      setError(error.message || 'Failed to add tax bracket');
     } finally {
       setLoading(false);
       setTimeout(() => setSuccess(null), 3000);
@@ -518,23 +568,29 @@ const PayrollSettings = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await axios.delete(`${API_BASE_URL}/payroll/settings/tax-brackets/${index}`, {
-        headers: { 
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithAuth(`${API_BASE_URL}/payroll/settings/tax-brackets/${index}`, {
+        method: 'DELETE',
+        headers: {
           'Content-Type': 'application/json'
         }
       });
 
-      if (!response.data) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to remove tax bracket');
+      }
+
+      const data = await response.json();
+      if (!data) {
         throw new Error('No response data received');
       }
 
-      setSettings(response.data);
+      setSettings(data);
       setSuccess('Tax bracket removed successfully');
       setError(null);
     } catch (error) {
       console.error('Error removing tax bracket:', error);
-      setError(error.response?.data?.message || 'Failed to remove tax bracket');
+      setError(error.message || 'Failed to remove tax bracket');
     } finally {
       setLoading(false);
       setTimeout(() => setSuccess(null), 3000);
@@ -552,27 +608,29 @@ const PayrollSettings = () => {
 
       console.log('Resetting tax brackets');
 
-      const response = await axios.post(
-        `${API_BASE_URL}/payroll/settings/tax-brackets/reset`,
-        {},
-        {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+      const response = await fetchWithAuth(`${API_BASE_URL}/payroll/settings/tax-brackets/reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         }
-      );
+      });
 
-      if (!response.data) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to reset tax brackets');
+      }
+
+      const data = await response.json();
+      if (!data) {
         throw new Error('No response data received');
       }
 
-      setSettings(response.data);
+      setSettings(data);
       setSuccess('Tax brackets reset successfully');
       setError(null);
     } catch (error) {
       console.error('Error resetting tax brackets:', error);
-      setError(error.response?.data?.error || error.response?.data?.message || 'Failed to reset tax brackets');
+      setError(error.message || 'Failed to reset tax brackets');
     } finally {
       setLoading(false);
       setTimeout(() => setSuccess(null), 5000);
@@ -590,27 +648,29 @@ const PayrollSettings = () => {
 
       console.log('Setting default tax brackets (Kenya template)');
 
-      const response = await axios.post(
-        `${API_BASE_URL}/payroll/settings/tax-brackets/default`,
-        {},
-        {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+      const response = await fetchWithAuth(`${API_BASE_URL}/payroll/settings/tax-brackets/default`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         }
-      );
+      });
 
-      if (!response.data) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to set default tax brackets');
+      }
+
+      const data = await response.json();
+      if (!data) {
         throw new Error('No response data received');
       }
 
-      setSettings(response.data);
+      setSettings(data);
       setSuccess('Default Kenya tax brackets set successfully');
       setError(null);
     } catch (error) {
       console.error('Error setting default tax brackets:', error);
-      setError(error.response?.data?.error || error.response?.data?.message || 'Failed to set default tax brackets');
+      setError(error.message || 'Failed to set default tax brackets');
     } finally {
       setLoading(false);
       setTimeout(() => setSuccess(null), 5000);

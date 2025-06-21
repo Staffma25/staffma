@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { fetchWithAuth } from '../utils/auth';
 import { useAuth } from '../contexts/AuthContext';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
@@ -22,20 +22,24 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const token = getToken();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await axios.get(`${API_BASE_URL}/users`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetchWithAuth(`${API_BASE_URL}/users`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
-      setUsers(response.data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch users');
+      }
+
+      const data = await response.json();
+      setUsers(data);
       setError(null);
     } catch (error) {
       console.error('Error fetching users:', error);
-      setError(error.response?.data?.message || 'Failed to fetch users');
+      setError(error.message || 'Failed to fetch users');
     } finally {
       setLoading(false);
     }
@@ -49,10 +53,6 @@ const UserManagement = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      const token = getToken();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
 
       // Ensure we're sending the correct user type
       const updatedUser = {
@@ -60,24 +60,30 @@ const UserManagement = () => {
         type: editingUser.type || 'employee' // Default to employee if type is not set
       };
 
-      const response = await axios.put(
+      const response = await fetchWithAuth(
         `${API_BASE_URL}/users/${editingUser._id}`,
-        updatedUser,
         {
-          headers: { 
-            Authorization: `Bearer ${token}`,
+          method: 'PUT',
+          headers: {
             'Content-Type': 'application/json'
-          }
+          },
+          body: JSON.stringify(updatedUser)
         }
       );
 
-      setUsers(users.map(u => u._id === editingUser._id ? response.data : u));
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update user');
+      }
+
+      const data = await response.json();
+      setUsers(users.map(u => u._id === editingUser._id ? data : u));
       setEditingUser(null);
       setSuccess('User updated successfully');
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
       console.error('Error updating user:', error);
-      setError(error.response?.data?.message || 'Failed to update user');
+      setError(error.message || 'Failed to update user');
     } finally {
       setLoading(false);
     }
@@ -90,21 +96,25 @@ const UserManagement = () => {
 
     try {
       setLoading(true);
-      const token = getToken();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
 
-      await axios.delete(`${API_BASE_URL}/users/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetchWithAuth(`${API_BASE_URL}/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete user');
+      }
 
       setUsers(users.filter(u => u._id !== userId));
       setSuccess('User deleted successfully');
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
       console.error('Error deleting user:', error);
-      setError(error.response?.data?.message || 'Failed to delete user');
+      setError(error.message || 'Failed to delete user');
     } finally {
       setLoading(false);
     }

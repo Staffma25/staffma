@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { fetchWithAuth } from '../utils/auth';
 
 const PERFORMANCE_CATEGORIES = [
   'Quality of Work',
@@ -38,11 +38,20 @@ const ReviewForm = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:5001/api/employees', {
-          headers: { Authorization: `Bearer ${token}` }
+        const response = await fetchWithAuth('http://localhost:5001/api/employees', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
         });
-        setEmployees(response.data);
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch employees');
+        }
+        
+        const data = await response.json();
+        setEmployees(data);
       } catch (error) {
         console.error('Error fetching employees:', error);
       }
@@ -86,31 +95,37 @@ const ReviewForm = () => {
       return;
     }
     
-    const token = localStorage.getItem('token');
-    
     try {
-      const response = await axios.post(
+      const response = await fetchWithAuth(
         `http://localhost:5001/api/performance-reviews/employees/${review.employeeId}/performance-reviews`,
         {
-          ...review,
-          goals: review.goals.split('\n').filter(goal => goal.trim()),
-          strengths: review.strengths.split('\n').filter(strength => strength.trim()),
-          areasForImprovement: review.areasForImprovement.split('\n').filter(area => area.trim()),
-          trainingRecommendations: review.trainingRecommendations.split('\n').filter(rec => rec.trim()),
-          overallRating,
-          reviewDate: new Date(),
-          status: 'draft'
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            ...review,
+            goals: review.goals.split('\n').filter(goal => goal.trim()),
+            strengths: review.strengths.split('\n').filter(strength => strength.trim()),
+            areasForImprovement: review.areasForImprovement.split('\n').filter(area => area.trim()),
+            trainingRecommendations: review.trainingRecommendations.split('\n').filter(rec => rec.trim()),
+            overallRating,
+            reviewDate: new Date(),
+            status: 'draft'
+          })
         }
       );
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit review');
+      }
       
       alert('Review submitted successfully!');
       navigate('/performance-reviews');
     } catch (error) {
       console.error('Error submitting review:', error);
-      if (error.response?.status === 400 && error.response?.data?.message?.includes('already exists')) {
+      if (error.message?.includes('already exists')) {
         const shouldUpdate = window.confirm(
           'A review already exists for this employee in Q' + review.quarter + ' ' + review.year + 
           '. Would you like to update the existing review instead?'
@@ -119,32 +134,49 @@ const ReviewForm = () => {
         if (shouldUpdate) {
           try {
             // First, get the existing review ID
-            const getResponse = await axios.get(
+            const getResponse = await fetchWithAuth(
               `http://localhost:5001/api/performance-reviews/performance-reviews?year=${review.year}&quarter=${review.quarter}`,
               {
-                headers: { Authorization: `Bearer ${token}` }
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json'
+                }
               }
             );
             
-            const existingReview = getResponse.data.find(r => r.employeeId === review.employeeId);
+            if (!getResponse.ok) {
+              const getErrorData = await getResponse.json();
+              throw new Error(getErrorData.error || 'Failed to fetch existing review');
+            }
+            
+            const existingReviewData = await getResponse.json();
+            const existingReview = existingReviewData.find(r => r.employeeId === review.employeeId);
             if (existingReview) {
               // Update the existing review
-              const updateResponse = await axios.put(
+              const updateResponse = await fetchWithAuth(
                 `http://localhost:5001/api/performance-reviews/performance-reviews/${existingReview._id}`,
                 {
-                  ...review,
-                  goals: review.goals.split('\n').filter(goal => goal.trim()),
-                  strengths: review.strengths.split('\n').filter(strength => strength.trim()),
-                  areasForImprovement: review.areasForImprovement.split('\n').filter(area => area.trim()),
-                  trainingRecommendations: review.trainingRecommendations.split('\n').filter(rec => rec.trim()),
-                  overallRating,
-                  reviewDate: new Date(),
-                  status: 'draft'
-                },
-                {
-                  headers: { Authorization: `Bearer ${token}` }
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    ...review,
+                    goals: review.goals.split('\n').filter(goal => goal.trim()),
+                    strengths: review.strengths.split('\n').filter(strength => strength.trim()),
+                    areasForImprovement: review.areasForImprovement.split('\n').filter(area => area.trim()),
+                    trainingRecommendations: review.trainingRecommendations.split('\n').filter(rec => rec.trim()),
+                    overallRating,
+                    reviewDate: new Date(),
+                    status: 'draft'
+                  })
                 }
               );
+              
+              if (!updateResponse.ok) {
+                const updateErrorData = await updateResponse.json();
+                throw new Error(updateErrorData.error || 'Failed to update existing review');
+              }
               
               alert('Review updated successfully!');
               navigate('/performance-reviews');
@@ -160,7 +192,7 @@ const ReviewForm = () => {
           return;
         }
       }
-      alert(`Failed to submit review: ${error.response?.data?.message || error.message}`);
+      alert(`Failed to submit review: ${error.message}`);
     }
   };
 

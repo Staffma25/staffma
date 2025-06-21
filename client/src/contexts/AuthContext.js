@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
       const decodedToken = decodeToken(staffmaToken);
       if (decodedToken) {
         fetchUserData(staffmaToken, 'staffma');
-      } else {
+    } else {
         localStorage.removeItem('staffmaToken');
       }
     }
@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
+      
       if (response.data) {
         if (userType === 'staffma') {
           setStaffmaUser(response.data);
@@ -108,13 +108,22 @@ export const AuthProvider = ({ children }) => {
 
       console.log('Business login response:', response.data);
 
-      const { token, user } = response.data;
+      const { token, refreshToken, user } = response.data;
       
       if (!token || !user) {
         throw new Error('Invalid response from server');
       }
 
+      // Ensure user type is set correctly
+      if (!user.type) {
+        user.type = 'business';
+      }
+
+      console.log('Setting business user:', user);
       localStorage.setItem('businessToken', token);
+      if (refreshToken) {
+        localStorage.setItem('businessRefreshToken', refreshToken);
+      }
       setBusinessUser(user);
 
       return { success: true, user };
@@ -140,13 +149,16 @@ export const AuthProvider = ({ children }) => {
 
       console.log('Staffma login response:', response.data);
 
-      const { token, user } = response.data;
+      const { token, refreshToken, user } = response.data;
       
       if (!token || !user) {
         throw new Error('Invalid response from server');
       }
 
       localStorage.setItem('staffmaToken', token);
+      if (refreshToken) {
+        localStorage.setItem('staffmaRefreshToken', refreshToken);
+      }
       setStaffmaUser(user);
 
       return { success: true, user };
@@ -163,8 +175,11 @@ export const AuthProvider = ({ children }) => {
     try {
       const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
       const response = await axios.post(`${API_BASE_URL}/auth/register`, userData);
-      const { token, user } = response.data;
+      const { token, refreshToken, user } = response.data;
       localStorage.setItem('businessToken', token);
+      if (refreshToken) {
+        localStorage.setItem('businessRefreshToken', refreshToken);
+      }
       setBusinessUser(user);
       return { success: true };
     } catch (error) {
@@ -192,10 +207,12 @@ export const AuthProvider = ({ children }) => {
     console.log('User logged out:', userType);
     if (userType === 'staffma' || userType === 'all') {
       localStorage.removeItem('staffmaToken');
+      localStorage.removeItem('staffmaRefreshToken');
       setStaffmaUser(null);
     }
     if (userType === 'business' || userType === 'all') {
       localStorage.removeItem('businessToken');
+      localStorage.removeItem('businessRefreshToken');
       setBusinessUser(null);
     }
   };
@@ -240,7 +257,7 @@ export const AuthProvider = ({ children }) => {
     
     // Handle business users
     if (user.type === 'user' || user.type === 'business') {
-      return user.permissions?.[module]?.[action] || false;
+    return user.permissions?.[module]?.[action] || false;
     }
     
     return false;
@@ -295,7 +312,9 @@ export const AuthProvider = ({ children }) => {
     isBusinessUser,
     isStaffmaUser,
     getCurrentUser,
-    hasPermission
+    hasPermission,
+    setBusinessUser,
+    setStaffmaUser
   };
 
   return (

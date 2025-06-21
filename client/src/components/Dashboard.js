@@ -33,7 +33,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const { getToken, logout } = useAuth();
+  const { getToken, logout, businessUser } = useAuth();
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
   const [employeeCount, setEmployeeCount] = useState({ total: 0, remaining: 100 });
@@ -127,10 +127,18 @@ function Dashboard() {
         return;
       }
 
+      // Log current business user for debugging
+      console.log('Current business user:', businessUser);
+      console.log('Fetching dashboard data for business:', businessUser?.businessName || businessUser?.email);
+
       const data = await getDashboardData(abortController?.signal);
       
       if (!abortController?.signal.aborted) {
         console.log('Dashboard data received:', data);
+        console.log('Business data:', data.business);
+        console.log('Employee count:', data.metrics?.employeeCount);
+        console.log('User count:', data.metrics?.userCount);
+        
         setDashboardData(prevData => ({
           ...prevData,
           ...data,
@@ -160,7 +168,7 @@ function Dashboard() {
         }
       }
     }
-  }, [navigate, getToken, logout]);
+  }, [navigate, getToken, logout, businessUser]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -380,8 +388,18 @@ function Dashboard() {
       {/* Header */}
       <header style={styles.header}>
         <div>
-          <h1 style={styles.title}>{dashboardData.business?.businessName || 'Dashboard'}</h1>
-          <p style={styles.subtitle}>Welcome, {dashboardData.business?.applicantName || 'User'}</p>
+          <h1 style={styles.title}>
+            {dashboardData.business?.businessName || businessUser?.businessName || 'Dashboard'}
+          </h1>
+          <p style={styles.subtitle}>
+            Welcome, {dashboardData.business?.applicantName || businessUser?.applicantName || 'User'}
+          </p>
+          {dashboardData.business && (
+            <div style={styles.businessInfo}>
+              <span style={styles.businessId}>Business ID: {dashboardData.business._id}</span>
+              <span style={styles.businessEmail}>Email: {dashboardData.business.email}</span>
+            </div>
+          )}
         </div>
         <button onClick={handleLogout} style={styles.logoutBtn}>
           Logout
@@ -425,6 +443,146 @@ function Dashboard() {
                 <span style={styles.statLabel}>Pending</span>
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* Welcome Section for New Businesses */}
+        {dashboardData?.metrics?.employeeCount?.total === 0 && (
+          <div style={styles.welcomeSection}>
+            <div style={styles.welcomeContent}>
+              <div style={styles.welcomeIcon}>🎉</div>
+              <h2 style={styles.welcomeTitle}>Welcome to Your Business Dashboard!</h2>
+              <p style={styles.welcomeText}>
+                You've successfully set up your business account. Now let's get started by adding your first employee.
+              </p>
+              <div style={styles.welcomeActions}>
+                <button 
+                  onClick={() => setShowAddEmployee(true)} 
+                  style={styles.primaryAction}
+                >
+                  <span style={styles.actionIcon}>👥</span>
+                  Add Your First Employee
+                </button>
+                <button 
+                  onClick={() => navigate('/employees')} 
+                  style={styles.secondaryAction}
+                >
+                  <span style={styles.actionIcon}>📋</span>
+                  View Employee Management
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Actions Section */}
+        <div style={styles.quickActionsSection}>
+          <h2 style={styles.sectionTitle}>
+            <span style={styles.icon}>⚡</span>
+            Quick Actions
+          </h2>
+          <div style={styles.actionsGrid}>
+            <div style={styles.actionCard} onClick={() => setShowAddEmployee(true)}>
+              <div style={styles.actionCardIcon}>👥</div>
+              <h3 style={styles.actionCardTitle}>Add Employee</h3>
+              <p style={styles.actionCardText}>Add a new employee to your workforce</p>
+            </div>
+            <div style={styles.actionCard} onClick={() => navigate('/employees')}>
+              <div style={styles.actionCardIcon}>📋</div>
+              <h3 style={styles.actionCardTitle}>Manage Employees</h3>
+              <p style={styles.actionCardText}>View and manage your employee list</p>
+            </div>
+            <div style={styles.actionCard} onClick={() => navigate('/payroll/process')}>
+              <div style={styles.actionCardIcon}>💰</div>
+              <h3 style={styles.actionCardTitle}>Process Payroll</h3>
+              <p style={styles.actionCardText}>Generate and process employee payroll</p>
+            </div>
+            <div style={styles.actionCard} onClick={() => navigate('/leave-management')}>
+              <div style={styles.actionCardIcon}>📅</div>
+              <h3 style={styles.actionCardTitle}>Leave Management</h3>
+              <p style={styles.actionCardText}>Manage employee leave requests</p>
+            </div>
+            <div style={styles.actionCard} onClick={() => setShowAddUser(true)}>
+              <div style={styles.actionCardIcon}>👤</div>
+              <h3 style={styles.actionCardTitle}>Add User</h3>
+              <p style={styles.actionCardText}>Create new system user accounts</p>
+            </div>
+            <div style={styles.actionCard} onClick={() => navigate('/settings')}>
+              <div style={styles.actionCardIcon}>⚙️</div>
+              <h3 style={styles.actionCardTitle}>Settings</h3>
+              <p style={styles.actionCardText}>Configure your business settings</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Employees Section */}
+        {dashboardData?.metrics?.employeeCount?.total > 0 && (
+          <div style={styles.recentEmployeesSection}>
+            <h2 style={styles.sectionTitle}>
+              <span style={styles.icon}>👥</span>
+              Recent Employees
+            </h2>
+            <div style={styles.employeesList}>
+              {dashboardData.employees && dashboardData.employees.length > 0 ? (
+                dashboardData.employees.slice(0, 5).map((employee) => (
+                  <div key={employee._id} style={styles.employeeCard}>
+                    <div style={styles.employeeInfo}>
+                      <h4 style={styles.employeeName}>
+                        {employee.firstName} {employee.lastName}
+                      </h4>
+                      <p style={styles.employeePosition}>{employee.position}</p>
+                      <p style={styles.employeeDepartment}>{employee.department}</p>
+                    </div>
+                    <button 
+                      onClick={() => handleViewEmployee(employee)}
+                      style={styles.viewEmployeeBtn}
+                    >
+                      View Details
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div style={styles.emptyState}>
+                  <div style={styles.emptyStateIcon}>👥</div>
+                  <h3 style={styles.emptyStateTitle}>No Employees Yet</h3>
+                  <p style={styles.emptyStateText}>
+                    Start building your team by adding your first employee.
+                  </p>
+                  <button 
+                    onClick={() => setShowAddEmployee(true)} 
+                    style={styles.emptyStateAction}
+                  >
+                    Add Employee
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Recent Activities Section */}
+        <div style={styles.recentActivitiesSection}>
+          <h2 style={styles.sectionTitle}>
+            <span style={styles.icon}>🕒</span>
+            Recent Activities
+          </h2>
+          <div style={styles.activitiesList}>
+            {dashboardData?.metrics?.employeeCount?.total > 0 ? (
+              <div style={styles.activityItem}>
+                <span style={styles.activityIcon}>📊</span>
+                <span style={styles.activityText}>
+                  Dashboard loaded successfully with {dashboardData.metrics.employeeCount.total} employees
+                </span>
+              </div>
+            ) : (
+              <div style={styles.emptyState}>
+                <div style={styles.emptyStateIcon}>📋</div>
+                <h3 style={styles.emptyStateTitle}>No Activities Yet</h3>
+                <p style={styles.emptyStateText}>
+                  Activities will appear here as you start using the system.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -997,6 +1155,271 @@ const styles = {
     color: '#2c3e50',
     cursor: 'pointer',
   },
+  welcomeSection: {
+    backgroundColor: 'white',
+    borderRadius: '16px',
+    padding: '40px',
+    marginBottom: '30px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    border: '1px solid #e2e8f0',
+    textAlign: 'center'
+  },
+  welcomeContent: {
+    maxWidth: '600px',
+    margin: '0 auto'
+  },
+  welcomeIcon: {
+    fontSize: '4rem',
+    marginBottom: '20px',
+    filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))'
+  },
+  welcomeTitle: {
+    fontSize: '2rem',
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: '15px'
+  },
+  welcomeText: {
+    fontSize: '1.1rem',
+    color: '#64748b',
+    lineHeight: '1.6',
+    marginBottom: '30px'
+  },
+  welcomeActions: {
+    display: 'flex',
+    gap: '15px',
+    justifyContent: 'center',
+    flexWrap: 'wrap'
+  },
+  primaryAction: {
+    padding: '12px 24px',
+    backgroundColor: '#3b82f6',
+    color: 'white',
+    border: 'none',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    fontSize: '1rem',
+    fontWeight: '600',
+    transition: 'all 0.3s ease',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.3)',
+    '&:hover': {
+      backgroundColor: '#2563eb',
+      transform: 'translateY(-2px)',
+      boxShadow: '0 8px 15px -3px rgba(59, 130, 246, 0.4)'
+    }
+  },
+  secondaryAction: {
+    padding: '12px 24px',
+    backgroundColor: '#f8fafc',
+    color: '#475569',
+    border: '1px solid #e2e8f0',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    fontSize: '1rem',
+    fontWeight: '600',
+    transition: 'all 0.3s ease',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    '&:hover': {
+      backgroundColor: '#f1f5f9',
+      transform: 'translateY(-2px)',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+    }
+  },
+  actionIcon: {
+    fontSize: '1.2rem'
+  },
+  quickActionsSection: {
+    backgroundColor: 'white',
+    padding: '30px',
+    borderRadius: '16px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    border: '1px solid #e2e8f0',
+    marginBottom: '30px'
+  },
+  actionsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: '20px'
+  },
+  actionCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: '12px',
+    padding: '25px',
+    border: '1px solid #e2e8f0',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    textAlign: 'center',
+    '&:hover': {
+      transform: 'translateY(-4px)',
+      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+      borderColor: '#3b82f6'
+    }
+  },
+  actionCardIcon: {
+    fontSize: '2.5rem',
+    marginBottom: '15px',
+    filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))'
+  },
+  actionCardTitle: {
+    fontSize: '1.25rem',
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: '10px'
+  },
+  actionCardText: {
+    color: '#64748b',
+    fontSize: '0.9rem',
+    lineHeight: '1.5'
+  },
+  recentEmployeesSection: {
+    backgroundColor: 'white',
+    padding: '30px',
+    borderRadius: '16px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    border: '1px solid #e2e8f0',
+    marginBottom: '30px'
+  },
+  employeesList: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: '20px'
+  },
+  employeeCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: '12px',
+    padding: '20px',
+    border: '1px solid #e2e8f0',
+    transition: 'all 0.3s ease',
+    '&:hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+      borderColor: '#3b82f6'
+    }
+  },
+  employeeInfo: {
+    marginBottom: '15px'
+  },
+  employeeName: {
+    fontSize: '1.1rem',
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: '5px'
+  },
+  employeePosition: {
+    color: '#64748b',
+    fontSize: '0.9rem',
+    marginBottom: '3px'
+  },
+  employeeDepartment: {
+    color: '#94a3b8',
+    fontSize: '0.85rem',
+    fontStyle: 'italic'
+  },
+  viewEmployeeBtn: {
+    padding: '8px 16px',
+    backgroundColor: '#3b82f6',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '0.9rem',
+    fontWeight: '500',
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#2563eb'
+    }
+  },
+  recentActivitiesSection: {
+    backgroundColor: 'white',
+    padding: '30px',
+    borderRadius: '16px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    border: '1px solid #e2e8f0'
+  },
+  activitiesList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '15px'
+  },
+  activityItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '15px',
+    padding: '15px',
+    backgroundColor: '#f8fafc',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0'
+  },
+  activityIcon: {
+    fontSize: '1.5rem'
+  },
+  activityText: {
+    color: '#475569',
+    fontSize: '0.9rem'
+  },
+  emptyState: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '40px',
+    textAlign: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: '12px',
+    border: '2px dashed #e2e8f0'
+  },
+  emptyStateIcon: {
+    fontSize: '3rem',
+    color: '#94a3b8',
+    marginBottom: '15px',
+    opacity: '0.7'
+  },
+  emptyStateTitle: {
+    fontSize: '1.25rem',
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: '8px'
+  },
+  emptyStateText: {
+    color: '#64748b',
+    fontSize: '0.9rem',
+    lineHeight: '1.5',
+    marginBottom: '20px',
+    maxWidth: '300px'
+  },
+  emptyStateAction: {
+    padding: '10px 20px',
+    backgroundColor: '#3b82f6',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '0.9rem',
+    fontWeight: '500',
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#2563eb',
+      transform: 'translateY(-1px)'
+    }
+  },
+  businessInfo: {
+    fontSize: '0.9rem',
+    color: '#64748b',
+    marginTop: '0.5rem',
+    display: 'flex',
+    gap: '10px'
+  },
+  businessId: {
+    fontWeight: '600'
+  },
+  businessEmail: {
+    fontWeight: '400'
+  }
 };
 
 export default Dashboard; 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { fetchWithAuth } from '../utils/auth';
 
 function EmployeesList() {
   const [employees, setEmployees] = useState([]);
@@ -11,12 +12,12 @@ function EmployeesList() {
   const fetchEmployees = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      console.log('Fetching employees with token:', token);
+      console.log('Fetching employees...');
       
-      const response = await fetch('http://localhost:5001/api/employees', {
+      const response = await fetchWithAuth('http://localhost:5001/api/employees', {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         }
       });
 

@@ -194,7 +194,7 @@ const styles = {
     backgroundColor: '#2980b9'
   },
   buttonDisabled: {
-    backgroundColor: '#95a5a6',
+      backgroundColor: '#95a5a6',
     cursor: 'not-allowed'
   },
   error: {

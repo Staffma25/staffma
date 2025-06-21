@@ -325,6 +325,221 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// @route   GET api/activities/businesses
+// @desc    Get all businesses with their activity statistics
+// @access  Private (Staffma users only)
+router.get('/businesses', auth, async (req, res) => {
+  try {
+    // Check if user is a Staffma user
+    if (!isStaffmaAdmin(req.user)) {
+      return res.status(403).json({ 
+        error: 'Unauthorized',
+        message: 'Only Staffma administrators can access business activity data'
+      });
+    }
+
+    // Get all businesses with their activity counts
+    const businessesWithActivities = await Business.aggregate([
+      {
+        $lookup: {
+          from: 'activities',
+          localField: '_id',
+          foreignField: 'businessId',
+          as: 'activities'
+        }
+      },
+      {
+        $addFields: {
+          totalActivities: { $size: '$activities' },
+          recentActivities: {
+            $filter: {
+              input: '$activities',
+              as: 'activity',
+              cond: {
+                $gte: [
+                  '$$activity.timestamp',
+                  new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
+                ]
+              }
+            }
+          },
+          criticalActivities: {
+            $filter: {
+              input: '$activities',
+              as: 'activity',
+              cond: { $eq: ['$$activity.severity', 'critical'] }
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          businessName: 1,
+          email: 1,
+          totalActivities: 1,
+          recentActivitiesCount: { $size: '$recentActivities' },
+          criticalActivitiesCount: { $size: '$criticalActivities' },
+          lastActivity: { $max: '$activities.timestamp' },
+          createdAt: 1
+        }
+      },
+      {
+        $sort: { totalActivities: -1 }
+      }
+    ]);
+
+    // Get overall statistics
+    const totalBusinesses = businessesWithActivities.length;
+    const activeBusinesses = businessesWithActivities.filter(b => b.totalActivities > 0).length;
+    const totalActivities = businessesWithActivities.reduce((sum, b) => sum + b.totalActivities, 0);
+    const totalCriticalActivities = businessesWithActivities.reduce((sum, b) => sum + b.criticalActivitiesCount, 0);
+
+    // Get recent activities across all businesses (last 24 hours)
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentActivities = await Activity.find({
+      timestamp: { $gte: oneDayAgo }
+    })
+    .sort({ timestamp: -1 })
+    .limit(20)
+    .populate('businessId', 'businessName')
+    .populate('userId', 'firstName lastName')
+    .populate('employeeId', 'firstName lastName');
+
+    res.json({
+      businesses: businessesWithActivities,
+      statistics: {
+        totalBusinesses,
+        activeBusinesses,
+        totalActivities,
+        totalCriticalActivities,
+        recentActivities
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching business activities:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch business activities',
+      details: error.message 
+    });
+  }
+});
+
+// @route   GET api/activities/business/:businessId
+// @desc    Get activities for a specific business
+// @access  Private (Staffma users only)
+router.get('/business/:businessId', auth, async (req, res) => {
+  try {
+    // Check if user is a Staffma user
+    if (!isStaffmaAdmin(req.user)) {
+      return res.status(403).json({ 
+        error: 'Unauthorized',
+        message: 'Only Staffma administrators can access business activity data'
+      });
+    }
+
+    const { businessId } = req.params;
+    const {
+      category,
+      severity,
+      status,
+      dateRange,
+      limit = 50,
+      page = 1
+    } = req.query;
+
+    // Build filter object
+    const filter = { businessId };
+
+    if (category) filter.category = category;
+    if (severity) filter.severity = severity;
+    if (status) filter.status = status;
+
+    // Handle date range filtering
+    if (dateRange && dateRange !== 'all') {
+      const now = new Date();
+      let startDate;
+
+      switch (dateRange) {
+        case '1d':
+          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      }
+
+      filter.timestamp = { $gte: startDate };
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Get activities for the specific business
+    const activities = await Activity.find(filter)
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('businessId', 'businessName email')
+      .populate('userId', 'firstName lastName email')
+      .populate('employeeId', 'firstName lastName email');
+
+    // Get total count for pagination
+    const totalActivities = await Activity.countDocuments(filter);
+
+    // Get business details
+    const business = await Business.findById(businessId).select('businessName email createdAt');
+
+    // Get activity statistics for this business
+    const activityStats = await Activity.aggregate([
+      { $match: { businessId: businessId } },
+      {
+        $group: {
+          _id: null,
+          totalActivities: { $sum: 1 },
+          criticalActivities: { $sum: { $cond: [{ $eq: ['$severity', 'critical'] }, 1, 0] } },
+          highActivities: { $sum: { $cond: [{ $eq: ['$severity', 'high'] }, 1, 0] } },
+          mediumActivities: { $sum: { $cond: [{ $eq: ['$severity', 'medium'] }, 1, 0] } },
+          lowActivities: { $sum: { $cond: [{ $eq: ['$severity', 'low'] }, 1, 0] } }
+        }
+      }
+    ]);
+
+    res.json({
+      business,
+      activities,
+      statistics: activityStats[0] || {
+        totalActivities: 0,
+        criticalActivities: 0,
+        highActivities: 0,
+        mediumActivities: 0,
+        lowActivities: 0
+      },
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalActivities / parseInt(limit)),
+        totalActivities,
+        hasNextPage: skip + activities.length < totalActivities,
+        hasPrevPage: parseInt(page) > 1
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching business activities:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch business activities',
+      details: error.message 
+    });
+  }
+});
+
 // @route   GET api/activities/:id
 // @desc    Get specific activity by ID
 // @access  Private (Staffma users only)
