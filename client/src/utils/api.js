@@ -270,7 +270,7 @@ export const getBusinessActivities = async (signal) => {
   }
 };
 
-export const getBusinessActivityDetails = async (businessId, filters = {}, signal) => {
+export const getBusinessDetails = async (businessId, filters = {}, signal) => {
   try {
     const queryParams = new URLSearchParams();
     
@@ -286,15 +286,15 @@ export const getBusinessActivityDetails = async (businessId, filters = {}, signa
     
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to fetch business activity details');
+      throw new Error(errorData.message || 'Failed to fetch business details');
     }
     
     return response.json();
   } catch (error) {
     if (error.name === 'AbortError') {
-      console.log('Business activity details fetch aborted');
+      console.log('Business details fetch aborted');
       throw error;
     }
-    throw new Error('Failed to fetch business activity details: ' + error.message);
+    throw new Error('Failed to fetch business details: ' + error.message);
   }
 }; 

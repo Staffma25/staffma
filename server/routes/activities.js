@@ -4,6 +4,9 @@ const auth = require('../middleware/auth');
 const Activity = require('../models/Activity');
 const Business = require('../models/Business');
 const User = require('../models/User');
+const Employee = require('../models/Employee');
+const Payroll = require('../models/Payroll');
+const mongoose = require('mongoose');
 
 // Helper function to check if user is a Staffma administrator
 const isStaffmaAdmin = (user) => {
@@ -513,15 +516,271 @@ router.get('/business/:businessId', auth, async (req, res) => {
       }
     ]);
 
+    // Get employee count
+    const employeeCount = await Employee.countDocuments({ businessId });
+
+    // Get user count
+    const userCount = await User.countDocuments({ businessId });
+    const activeUserCount = await User.countDocuments({ 
+      businessId,
+      status: 'active'
+    });
+
+    // Get payroll summary statistics
+    const payrollStats = await Payroll.aggregate([
+      {
+        $match: { 
+          businessId: new mongoose.Types.ObjectId(businessId) 
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalPayrollRecords: { $sum: 1 },
+          totalPaidAmount: { $sum: '$netSalary' },
+          totalGrossAmount: { $sum: '$grossSalary' },
+          totalBasicSalary: { $sum: '$basicSalary' },
+          averageSalary: { $avg: '$netSalary' },
+          averageGrossSalary: { $avg: '$grossSalary' },
+          averageBasicSalary: { $avg: '$basicSalary' },
+          highestSalary: { $max: '$netSalary' },
+          lowestSalary: { $min: '$netSalary' },
+          totalAllowances: { $sum: '$allowances.total' },
+          totalDeductions: { $sum: '$deductions.total' }
+        }
+      }
+    ]);
+
+    console.log('Payroll Stats for business:', businessId);
+    console.log('Payroll aggregation result:', payrollStats);
+    console.log('Payroll stats object:', payrollStats[0] || 'No payroll data found');
+
+    // Check if there are any payroll records at all
+    const totalPayrollCount = await Payroll.countDocuments({ 
+      businessId: new mongoose.Types.ObjectId(businessId) 
+    });
+    console.log('Total payroll records count for business:', totalPayrollCount);
+
+    // Get detailed payroll records (last 10)
+    const detailedPayrollRecords = await Payroll.find({ 
+      businessId: new mongoose.Types.ObjectId(businessId) 
+    })
+      .sort({ processedDate: -1 })
+      .limit(10)
+      .populate('employeeId', 'firstName lastName position department employeeNumber')
+      .select('employeeId employeeNumber month year basicSalary grossSalary netSalary allowances deductions processedDate');
+
+    // Get allowance breakdown
+    const allowanceBreakdown = await Payroll.aggregate([
+      {
+        $match: { businessId: new mongoose.Types.ObjectId(businessId) }
+      },
+      {
+        $unwind: '$allowances.items'
+      },
+      {
+        $group: {
+          _id: '$allowances.items.name',
+          totalAmount: { $sum: '$allowances.items.amount' },
+          count: { $sum: 1 },
+          averageAmount: { $avg: '$allowances.items.amount' }
+        }
+      },
+      {
+        $sort: { totalAmount: -1 }
+      }
+    ]);
+
+    // Get deduction breakdown
+    const deductionBreakdown = await Payroll.aggregate([
+      {
+        $match: { businessId: new mongoose.Types.ObjectId(businessId) }
+      },
+      {
+        $unwind: '$deductions.items'
+      },
+      {
+        $group: {
+          _id: '$deductions.items.name',
+          totalAmount: { $sum: '$deductions.items.amount' },
+          count: { $sum: 1 },
+          averageAmount: { $avg: '$deductions.items.amount' }
+        }
+      },
+      {
+        $sort: { totalAmount: -1 }
+      }
+    ]);
+
+    // Get payroll by department
+    const payrollByDepartment = await Payroll.aggregate([
+      {
+        $match: { businessId: new mongoose.Types.ObjectId(businessId) }
+      },
+      {
+        $lookup: {
+          from: 'employees',
+          localField: 'employeeId',
+          foreignField: '_id',
+          as: 'employee'
+        }
+      },
+      {
+        $unwind: '$employee'
+      },
+      {
+        $group: {
+          _id: '$employee.department',
+          totalNetSalary: { $sum: '$netSalary' },
+          totalGrossSalary: { $sum: '$grossSalary' },
+          employeeCount: { $sum: 1 },
+          averageSalary: { $avg: '$netSalary' },
+          totalAllowances: { $sum: '$allowances.total' },
+          totalDeductions: { $sum: '$deductions.total' }
+        }
+      },
+      {
+        $sort: { totalNetSalary: -1 }
+      }
+    ]);
+
+    // Get payroll by position
+    const payrollByPosition = await Payroll.aggregate([
+      {
+        $match: { businessId: new mongoose.Types.ObjectId(businessId) }
+      },
+      {
+        $lookup: {
+          from: 'employees',
+          localField: 'employeeId',
+          foreignField: '_id',
+          as: 'employee'
+        }
+      },
+      {
+        $unwind: '$employee'
+      },
+      {
+        $group: {
+          _id: '$employee.position',
+          totalNetSalary: { $sum: '$netSalary' },
+          totalGrossSalary: { $sum: '$grossSalary' },
+          employeeCount: { $sum: 1 },
+          averageSalary: { $avg: '$netSalary' },
+          totalAllowances: { $sum: '$allowances.total' },
+          totalDeductions: { $sum: '$deductions.total' }
+        }
+      },
+      {
+        $sort: { totalNetSalary: -1 }
+      },
+      {
+        $limit: 10
+      }
+    ]);
+
+    // Get payroll history (last 12 months)
+    const currentDate = new Date();
+    const twelveMonthsAgo = new Date(currentDate.getFullYear(), currentDate.getMonth() - 11, 1);
+    
+    const payrollHistory = await Payroll.aggregate([
+      {
+        $match: {
+          businessId: new mongoose.Types.ObjectId(businessId),
+          processedDate: { $gte: twelveMonthsAgo }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: '$year',
+            month: '$month'
+          },
+          totalNetSalary: { $sum: '$netSalary' },
+          totalGrossSalary: { $sum: '$grossSalary' },
+          employeeCount: { $sum: 1 },
+          averageSalary: { $avg: '$netSalary' }
+        }
+      },
+      {
+        $sort: { '_id.year': -1, '_id.month': -1 }
+      },
+      {
+        $limit: 12
+      }
+    ]);
+
+    // Get recent payroll records (last 5) - summary by month
+    const recentPayrollSummary = await Payroll.aggregate([
+      {
+        $match: { businessId: new mongoose.Types.ObjectId(businessId) }
+      },
+      {
+        $group: {
+          _id: {
+            year: '$year',
+            month: '$month'
+          },
+          totalNetSalary: { $sum: '$netSalary' },
+          totalGrossSalary: { $sum: '$grossSalary' },
+          employeeCount: { $sum: 1 },
+          averageSalary: { $avg: '$netSalary' },
+          totalAllowances: { $sum: '$allowances.total' },
+          totalDeductions: { $sum: '$deductions.total' },
+          processedDate: { $max: '$processedDate' }
+        }
+      },
+      {
+        $sort: { processedDate: -1 }
+      },
+      {
+        $limit: 5
+      }
+    ]);
+
+    // Get recent employees (last 10)
+    const recentEmployees = await Employee.find({ businessId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select('firstName lastName position department employeeNumber createdAt startDate');
+
     res.json({
       business,
       activities,
-      statistics: activityStats[0] || {
-        totalActivities: 0,
-        criticalActivities: 0,
-        highActivities: 0,
-        mediumActivities: 0,
-        lowActivities: 0
+      statistics: {
+        ...activityStats[0] || {
+          totalActivities: 0,
+          criticalActivities: 0,
+          highActivities: 0,
+          mediumActivities: 0,
+          lowActivities: 0
+        },
+        employeeCount,
+        userCount,
+        activeUserCount,
+        payrollStats: payrollStats[0] || {
+          totalPayrollRecords: 0,
+          totalPaidAmount: 0,
+          totalGrossAmount: 0,
+          totalBasicSalary: 0,
+          averageSalary: 0,
+          averageGrossSalary: 0,
+          averageBasicSalary: 0,
+          highestSalary: 0,
+          lowestSalary: 0,
+          totalAllowances: 0,
+          totalDeductions: 0
+        }
+      },
+      payrollHistory,
+      recentPayrollSummary,
+      recentEmployees,
+      payroll: {
+        detailedPayrollRecords,
+        allowanceBreakdown,
+        deductionBreakdown,
+        payrollByDepartment,
+        payrollByPosition
       },
       pagination: {
         currentPage: parseInt(page),

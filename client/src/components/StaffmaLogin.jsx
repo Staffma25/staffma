@@ -98,17 +98,6 @@ function StaffmaLogin() {
             ← Back to Home
           </button>
           
-          <div style={styles.divider}>
-            <span style={styles.dividerText}>or</span>
-          </div>
-          
-          <button 
-            onClick={() => navigate('/login', { replace: true })} 
-            style={styles.businessLoginButton}
-          >
-            Business User Login
-          </button>
-          
           <p style={styles.footerText}>
             Need help? Contact{' '}
             <span style={styles.footerLink}>
@@ -225,33 +214,6 @@ const styles = {
     fontSize: '14px',
     marginBottom: '20px',
     textDecoration: 'underline'
-  },
-  divider: {
-    position: 'relative',
-    textAlign: 'center',
-    margin: '20px 0'
-  },
-  dividerText: {
-    backgroundColor: 'white',
-    padding: '0 15px',
-    color: '#7f8c8d',
-    fontSize: '14px'
-  },
-  businessLoginButton: {
-    padding: '12px 24px',
-    backgroundColor: 'transparent',
-    color: '#667eea',
-    border: '2px solid #667eea',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500',
-    transition: 'all 0.3s ease',
-    marginBottom: '20px'
-  },
-  businessLoginButtonHover: {
-    backgroundColor: '#667eea',
-    color: 'white'
   },
   footerText: {
     color: '#7f8c8d',

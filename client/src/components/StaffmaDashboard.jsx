@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getActivities, getActivitySummary, getBusinessActivities, getBusinessActivityDetails } from '../utils/api';
+import { getActivities, getActivitySummary, getBusinessActivities, getBusinessDetails } from '../utils/api';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
@@ -96,7 +96,7 @@ function StaffmaDashboard() {
 
   const fetchBusinessDetails = useCallback(async (businessId, abortController) => {
     try {
-      const response = await getBusinessActivityDetails(businessId, filters, abortController?.signal);
+      const response = await getBusinessDetails(businessId, filters, abortController?.signal);
       if (!abortController?.signal.aborted) {
         setBusinessDetails(response);
       }
@@ -185,16 +185,37 @@ function StaffmaDashboard() {
   if (loading) return <div style={styles.loading}>Loading Staffma Dashboard...</div>;
   if (error) return <div style={styles.error}>{error}</div>;
 
-  // Business Details View
-  if (selectedBusiness) {
+  // Loading state for business details
+  if (selectedBusiness && !businessDetails) {
     return (
       <div style={styles.container}>
         <div style={styles.header}>
           <div>
-            <button style={styles.backButton} onClick={() => setSelectedBusiness(null)}>
+            <button style={styles.backButton} onClick={handleBackToOverview}>
               ← Back to Dashboard
             </button>
-            <h1 style={styles.title}>{selectedBusiness.business.businessName}</h1>
+            <h1 style={styles.title}>Loading Business Details...</h1>
+            <p style={styles.subtitle}>Please wait while we fetch the business information</p>
+          </div>
+          <button style={styles.logoutBtn} onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
+        <div style={styles.loading}>Loading business details...</div>
+      </div>
+    );
+  }
+
+  // Business Details View
+  if (selectedBusiness && businessDetails) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.header}>
+          <div>
+            <button style={styles.backButton} onClick={handleBackToOverview}>
+              ← Back to Dashboard
+            </button>
+            <h1 style={styles.title}>{businessDetails.business?.businessName || 'Business Details'}</h1>
             <p style={styles.subtitle}>Business Activity Details</p>
           </div>
           <button style={styles.logoutBtn} onClick={handleLogout}>
@@ -211,50 +232,272 @@ function StaffmaDashboard() {
             </h2>
             <div style={styles.businessStatsGrid}>
               <div style={styles.businessStatCard}>
-                <div style={styles.businessStatIcon}>📈</div>
+                <div style={styles.businessStatIcon}>👥</div>
                 <div style={styles.businessStatContent}>
-                  <span style={styles.businessStatValue}>{selectedBusiness.statistics.totalActivities}</span>
-                  <span style={styles.businessStatLabel}>Total Activities</span>
+                  <span style={styles.businessStatValue}>{businessDetails.statistics?.employeeCount || 0}</span>
+                  <span style={styles.businessStatLabel}>Total Employees</span>
                 </div>
               </div>
               <div style={styles.businessStatCard}>
-                <div style={styles.businessStatIcon}>🚨</div>
+                <div style={styles.businessStatIcon}>👤</div>
                 <div style={styles.businessStatContent}>
-                  <span style={{ ...styles.businessStatValue, color: '#ef4444' }}>
-                    {selectedBusiness.statistics.criticalActivities}
-                  </span>
-                  <span style={styles.businessStatLabel}>Critical</span>
-                </div>
-              </div>
-              <div style={styles.businessStatCard}>
-                <div style={styles.businessStatIcon}>⚠️</div>
-                <div style={styles.businessStatContent}>
-                  <span style={{ ...styles.businessStatValue, color: '#f59e0b' }}>
-                    {selectedBusiness.statistics.highActivities}
-                  </span>
-                  <span style={styles.businessStatLabel}>High Priority</span>
-                </div>
-              </div>
-              <div style={styles.businessStatCard}>
-                <div style={styles.businessStatIcon}>ℹ️</div>
-                <div style={styles.businessStatContent}>
-                  <span style={{ ...styles.businessStatValue, color: '#3b82f6' }}>
-                    {selectedBusiness.statistics.mediumActivities}
-                  </span>
-                  <span style={styles.businessStatLabel}>Medium</span>
+                  <span style={styles.businessStatValue}>{businessDetails.statistics?.userCount || 0}</span>
+                  <span style={styles.businessStatLabel}>Total Users</span>
                 </div>
               </div>
               <div style={styles.businessStatCard}>
                 <div style={styles.businessStatIcon}>✅</div>
                 <div style={styles.businessStatContent}>
-                  <span style={{ ...styles.businessStatValue, color: '#10b981' }}>
-                    {selectedBusiness.statistics.lowActivities}
-                  </span>
-                  <span style={styles.businessStatLabel}>Low</span>
+                  <span style={styles.businessStatValue}>{businessDetails.statistics?.activeUserCount || 0}</span>
+                  <span style={styles.businessStatLabel}>Active Users</span>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Payroll Overview */}
+          <div style={styles.payrollOverviewSection}>
+            <h2 style={styles.sectionTitle}>
+              <span style={styles.icon}>💰</span>
+              Payroll Overview
+            </h2>
+            {(() => {
+              // Debug logging
+              console.log('Business Details:', businessDetails);
+              console.log('Payroll Stats:', businessDetails.statistics?.payrollStats);
+              
+              const payrollStats = businessDetails.statistics?.payrollStats || {};
+              const totalPayrollRecords = payrollStats.totalPayrollRecords || 0;
+              const totalNetPaid = payrollStats.totalPaidAmount || 0;
+              const totalGrossAmount = payrollStats.totalGrossAmount || 0;
+              const totalAllowances = payrollStats.totalAllowances || 0;
+              const totalDeductions = payrollStats.totalDeductions || 0;
+              
+              console.log('Payroll Overview Values:', {
+                totalPayrollRecords,
+                totalNetPaid,
+                totalGrossAmount,
+                totalAllowances,
+                totalDeductions
+              });
+              
+              // Show fallback if no payroll data
+              if (totalPayrollRecords === 0) {
+                return (
+                  <div style={styles.emptyState}>
+                    <div style={styles.emptyStateIcon}>💰</div>
+                    <h3 style={styles.emptyStateTitle}>No Payroll Data Available</h3>
+                    <p style={styles.emptyStateText}>
+                      This business hasn't processed any payroll records yet.
+                    </p>
+                  </div>
+                );
+              }
+              
+              return (
+                <div style={styles.payrollTableContainer}>
+                  <table style={styles.payrollTable}>
+                    <thead>
+                      <tr style={styles.payrollTableHeader}>
+                        <th style={styles.payrollTableHeaderCell}>Metric</th>
+                        <th style={styles.payrollTableHeaderCell}>Value</th>
+                        <th style={styles.payrollTableHeaderCell}>Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style={styles.payrollTableRow}>
+                        <td style={styles.payrollTableCell}>
+                          <div style={styles.payrollMetric}>
+                            <span style={styles.payrollMetricIcon}>📊</span>
+                            <span style={styles.payrollMetricLabel}>Total Payroll Records</span>
+                          </div>
+                        </td>
+                        <td style={styles.payrollTableValue}>
+                          <span style={styles.payrollValue}>{totalPayrollRecords}</span>
+                        </td>
+                        <td style={styles.payrollTableDescription}>
+                          Total number of payroll records processed
+                        </td>
+                      </tr>
+                      <tr style={styles.payrollTableRow}>
+                        <td style={styles.payrollTableCell}>
+                          <div style={styles.payrollMetric}>
+                            <span style={styles.payrollMetricIcon}>💵</span>
+                            <span style={styles.payrollMetricLabel}>Total Net Paid</span>
+                          </div>
+                        </td>
+                        <td style={styles.payrollTableValue}>
+                          <span style={styles.payrollValue}>${totalNetPaid.toLocaleString()}</span>
+                        </td>
+                        <td style={styles.payrollTableDescription}>
+                          Total net salary amount paid to employees
+                        </td>
+                      </tr>
+                      <tr style={styles.payrollTableRow}>
+                        <td style={styles.payrollTableCell}>
+                          <div style={styles.payrollMetric}>
+                            <span style={styles.payrollMetricIcon}>📈</span>
+                            <span style={styles.payrollMetricLabel}>Total Gross Amount</span>
+                          </div>
+                        </td>
+                        <td style={styles.payrollTableValue}>
+                          <span style={styles.payrollValue}>${totalGrossAmount.toLocaleString()}</span>
+                        </td>
+                        <td style={styles.payrollTableDescription}>
+                          Total gross salary before deductions
+                        </td>
+                      </tr>
+                      <tr style={styles.payrollTableRow}>
+                        <td style={styles.payrollTableCell}>
+                          <div style={styles.payrollMetric}>
+                            <span style={styles.payrollMetricIcon}>➕</span>
+                            <span style={styles.payrollMetricLabel}>Total Allowances</span>
+                          </div>
+                        </td>
+                        <td style={styles.payrollTableValue}>
+                          <span style={styles.payrollValue}>${totalAllowances.toLocaleString()}</span>
+                        </td>
+                        <td style={styles.payrollTableDescription}>
+                          Total allowances given to employees
+                        </td>
+                      </tr>
+                      <tr style={styles.payrollTableRow}>
+                        <td style={styles.payrollTableCell}>
+                          <div style={styles.payrollMetric}>
+                            <span style={styles.payrollMetricIcon}>➖</span>
+                            <span style={styles.payrollMetricLabel}>Total Deductions</span>
+                          </div>
+                        </td>
+                        <td style={styles.payrollTableValue}>
+                          <span style={styles.payrollValue}>${totalDeductions.toLocaleString()}</span>
+                        </td>
+                        <td style={styles.payrollTableDescription}>
+                          Total deductions taken from salaries
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Payroll History Chart */}
+          {businessDetails.payrollHistory && businessDetails.payrollHistory.length > 0 && (
+            <div style={styles.payrollHistorySection}>
+              <h2 style={styles.sectionTitle}>
+                <span style={styles.icon}>📊</span>
+                Payroll History (Last 12 Months)
+              </h2>
+              <div style={styles.payrollHistoryTableContainer}>
+                <table style={styles.payrollHistoryTable}>
+                  <thead>
+                    <tr style={styles.payrollHistoryTableHeader}>
+                      <th style={styles.payrollHistoryTableHeaderCell}>Period</th>
+                      <th style={styles.payrollHistoryTableHeaderCell}>Total Net Salary</th>
+                      <th style={styles.payrollHistoryTableHeaderCell}>Total Gross Salary</th>
+                      <th style={styles.payrollHistoryTableHeaderCell}>Employees</th>
+                      <th style={styles.payrollHistoryTableHeaderCell}>Average Salary</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {businessDetails.payrollHistory.map((record, index) => (
+                      <tr key={index} style={styles.payrollHistoryTableRow}>
+                        <td style={styles.payrollHistoryTableCell}>
+                          <span style={styles.payrollHistoryPeriod}>
+                            {new Date(record._id.year, record._id.month - 1).toLocaleDateString('en-US', { 
+                              month: 'long', 
+                              year: 'numeric' 
+                            })}
+                          </span>
+                        </td>
+                        <td style={styles.payrollHistoryTableValue}>
+                          <span style={styles.payrollHistoryValue}>
+                            ${record.totalNetSalary.toLocaleString()}
+                          </span>
+                        </td>
+                        <td style={styles.payrollHistoryTableValue}>
+                          <span style={styles.payrollHistoryValue}>
+                            ${record.totalGrossSalary.toLocaleString()}
+                          </span>
+                        </td>
+                        <td style={styles.payrollHistoryTableValue}>
+                          <span style={styles.payrollHistoryValue}>
+                            {record.employeeCount}
+                          </span>
+                        </td>
+                        <td style={styles.payrollHistoryTableValue}>
+                          <span style={styles.payrollHistoryValue}>
+                            ${record.averageSalary.toLocaleString()}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Recent Employees */}
+          {businessDetails.recentEmployees && businessDetails.recentEmployees.length > 0 && (
+            <div style={styles.recentEmployeesSection}>
+              <h2 style={styles.sectionTitle}>
+                <span style={styles.icon}>👥</span>
+                Recent Employees
+              </h2>
+              <div style={styles.recentEmployeesTableContainer}>
+                <table style={styles.recentEmployeesTable}>
+                  <thead>
+                    <tr style={styles.recentEmployeesTableHeader}>
+                      <th style={styles.recentEmployeesTableHeaderCell}>Employee Name</th>
+                      <th style={styles.recentEmployeesTableHeaderCell}>Position</th>
+                      <th style={styles.recentEmployeesTableHeaderCell}>Department</th>
+                      <th style={styles.recentEmployeesTableHeaderCell}>Employee ID</th>
+                      <th style={styles.recentEmployeesTableHeaderCell}>Start Date</th>
+                      <th style={styles.recentEmployeesTableHeaderCell}>Added</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {businessDetails.recentEmployees.map((employee) => (
+                      <tr key={employee._id} style={styles.recentEmployeesTableRow}>
+                        <td style={styles.recentEmployeesTableCell}>
+                          <span style={styles.recentEmployeeName}>
+                            {employee.firstName} {employee.lastName}
+                          </span>
+                        </td>
+                        <td style={styles.recentEmployeesTableCell}>
+                          <span style={styles.recentEmployeePosition}>
+                            {employee.position}
+                          </span>
+                        </td>
+                        <td style={styles.recentEmployeesTableCell}>
+                          <span style={styles.recentEmployeeDepartment}>
+                            {employee.department}
+                          </span>
+                        </td>
+                        <td style={styles.recentEmployeesTableCell}>
+                          <span style={styles.recentEmployeeNumber}>
+                            #{employee.employeeNumber}
+                          </span>
+                        </td>
+                        <td style={styles.recentEmployeesTableCell}>
+                          <span style={styles.recentEmployeeStartDate}>
+                            {formatDate(employee.startDate)}
+                          </span>
+                        </td>
+                        <td style={styles.recentEmployeesTableCell}>
+                          <span style={styles.recentEmployeeAdded}>
+                            {formatRelativeTime(employee.createdAt)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Business Activities */}
           <div style={styles.activitiesSection}>
@@ -263,8 +506,8 @@ function StaffmaDashboard() {
               Recent Activities
             </h2>
             <div style={styles.activitiesList}>
-              {selectedBusiness.activities.length > 0 ? (
-                selectedBusiness.activities.map((activity) => (
+              {businessDetails.activities && businessDetails.activities.length > 0 ? (
+                businessDetails.activities.map((activity) => (
                   <div key={activity._id} style={styles.activityCard}>
                     <div style={styles.activityHeader}>
                       <div style={styles.activityTitleSection}>
@@ -384,70 +627,58 @@ function StaffmaDashboard() {
             <span style={styles.icon}>🏢</span>
             Business Activities Overview
           </h2>
-          <div style={styles.businessesGrid}>
-            {dashboardData.businessActivities.businesses.length > 0 ? (
-              dashboardData.businessActivities.businesses.map((business) => (
-                <div 
-                  key={business._id} 
-                  style={styles.businessCard}
-                  onClick={() => handleBusinessSelect(business._id)}
-                >
-                  <div style={styles.businessHeader}>
-                    <div>
-                      <h3 style={styles.businessName}>{business.businessName}</h3>
-                      <span style={styles.businessEmail}>{business.email}</span>
-                    </div>
-                    <div style={styles.businessStatus}>
-                      {business.totalActivities > 0 ? (
-                        <span style={styles.statusActive}>Active</span>
-                      ) : (
-                        <span style={styles.statusInactive}>Inactive</span>
-                      )}
-                    </div>
-                  </div>
-                  <div style={styles.businessStats}>
-                    <div style={styles.businessStat}>
-                      <span style={styles.statNumber}>{business.totalActivities}</span>
-                      <span style={styles.statLabel}>Total Activities</span>
-                    </div>
-                    <div style={styles.businessStat}>
-                      <span style={styles.statNumber}>{business.recentActivitiesCount}</span>
-                      <span style={styles.statLabel}>Recent (24h)</span>
-                    </div>
-                    <div style={styles.businessStat}>
-                      <span style={{ ...styles.statNumber, color: business.criticalActivitiesCount > 0 ? '#ef4444' : '#10b981' }}>
-                        {business.criticalActivitiesCount}
-                      </span>
-                      <span style={styles.statLabel}>Critical</span>
-                    </div>
-                  </div>
-                  {business.lastActivity && (
-                    <div style={styles.lastActivity}>
-                      <span style={styles.lastActivityIcon}>🕒</span>
-                      Last Activity: {formatRelativeTime(business.lastActivity)}
-                    </div>
-                  )}
-                  {business.totalActivities === 0 && (
-                    <div style={styles.noActivity}>
-                      <span style={styles.noActivityIcon}>📭</span>
-                      No activities recorded yet
-                    </div>
-                  )}
-                  <div style={styles.viewDetails}>
-                    <span style={styles.viewDetailsText}>Click to view details</span>
-                    <span style={styles.viewDetailsArrow}>→</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div style={styles.emptyState}>
-                <div style={styles.emptyStateIcon}>🏢</div>
-                <h3 style={styles.emptyStateTitle}>No Businesses Found</h3>
-                <p style={styles.emptyStateText}>
-                  There are no registered businesses in the system yet.
-                </p>
-              </div>
-            )}
+          <div style={styles.businessesTableContainer}>
+            <table style={styles.businessesTable}>
+              <thead>
+                <tr style={styles.businessesTableHeader}>
+                  <th style={styles.businessesTableHeaderCell}>Business Name</th>
+                  <th style={styles.businessesTableHeaderCell}>Email</th>
+                  <th style={styles.businessesTableHeaderCell}>Status</th>
+                  <th style={styles.businessesTableHeaderCell}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dashboardData.businessActivities.businesses.length > 0 ? (
+                  dashboardData.businessActivities.businesses.map((business) => (
+                    <tr key={business._id} style={styles.businessesTableRow}>
+                      <td style={styles.businessesTableCell}>
+                        <span style={styles.businessName}>{business.businessName}</span>
+                      </td>
+                      <td style={styles.businessesTableCell}>
+                        <span style={styles.businessEmail}>{business.email}</span>
+                      </td>
+                      <td style={styles.businessesTableCell}>
+                        {business.totalActivities > 0 ? (
+                          <span style={styles.statusActive}>Active</span>
+                        ) : (
+                          <span style={styles.statusInactive}>Inactive</span>
+                        )}
+                      </td>
+                      <td style={styles.businessesTableCell}>
+                        <button 
+                          style={styles.viewDetailsButton}
+                          onClick={() => handleBusinessSelect(business._id)}
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr style={styles.businessesTableRow}>
+                    <td colSpan="4" style={styles.emptyStateCell}>
+                      <div style={styles.emptyState}>
+                        <div style={styles.emptyStateIcon}>🏢</div>
+                        <h3 style={styles.emptyStateTitle}>No Businesses Found</h3>
+                        <p style={styles.emptyStateText}>
+                          There are no registered businesses in the system yet.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -634,61 +865,51 @@ const styles = {
     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
     border: '1px solid #e2e8f0'
   },
-  businessesGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-    gap: '25px'
-  },
-  businessCard: {
+  businessesTableContainer: {
+    overflowX: 'auto',
+    borderRadius: '8px',
     border: '1px solid #e2e8f0',
-    borderRadius: '16px',
-    padding: '25px',
-    backgroundColor: 'white',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    position: 'relative',
-    overflow: 'hidden',
-    animation: 'fadeInUp 0.6s ease-out',
+    backgroundColor: 'white'
+  },
+  businessesTable: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: '0.875rem'
+  },
+  businessesTableHeader: {
+    backgroundColor: '#f8fafc',
+    borderBottom: '2px solid #e2e8f0'
+  },
+  businessesTableHeaderCell: {
+    padding: '16px 12px',
+    textAlign: 'left',
+    fontWeight: '600',
+    color: '#374151',
+    fontSize: '0.875rem',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px'
+  },
+  businessesTableRow: {
+    borderBottom: '1px solid #f3f4f6',
+    transition: 'background-color 0.2s ease',
     '&:hover': {
-      transform: 'translateY(-6px)',
-      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-      borderColor: '#3b82f6'
+      backgroundColor: '#f9fafb'
     },
-    '&::before': {
-      content: '""',
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      height: '4px',
-      background: 'linear-gradient(90deg, #10b981, #3b82f6, #8b5cf6)',
-      borderRadius: '16px 16px 0 0'
+    '&:nth-child(even)': {
+      backgroundColor: '#fafbfc'
     }
   },
-  '@keyframes fadeInUp': {
-    from: {
-      opacity: 0,
-      transform: 'translateY(20px)'
-    },
-    to: {
-      opacity: 1,
-      transform: 'translateY(0)'
-    }
-  },
-  businessHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '20px',
-    paddingBottom: '15px',
-    borderBottom: '1px solid #f1f5f9'
+  businessesTableCell: {
+    padding: '16px 12px',
+    textAlign: 'left',
+    verticalAlign: 'middle'
   },
   businessName: {
-    fontSize: '1.25rem',
-    fontWeight: '700',
+    fontSize: '1.1rem',
+    fontWeight: '600',
     color: '#1e293b',
     margin: 0,
-    lineHeight: '1.3'
+    lineHeight: '1.4'
   },
   businessEmail: {
     fontSize: '0.875rem',
@@ -696,51 +917,41 @@ const styles = {
     margin: 0,
     fontStyle: 'italic'
   },
-  businessStats: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '15px',
-    marginBottom: '20px'
+  statusActive: {
+    backgroundColor: '#10b981',
+    color: 'white',
+    padding: '6px 12px',
+    borderRadius: '20px',
+    fontSize: '0.75rem',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)'
   },
-  businessStat: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: '12px',
-    backgroundColor: '#f8fafc',
-    borderRadius: '8px',
-    border: '1px solid #e2e8f0'
+  statusInactive: {
+    backgroundColor: '#6b7280',
+    color: 'white',
+    padding: '6px 12px',
+    borderRadius: '20px',
+    fontSize: '0.75rem',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    boxShadow: '0 2px 4px rgba(107, 114, 128, 0.3)'
   },
-  lastActivity: {
-    fontSize: '0.875rem',
-    color: '#64748b',
-    margin: '0 0 15px 0',
-    padding: '8px 12px',
-    backgroundColor: '#fef3c7',
-    borderRadius: '6px',
-    border: '1px solid #fde68a',
-    textAlign: 'center'
-  },
-  viewDetails: {
-    fontSize: '0.9rem',
-    color: '#3b82f6',
-    marginTop: '15px',
-    textAlign: 'center',
-    fontWeight: '600',
-    padding: '10px',
-    backgroundColor: '#eff6ff',
-    borderRadius: '8px',
-    border: '1px solid #dbeafe',
-    transition: 'all 0.2s ease',
+  viewDetailsButton: {
+    padding: '12px 24px',
+    backgroundColor: '#64748b',
+    color: 'white',
+    border: 'none',
+    borderRadius: '10px',
     cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
+    fontSize: '1rem',
+    fontWeight: '600',
+    transition: 'all 0.3s ease',
     '&:hover': {
-      backgroundColor: '#dbeafe',
-      transform: 'scale(1.02)',
-      boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.2)'
+      backgroundColor: '#475569',
+      transform: 'translateY(-2px)'
     }
   },
   recentActivitiesSection: {
@@ -801,14 +1012,6 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '10px'
-  },
-  businessName: {
-    fontSize: '0.875rem',
-    color: '#64748b',
-    fontWeight: '500',
-    padding: '4px 8px',
-    backgroundColor: '#f1f5f9',
-    borderRadius: '4px'
   },
   activityTime: {
     fontSize: '0.8rem',
@@ -931,32 +1134,6 @@ const styles = {
     color: '#64748b',
     fontStyle: 'italic'
   },
-  businessStatus: {
-    display: 'flex',
-    alignItems: 'center'
-  },
-  statusActive: {
-    backgroundColor: '#10b981',
-    color: 'white',
-    padding: '6px 12px',
-    borderRadius: '20px',
-    fontSize: '0.75rem',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-    boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)'
-  },
-  statusInactive: {
-    backgroundColor: '#6b7280',
-    color: 'white',
-    padding: '6px 12px',
-    borderRadius: '20px',
-    fontSize: '0.75rem',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-    boxShadow: '0 2px 4px rgba(107, 114, 128, 0.3)'
-  },
   activitiesSection: {
     backgroundColor: 'white',
     padding: '25px',
@@ -1046,37 +1223,216 @@ const styles = {
     lineHeight: '1.6',
     maxWidth: '400px'
   },
-  viewDetailsText: {
-    fontSize: '0.9rem',
-    fontWeight: '600',
-    color: '#3b82f6'
+  payrollOverviewSection: {
+    backgroundColor: 'white',
+    padding: '30px',
+    borderRadius: '16px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    border: '1px solid #e2e8f0',
+    marginBottom: '30px'
   },
-  viewDetailsArrow: {
-    fontSize: '1rem',
-    marginLeft: '8px',
-    color: '#3b82f6',
-    transition: 'transform 0.2s ease'
-  },
-  lastActivityIcon: {
-    fontSize: '1rem',
-    marginRight: '8px',
-    opacity: '0.8'
-  },
-  noActivity: {
-    fontSize: '0.875rem',
-    color: '#64748b',
-    margin: '0 0 15px 0',
-    padding: '10px 12px',
-    backgroundColor: '#f8fafc',
+  payrollTableContainer: {
+    overflowX: 'auto',
     borderRadius: '8px',
     border: '1px solid #e2e8f0',
-    textAlign: 'center',
+    backgroundColor: 'white'
+  },
+  payrollTable: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: '0.875rem'
+  },
+  payrollTableHeader: {
+    backgroundColor: '#f8fafc',
+    borderBottom: '2px solid #e2e8f0'
+  },
+  payrollTableRow: {
+    borderBottom: '1px solid #f3f4f6',
+    transition: 'background-color 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#f9fafb'
+    },
+    '&:nth-child(even)': {
+      backgroundColor: '#fafbfc'
+    }
+  },
+  payrollTableCell: {
+    padding: '16px 12px',
+    textAlign: 'left',
+    verticalAlign: 'middle'
+  },
+  payrollMetric: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px'
+  },
+  payrollMetricIcon: {
+    fontSize: '1.25rem',
+    width: '24px',
+    textAlign: 'center'
+  },
+  payrollMetricLabel: {
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    color: '#374151'
+  },
+  payrollTableValue: {
+    padding: '16px 12px',
+    textAlign: 'right',
+    verticalAlign: 'middle'
+  },
+  payrollValue: {
+    fontSize: '1.125rem',
+    fontWeight: '700',
+    color: '#1e293b',
+    fontFamily: 'monospace'
+  },
+  payrollTableDescription: {
+    fontSize: '0.8rem',
+    color: '#6b7280',
+    lineHeight: '1.4',
+    maxWidth: '200px'
+  },
+  payrollHistorySection: {
+    backgroundColor: 'white',
+    padding: '30px',
+    borderRadius: '16px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    border: '1px solid #e2e8f0',
+    marginBottom: '30px'
+  },
+  payrollHistoryTableContainer: {
+    overflowX: 'auto',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0',
+    backgroundColor: 'white'
+  },
+  payrollHistoryTable: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: '0.875rem'
+  },
+  payrollHistoryTableHeader: {
+    backgroundColor: '#f8fafc',
+    borderBottom: '2px solid #e2e8f0'
+  },
+  payrollHistoryTableHeaderCell: {
+    padding: '16px 12px',
+    textAlign: 'left',
+    fontWeight: '600',
+    color: '#374151',
+    fontSize: '0.875rem',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px'
+  },
+  payrollHistoryTableRow: {
+    borderBottom: '1px solid #f3f4f6',
+    transition: 'background-color 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#f9fafb'
+    },
+    '&:nth-child(even)': {
+      backgroundColor: '#fafbfc'
+    }
+  },
+  payrollHistoryTableCell: {
+    padding: '16px 12px',
+    textAlign: 'left',
+    verticalAlign: 'middle'
+  },
+  payrollHistoryTableValue: {
+    padding: '16px 12px',
+    textAlign: 'right',
+    verticalAlign: 'middle'
+  },
+  payrollHistoryPeriod: {
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    color: '#1e293b',
+    margin: 0,
+    lineHeight: '1.4'
+  },
+  payrollHistoryValue: {
+    fontSize: '1.125rem',
+    fontWeight: '700',
+    color: '#1e293b',
+    fontFamily: 'monospace'
+  },
+  recentEmployeesSection: {
+    backgroundColor: 'white',
+    padding: '30px',
+    borderRadius: '16px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    border: '1px solid #e2e8f0',
+    marginBottom: '30px'
+  },
+  recentEmployeesTableContainer: {
+    overflowX: 'auto',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0',
+    backgroundColor: 'white'
+  },
+  recentEmployeesTable: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: '0.875rem'
+  },
+  recentEmployeesTableHeader: {
+    backgroundColor: '#f8fafc',
+    borderBottom: '2px solid #e2e8f0'
+  },
+  recentEmployeesTableRow: {
+    borderBottom: '1px solid #f3f4f6',
+    transition: 'background-color 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#f9fafb'
+    },
+    '&:nth-child(even)': {
+      backgroundColor: '#fafbfc'
+    }
+  },
+  recentEmployeesTableCell: {
+    padding: '16px 12px',
+    textAlign: 'left',
+    verticalAlign: 'middle'
+  },
+  recentEmployeeName: {
+    fontSize: '1.1rem',
+    fontWeight: '600',
+    color: '#1e293b',
+    margin: 0,
+    lineHeight: '1.4'
+  },
+  recentEmployeePosition: {
+    fontSize: '0.875rem',
+    color: '#64748b',
     fontStyle: 'italic'
   },
-  noActivityIcon: {
-    fontSize: '1rem',
-    marginRight: '8px',
-    opacity: '0.7'
+  recentEmployeeDepartment: {
+    fontSize: '0.875rem',
+    color: '#64748b',
+    fontStyle: 'italic'
+  },
+  recentEmployeeNumber: {
+    fontSize: '1.5rem',
+    fontWeight: '800',
+    color: '#10b981',
+    margin: 0,
+    lineHeight: '1.4'
+  },
+  recentEmployeeStartDate: {
+    fontSize: '0.875rem',
+    color: '#64748b',
+    fontStyle: 'italic'
+  },
+  recentEmployeeAdded: {
+    fontSize: '0.875rem',
+    color: '#64748b',
+    fontStyle: 'italic'
+  },
+  emptyStateCell: {
+    padding: '40px 20px',
+    textAlign: 'center'
   }
 };
 
