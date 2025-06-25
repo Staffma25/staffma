@@ -1086,7 +1086,7 @@ const PayrollSettings = () => {
 
 const styles = {
   container: {
-    padding: '20px',
+    padding: '15px',
     maxWidth: '1400px',
     margin: '0 auto',
     minHeight: '100vh',
@@ -1095,31 +1095,31 @@ const styles = {
   header: {
     display: 'flex',
     alignItems: 'center',
-    marginBottom: '30px',
-    padding: '20px',
+    marginBottom: '20px',
+    padding: '15px',
     backgroundColor: 'white',
-    borderRadius: '12px',
+    borderRadius: '8px',
     boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
   },
   backButton: {
-    padding: '10px 20px',
+    padding: '6px 12px',
     backgroundColor: '#f0f0f0',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '4px',
     cursor: 'pointer',
-    marginRight: '20px',
-    fontSize: '14px',
+    marginRight: '15px',
+    fontSize: '0.875rem',
     fontWeight: '500',
     transition: 'all 0.2s ease',
     display: 'flex',
     alignItems: 'center',
-    gap: '5px',
+    gap: '4px',
     '&:hover': {
       backgroundColor: '#e0e0e0'
     }
   },
   title: {
-    fontSize: '28px',
+    fontSize: '1.5rem',
     margin: 0,
     color: '#2c3e50',
     fontWeight: '600'
@@ -1127,47 +1127,47 @@ const styles = {
   error: {
     backgroundColor: '#ffebee',
     color: '#c62828',
-    padding: '15px',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    fontSize: '14px',
+    padding: '10px',
+    borderRadius: '6px',
+    marginBottom: '15px',
+    fontSize: '0.875rem',
     fontWeight: '500'
   },
   success: {
     backgroundColor: '#e8f5e9',
     color: '#2e7d32',
-    padding: '15px',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    fontSize: '14px',
+    padding: '10px',
+    borderRadius: '6px',
+    marginBottom: '15px',
+    fontSize: '0.875rem',
     fontWeight: '500'
   },
   settingsContainer: {
     backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '30px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+    borderRadius: '8px',
+    padding: '20px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
   },
   section: {
-    marginBottom: '40px',
+    marginBottom: '25px',
     backgroundColor: '#ffffff',
-    borderRadius: '12px',
-    padding: '25px',
+    borderRadius: '8px',
+    padding: '15px',
     boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
   },
   sectionTitle: {
-    fontSize: '22px',
-    marginBottom: '25px',
+    fontSize: '1.25rem',
+    marginBottom: '15px',
     color: '#2c3e50',
     fontWeight: '600',
     borderBottom: '2px solid #f0f0f0',
-    paddingBottom: '10px'
+    paddingBottom: '8px'
   },
   input: {
-    padding: '12px',
+    padding: '8px',
     border: '1px solid #e0e0e0',
-    borderRadius: '8px',
-    fontSize: '14px',
+    borderRadius: '4px',
+    fontSize: '0.875rem',
     width: '100%',
     transition: 'border-color 0.2s ease',
     '&:focus': {
@@ -1178,59 +1178,59 @@ const styles = {
   inputGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px',
+    gap: '4px',
     flex: 1
   },
   allowanceContainer: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-    gap: '25px',
-    padding: '10px'
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '15px',
+    padding: '8px'
   },
   allowanceGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '15px',
-    padding: '20px',
+    gap: '10px',
+    padding: '15px',
     backgroundColor: '#f8f9fa',
-    borderRadius: '10px',
+    borderRadius: '6px',
     border: '1px solid #e9ecef',
     transition: 'transform 0.2s ease, box-shadow 0.2s ease',
     '&:hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+      transform: 'translateY(-1px)',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
     }
   },
   checkboxLabel: {
     display: 'flex',
     alignItems: 'center',
-    fontSize: '16px',
+    fontSize: '0.875rem',
     fontWeight: '500',
     color: '#2c3e50',
-    marginBottom: '10px'
+    marginBottom: '8px'
   },
   checkbox: {
-    marginRight: '10px',
-    width: '18px',
-    height: '18px'
+    marginRight: '8px',
+    width: '16px',
+    height: '16px'
   },
   deductionForm: {
     display: 'grid',
     gridTemplateColumns: '2fr 1fr 1fr auto',
-    gap: '15px',
-    marginBottom: '30px',
-    padding: '20px',
+    gap: '10px',
+    marginBottom: '20px',
+    padding: '15px',
     backgroundColor: '#f8f9fa',
-    borderRadius: '10px'
+    borderRadius: '6px'
   },
   select: {
-    padding: '12px',
+    padding: '8px',
     border: '1px solid #e0e0e0',
-    borderRadius: '8px',
-    fontSize: '14px',
+    borderRadius: '4px',
+    fontSize: '0.875rem',
     backgroundColor: 'white',
     cursor: 'pointer',
-    minWidth: '120px',
+    minWidth: '100px',
     '&:focus': {
       borderColor: '#2196f3',
       outline: 'none',
@@ -1238,13 +1238,13 @@ const styles = {
     }
   },
   addButton: {
-    padding: '12px 24px',
+    padding: '8px 16px',
     backgroundColor: '#4caf50',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '14px',
+    fontSize: '0.875rem',
     fontWeight: '500',
     transition: 'background-color 0.2s ease',
     '&:hover': {
@@ -1252,13 +1252,13 @@ const styles = {
     }
   },
   removeButton: {
-    padding: '8px 16px',
+    padding: '6px 12px',
     backgroundColor: '#f44336',
     color: 'white',
     border: 'none',
-    borderRadius: '6px',
+    borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '13px',
+    fontSize: '0.75rem',
     fontWeight: '500',
     transition: 'background-color 0.2s ease',
     '&:hover': {
@@ -1266,15 +1266,15 @@ const styles = {
     }
   },
   saveButton: {
-    padding: '14px 28px',
+    padding: '10px 20px',
     backgroundColor: '#2196f3',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '16px',
+    fontSize: '0.875rem',
     fontWeight: '500',
-    marginTop: '30px',
+    marginTop: '20px',
     transition: 'background-color 0.2s ease',
     '&:hover': {
       backgroundColor: '#1976d2'
@@ -1284,17 +1284,17 @@ const styles = {
     width: '100%',
     borderCollapse: 'separate',
     borderSpacing: '0',
-    marginBottom: '20px',
+    marginBottom: '15px',
     backgroundColor: 'white',
-    borderRadius: '10px',
+    borderRadius: '6px',
     overflow: 'hidden',
     boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
   },
   tableHeader: {
     backgroundColor: '#f8f9fa',
-    padding: '15px',
+    padding: '10px 12px',
     textAlign: 'left',
-    fontSize: '14px',
+    fontSize: '0.75rem',
     fontWeight: '600',
     color: '#2c3e50',
     borderBottom: '2px solid #e9ecef'
@@ -1305,29 +1305,29 @@ const styles = {
     }
   },
   tableCell: {
-    padding: '15px',
-    fontSize: '14px',
+    padding: '10px 12px',
+    fontSize: '0.75rem',
     color: '#2c3e50',
     borderBottom: '1px solid #e9ecef'
   },
   amountInput: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px'
+    gap: '4px'
   },
   inputLabel: {
-    fontSize: '14px',
+    fontSize: '0.75rem',
     color: '#666',
     fontWeight: '500'
   },
   toggleButton: {
-    padding: '8px 16px',
+    padding: '6px 12px',
     backgroundColor: '#2196f3',
     color: 'white',
     border: 'none',
-    borderRadius: '6px',
+    borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '13px',
+    fontSize: '0.75rem',
     fontWeight: '500',
     transition: 'background-color 0.2s ease',
     '&:hover': {
@@ -1336,27 +1336,27 @@ const styles = {
   },
   actionButtons: {
     display: 'flex',
-    gap: '8px',
+    gap: '6px',
     alignItems: 'center'
   },
   previewBox: {
     backgroundColor: '#f8f9fa',
-    padding: '15px',
-    borderRadius: '8px',
+    padding: '12px',
+    borderRadius: '6px',
     border: '1px solid #e9ecef',
-    minWidth: '200px'
+    minWidth: '180px'
   },
   previewTitle: {
-    fontSize: '14px',
+    fontSize: '0.875rem',
     color: '#2c3e50',
-    marginBottom: '10px',
+    marginBottom: '8px',
     fontWeight: '600'
   },
   previewItem: {
     display: 'flex',
     justifyContent: 'space-between',
-    marginBottom: '5px',
-    fontSize: '14px'
+    marginBottom: '4px',
+    fontSize: '0.75rem'
   },
   previewLabel: {
     color: '#666',
@@ -1368,16 +1368,16 @@ const styles = {
   },
   headerActions: {
     display: 'flex',
-    gap: '10px'
+    gap: '8px'
   },
   resetButton: {
-    padding: '8px 16px',
+    padding: '6px 12px',
     backgroundColor: '#f0ad4e',
     color: 'white',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '14px',
+    fontSize: '0.875rem',
     transition: 'background-color 0.2s ease',
     '&:hover': {
       backgroundColor: '#ec971f'
@@ -1387,65 +1387,58 @@ const styles = {
       cursor: 'not-allowed'
     }
   },
-  success: {
-    backgroundColor: '#dff0d8',
-    color: '#3c763d',
-    padding: '10px',
-    borderRadius: '4px',
-    marginBottom: '20px'
-  },
   taxBracketConfig: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '20px',
-    marginBottom: '30px',
-    padding: '20px',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: '15px',
+    marginBottom: '20px',
+    padding: '15px',
     backgroundColor: '#f8f9fa',
-    borderRadius: '10px'
+    borderRadius: '6px'
   },
   formGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px'
+    gap: '4px'
   },
   label: {
-    fontSize: '14px',
+    fontSize: '0.75rem',
     fontWeight: '500',
     color: '#2c3e50'
   },
   uploadSection: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '20px',
-    marginBottom: '30px',
-    padding: '20px',
+    gap: '15px',
+    marginBottom: '20px',
+    padding: '15px',
     backgroundColor: '#f8f9fa',
-    borderRadius: '10px'
+    borderRadius: '6px'
   },
   fileUpload: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px'
+    gap: '8px'
   },
   fileInput: {
-    padding: '10px',
+    padding: '8px',
     border: '2px dashed #e0e0e0',
-    borderRadius: '8px',
+    borderRadius: '6px',
     cursor: 'pointer'
   },
   uploadInfo: {
-    fontSize: '14px',
+    fontSize: '0.75rem',
     color: '#666',
-    marginTop: '10px'
+    marginTop: '8px'
   },
   uploadButton: {
-    padding: '12px 24px',
+    padding: '8px 16px',
     backgroundColor: '#4caf50',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '14px',
+    fontSize: '0.875rem',
     fontWeight: '500',
     alignSelf: 'flex-start',
     '&:disabled': {
@@ -1454,47 +1447,47 @@ const styles = {
     }
   },
   templateButton: {
-    padding: '12px 24px',
+    padding: '8px 16px',
     backgroundColor: '#2196f3',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '14px',
+    fontSize: '0.875rem',
     fontWeight: '500',
-    marginBottom: '20px',
+    marginBottom: '15px',
     '&:disabled': {
       backgroundColor: '#ccc',
       cursor: 'not-allowed'
     }
   },
   currentConfig: {
-    marginTop: '20px',
-    padding: '15px',
+    marginTop: '15px',
+    padding: '12px',
     backgroundColor: '#f8f9fa',
-    borderRadius: '8px',
-    fontSize: '14px',
+    borderRadius: '6px',
+    fontSize: '0.75rem',
     color: '#2c3e50'
   },
   manualEntrySection: {
-    marginBottom: '30px',
-    padding: '20px',
+    marginBottom: '20px',
+    padding: '15px',
     backgroundColor: '#f8f9fa',
-    borderRadius: '10px'
+    borderRadius: '6px'
   },
   uploadActions: {
     display: 'flex',
-    gap: '10px',
-    marginTop: '10px'
+    gap: '8px',
+    marginTop: '8px'
   },
   clearButton: {
-    padding: '12px 24px',
+    padding: '8px 16px',
     backgroundColor: '#f44336',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '14px',
+    fontSize: '0.875rem',
     fontWeight: '500',
     '&:disabled': {
       backgroundColor: '#ccc',
@@ -1504,49 +1497,30 @@ const styles = {
   templateSection: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '20px',
-    marginBottom: '30px',
-    padding: '20px',
+    gap: '15px',
+    marginBottom: '20px',
+    padding: '15px',
     backgroundColor: '#f8f9fa',
-    borderRadius: '10px'
+    borderRadius: '6px'
   },
   templateInfo: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px'
+    gap: '8px'
   },
   templateDescription: {
-    fontSize: '14px',
+    fontSize: '0.75rem',
     color: '#2c3e50',
     fontWeight: '500'
   },
-  uploadActions: {
-    display: 'flex',
-    gap: '10px',
-    marginTop: '10px'
-  },
-  clearButton: {
-    padding: '12px 24px',
-    backgroundColor: '#f44336',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500',
-    '&:disabled': {
-      backgroundColor: '#ccc',
-      cursor: 'not-allowed'
-    }
-  },
   configTitle: {
-    fontSize: '18px',
-    marginBottom: '10px',
+    fontSize: '1rem',
+    marginBottom: '8px',
     color: '#2c3e50',
     fontWeight: '600'
   },
   configDetails: {
-    fontSize: '14px',
+    fontSize: '0.75rem',
     color: '#666',
     fontWeight: '500'
   }

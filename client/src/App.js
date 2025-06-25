@@ -28,6 +28,7 @@ import LeaveRequestDetails from './components/LeaveRequestDetails';
 import StaffmaDashboard from './components/StaffmaDashboard';
 import StaffmaLayout from './components/StaffmaLayout';
 import StaffmaProtectedRoute from './components/StaffmaProtectedRoute';
+import StaffmaUserManagement from './components/StaffmaUserManagement';
 
 const DashboardLayout = ({ children }) => {
   const [expandedSections, setExpandedSections] = useState({
@@ -398,6 +399,16 @@ function App() {
               } 
             />
             <Route 
+              path="/staffma/users" 
+              element={
+                <StaffmaProtectedRoute>
+                  <StaffmaLayout>
+                    <StaffmaUserManagement />
+                  </StaffmaLayout>
+                </StaffmaProtectedRoute>
+              } 
+            />
+            <Route 
               path="/staffma/activities" 
               element={
                 <StaffmaProtectedRoute>
@@ -427,42 +438,42 @@ const styles = {
     minHeight: '100vh',
   },
   sidebar: {
-    width: '250px',
+    width: '220px',
     backgroundColor: '#2c3e50',
     color: 'white',
-    padding: '20px 0',
+    padding: '12px 0',
     display: 'flex',
     flexDirection: 'column',
     position: 'fixed',
     height: '100vh',
     overflowY: 'auto',
-    boxShadow: '2px 0 5px rgba(0,0,0,0.1)',
+    boxShadow: '1px 0 3px rgba(0,0,0,0.1)',
     zIndex: 1000,
   },
   sidebarHeader: {
-    padding: '0 20px 20px',
+    padding: '0 15px 12px',
     borderBottom: '1px solid rgba(255,255,255,0.1)',
   },
   logo: {
     margin: 0,
-    fontSize: '24px',
+    fontSize: '1.25rem',
     fontWeight: 500,
     color: 'white',
   },
   nav: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '5px',
-    padding: '20px 0',
+    gap: '4px',
+    padding: '12px 0',
   },
   navItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    padding: '12px 20px',
+    gap: '8px',
+    padding: '8px 15px',
     color: 'white',
     textDecoration: 'none',
-    fontSize: '14px',
+    fontSize: '0.875rem',
     transition: 'background-color 0.2s',
     '&:hover': {
       backgroundColor: 'rgba(255,255,255,0.1)',
@@ -475,10 +486,10 @@ const styles = {
   navGroupHeader: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    padding: '12px 20px',
+    gap: '8px',
+    padding: '8px 15px',
     color: 'rgba(255,255,255,0.7)',
-    fontSize: '14px',
+    fontSize: '0.875rem',
     fontWeight: 500,
     backgroundColor: 'transparent',
     border: 'none',
@@ -490,15 +501,15 @@ const styles = {
     },
   },
   icon: {
-    fontSize: '16px',
-    width: '20px',
+    fontSize: '0.875rem',
+    width: '16px',
     textAlign: 'center',
   },
   navSubItem: {
     color: 'rgba(255,255,255,0.8)',
     textDecoration: 'none',
-    padding: '8px 20px 8px 50px',
-    fontSize: '14px',
+    padding: '6px 15px 6px 35px',
+    fontSize: '0.75rem',
     transition: 'background-color 0.2s',
     '&:hover': {
       backgroundColor: 'rgba(255,255,255,0.1)',
@@ -506,14 +517,14 @@ const styles = {
   },
   content: {
     flex: 1,
-    marginLeft: '250px',
-    padding: '20px',
+    marginLeft: '220px',
+    padding: '15px',
     backgroundColor: '#f8f9fa',
     minHeight: '100vh',
   },
   arrow: {
     marginLeft: 'auto',
-    fontSize: '10px',
+    fontSize: '0.625rem',
     transition: 'transform 0.2s ease',
   },
   subItems: {
@@ -523,23 +534,23 @@ const styles = {
     transition: 'height 0.2s ease',
   },
   userInfo: {
-    fontSize: '12px',
+    fontSize: '0.75rem',
     color: 'rgba(255,255,255,0.8)',
   },
   userRole: {
     fontWeight: 500,
   },
   logoutSection: {
-    padding: '20px',
+    padding: '12px 15px',
     borderTop: '1px solid rgba(255,255,255,0.1)',
   },
   logoutButton: {
     width: '100%',
-    padding: '12px',
+    padding: '8px',
     backgroundColor: 'transparent',
     border: 'none',
     color: 'white',
-    fontSize: '14px',
+    fontSize: '0.875rem',
     fontWeight: 500,
     cursor: 'pointer',
     transition: 'background-color 0.2s',

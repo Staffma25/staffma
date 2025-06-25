@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const StaffmaLayout = ({ children }) => {
@@ -11,6 +11,7 @@ const StaffmaLayout = ({ children }) => {
   });
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout, getCurrentUser } = useAuth();
   const user = getCurrentUser('staffma');
 
@@ -26,6 +27,15 @@ const StaffmaLayout = ({ children }) => {
     navigate('/staffma/login');
   };
 
+  const getUserRoleDisplay = (role) => {
+    switch (role) {
+      case 'super_admin': return 'Super Administrator';
+      case 'admin': return 'Administrator';
+      case 'support': return 'Support Staff';
+      default: return 'Staff Member';
+    }
+  };
+
   return (
     <div style={styles.dashboardContainer}>
       <div style={styles.sidebar}>
@@ -34,15 +44,21 @@ const StaffmaLayout = ({ children }) => {
           <p style={styles.userInfo}>
             {user?.firstName} {user?.lastName}
             <br />
-            <span style={styles.userRole}>System Administrator</span>
+            <span style={styles.userRole}>{getUserRoleDisplay(user?.role)}</span>
           </p>
         </div>
         
         <nav style={styles.nav}>
-          <a href="/staffma/dashboard" style={styles.navItem}>
+          <Link 
+            to="/staffma/dashboard" 
+            style={{
+              ...styles.navItem,
+              ...(location.pathname === '/staffma/dashboard' ? styles.navItemActive : {})
+            }}
+          >
             <span style={styles.icon}>📊</span>
             Dashboard
-          </a>
+          </Link>
           
           <div style={styles.navGroup}>
             <button 
@@ -60,9 +76,33 @@ const StaffmaLayout = ({ children }) => {
               ...styles.subItems,
               display: expandedSections.monitoring ? 'flex' : 'none'
             }}>
-              <a href="/staffma/activities" style={styles.navSubItem}>Activity Logs</a>
-              <a href="/staffma/businesses" style={styles.navSubItem}>Business Overview</a>
-              <a href="/staffma/alerts" style={styles.navSubItem}>System Alerts</a>
+              <Link 
+                to="/staffma/activities" 
+                style={{
+                  ...styles.navSubItem,
+                  ...(location.pathname === '/staffma/activities' ? styles.navSubItemActive : {})
+                }}
+              >
+                Activity Logs
+              </Link>
+              <Link 
+                to="/staffma/businesses" 
+                style={{
+                  ...styles.navSubItem,
+                  ...(location.pathname === '/staffma/businesses' ? styles.navSubItemActive : {})
+                }}
+              >
+                Business Overview
+              </Link>
+              <Link 
+                to="/staffma/alerts" 
+                style={{
+                  ...styles.navSubItem,
+                  ...(location.pathname === '/staffma/alerts' ? styles.navSubItemActive : {})
+                }}
+              >
+                System Alerts
+              </Link>
             </div>
           </div>
 
@@ -82,9 +122,33 @@ const StaffmaLayout = ({ children }) => {
               ...styles.subItems,
               display: expandedSections.administration ? 'flex' : 'none'
             }}>
-              <a href="/staffma/users" style={styles.navSubItem}>User Management</a>
-              <a href="/staffma/businesses/manage" style={styles.navSubItem}>Business Management</a>
-              <a href="/staffma/system-settings" style={styles.navSubItem}>System Settings</a>
+              <Link 
+                to="/staffma/users" 
+                style={{
+                  ...styles.navSubItem,
+                  ...(location.pathname === '/staffma/users' ? styles.navSubItemActive : {})
+                }}
+              >
+                User Management
+              </Link>
+              <Link 
+                to="/staffma/businesses/manage" 
+                style={{
+                  ...styles.navSubItem,
+                  ...(location.pathname === '/staffma/businesses/manage' ? styles.navSubItemActive : {})
+                }}
+              >
+                Business Management
+              </Link>
+              <Link 
+                to="/staffma/system-settings" 
+                style={{
+                  ...styles.navSubItem,
+                  ...(location.pathname === '/staffma/system-settings' ? styles.navSubItemActive : {})
+                }}
+              >
+                System Settings
+              </Link>
             </div>
           </div>
 
@@ -104,9 +168,33 @@ const StaffmaLayout = ({ children }) => {
               ...styles.subItems,
               display: expandedSections.analytics ? 'flex' : 'none'
             }}>
-              <a href="/staffma/reports" style={styles.navSubItem}>Reports</a>
-              <a href="/staffma/insights" style={styles.navSubItem}>Insights</a>
-              <a href="/staffma/performance" style={styles.navSubItem}>Performance Metrics</a>
+              <Link 
+                to="/staffma/reports" 
+                style={{
+                  ...styles.navSubItem,
+                  ...(location.pathname === '/staffma/reports' ? styles.navSubItemActive : {})
+                }}
+              >
+                Reports
+              </Link>
+              <Link 
+                to="/staffma/insights" 
+                style={{
+                  ...styles.navSubItem,
+                  ...(location.pathname === '/staffma/insights' ? styles.navSubItemActive : {})
+                }}
+              >
+                Insights
+              </Link>
+              <Link 
+                to="/staffma/performance" 
+                style={{
+                  ...styles.navSubItem,
+                  ...(location.pathname === '/staffma/performance' ? styles.navSubItemActive : {})
+                }}
+              >
+                Performance Metrics
+              </Link>
             </div>
           </div>
 
@@ -126,9 +214,33 @@ const StaffmaLayout = ({ children }) => {
               ...styles.subItems,
               display: expandedSections.system ? 'flex' : 'none'
             }}>
-              <a href="/staffma/backups" style={styles.navSubItem}>Backups</a>
-              <a href="/staffma/logs" style={styles.navSubItem}>System Logs</a>
-              <a href="/staffma/maintenance" style={styles.navSubItem}>Maintenance</a>
+              <Link 
+                to="/staffma/backups" 
+                style={{
+                  ...styles.navSubItem,
+                  ...(location.pathname === '/staffma/backups' ? styles.navSubItemActive : {})
+                }}
+              >
+                Backups
+              </Link>
+              <Link 
+                to="/staffma/logs" 
+                style={{
+                  ...styles.navSubItem,
+                  ...(location.pathname === '/staffma/logs' ? styles.navSubItemActive : {})
+                }}
+              >
+                System Logs
+              </Link>
+              <Link 
+                to="/staffma/maintenance" 
+                style={{
+                  ...styles.navSubItem,
+                  ...(location.pathname === '/staffma/maintenance' ? styles.navSubItemActive : {})
+                }}
+              >
+                Maintenance
+              </Link>
             </div>
           </div>
         </nav>
@@ -155,67 +267,72 @@ const styles = {
     backgroundColor: '#f5f5f5'
   },
   sidebar: {
-    width: '280px',
+    width: '220px',
     backgroundColor: '#2c3e50',
     color: 'white',
     display: 'flex',
     flexDirection: 'column',
-    boxShadow: '2px 0 5px rgba(0,0,0,0.1)'
+    boxShadow: '1px 0 3px rgba(0,0,0,0.1)'
   },
   sidebarHeader: {
-    padding: '20px',
+    padding: '12px 15px',
     borderBottom: '1px solid #34495e',
     textAlign: 'center'
   },
   logo: {
-    fontSize: '1.8rem',
+    fontSize: '1.25rem',
     fontWeight: 'bold',
-    margin: '0 0 10px 0',
+    margin: '0 0 6px 0',
     color: '#ecf0f1'
   },
   userInfo: {
-    fontSize: '0.9rem',
+    fontSize: '0.75rem',
     margin: 0,
     color: '#bdc3c7'
   },
   userRole: {
-    fontSize: '0.8rem',
+    fontSize: '0.625rem',
     color: '#95a5a6'
   },
   nav: {
     flex: 1,
-    padding: '20px 0'
+    padding: '12px 0'
   },
   navItem: {
     display: 'flex',
     alignItems: 'center',
-    padding: '12px 20px',
+    padding: '8px 15px',
     color: '#ecf0f1',
     textDecoration: 'none',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     transition: 'background-color 0.3s',
-    borderLeft: '3px solid transparent'
+    borderLeft: '2px solid transparent'
+  },
+  navItemActive: {
+    backgroundColor: '#34495e',
+    borderLeftColor: '#3498db',
+    color: '#3498db'
   },
   navItemHover: {
     backgroundColor: '#34495e',
     borderLeftColor: '#3498db'
   },
   navGroup: {
-    marginBottom: '10px'
+    marginBottom: '6px'
   },
   navGroupHeader: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    padding: '12px 20px',
+    padding: '8px 15px',
     backgroundColor: 'transparent',
     border: 'none',
     color: '#ecf0f1',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     cursor: 'pointer',
     transition: 'background-color 0.3s',
-    borderLeft: '3px solid transparent'
+    borderLeft: '2px solid transparent'
   },
   navGroupHeaderHover: {
     backgroundColor: '#34495e',
@@ -227,26 +344,31 @@ const styles = {
   },
   navSubItem: {
     display: 'block',
-    padding: '8px 20px 8px 50px',
+    padding: '6px 15px 6px 35px',
     color: '#bdc3c7',
     textDecoration: 'none',
-    fontSize: '0.9rem',
+    fontSize: '0.75rem',
     transition: 'background-color 0.3s'
+  },
+  navSubItemActive: {
+    backgroundColor: '#2c3e50',
+    color: '#3498db',
+    borderLeft: '2px solid #3498db'
   },
   navSubItemHover: {
     backgroundColor: '#2c3e50',
     color: '#ecf0f1'
   },
   icon: {
-    marginRight: '10px',
-    fontSize: '1.1rem'
+    marginRight: '8px',
+    fontSize: '0.875rem'
   },
   arrow: {
-    fontSize: '0.8rem',
+    fontSize: '0.625rem',
     transition: 'transform 0.3s'
   },
   sidebarFooter: {
-    padding: '20px',
+    padding: '12px 15px',
     borderTop: '1px solid #34495e'
   },
   logoutButton: {
@@ -254,12 +376,12 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    padding: '12px',
+    padding: '8px',
     backgroundColor: '#e74c3c',
     color: 'white',
     border: 'none',
-    borderRadius: '5px',
-    fontSize: '1rem',
+    borderRadius: '4px',
+    fontSize: '0.875rem',
     cursor: 'pointer',
     transition: 'background-color 0.3s'
   },
@@ -268,7 +390,7 @@ const styles = {
   },
   content: {
     flex: 1,
-    padding: '20px',
+    padding: '15px',
     overflowY: 'auto'
   }
 };

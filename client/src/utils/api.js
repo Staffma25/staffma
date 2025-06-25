@@ -297,4 +297,98 @@ export const getBusinessDetails = async (businessId, filters = {}, signal) => {
     }
     throw new Error('Failed to fetch business details: ' + error.message);
   }
+};
+
+// Staffma User Management API calls
+export const getStaffmaUsers = async (signal) => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/staffma/users`, { signal }, 'staffma');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch Staffma users');
+    }
+    
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Staffma users fetch aborted');
+      throw error;
+    }
+    throw new Error('Failed to fetch Staffma users: ' + error.message);
+  }
+};
+
+export const createStaffmaUser = async (userData, signal) => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/staffma/users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(userData),
+      signal
+    }, 'staffma');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to create Staffma user');
+    }
+    
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Staffma user creation aborted');
+      throw error;
+    }
+    throw new Error('Failed to create Staffma user: ' + error.message);
+  }
+};
+
+export const updateStaffmaUser = async (userId, userData, signal) => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/staffma/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(userData),
+      signal
+    }, 'staffma');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update Staffma user');
+    }
+    
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Staffma user update aborted');
+      throw error;
+    }
+    throw new Error('Failed to update Staffma user: ' + error.message);
+  }
+};
+
+export const deleteStaffmaUser = async (userId, signal) => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/staffma/users/${userId}`, {
+      method: 'DELETE',
+      signal
+    }, 'staffma');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to delete Staffma user');
+    }
+    
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Staffma user deletion aborted');
+      throw error;
+    }
+    throw new Error('Failed to delete Staffma user: ' + error.message);
+  }
 }; 

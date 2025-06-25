@@ -29,6 +29,9 @@ function StaffmaDashboard() {
   const [error, setError] = useState(null);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [businessDetails, setBusinessDetails] = useState(null);
+  const [payrollModalOpen, setPayrollModalOpen] = useState(false);
+  const [selectedPayrollData, setSelectedPayrollData] = useState(null);
+  const [payrollDetailsLoading, setPayrollDetailsLoading] = useState(false);
   const navigate = useNavigate();
   const { getToken, logout, getCurrentUser } = useAuth();
   const user = getCurrentUser('staffma');
@@ -182,6 +185,71 @@ function StaffmaDashboard() {
     return `${diffInDays}d ago`;
   };
 
+  const handleViewPayrollDetails = async (year, month) => {
+    try {
+      console.log('=== handleViewPayrollDetails called ===');
+      console.log('Parameters:', { year, month, selectedBusiness });
+      console.log('Current modal state:', { payrollModalOpen, payrollDetailsLoading, selectedPayrollData });
+      
+      setPayrollDetailsLoading(true);
+      setPayrollModalOpen(true);
+      
+      console.log('Modal state after setting:', { payrollModalOpen: true, payrollDetailsLoading: true });
+      
+      const token = getToken('staffma');
+      if (!token) {
+        console.log('No token found, logging out');
+        logout('staffma');
+        navigate('/staffma/login');
+        return;
+      }
+
+      const url = `${API_BASE_URL}/activities/business/${selectedBusiness}/payroll/${year}/${month}`;
+      console.log('Fetching from URL:', url);
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch payroll details');
+      }
+
+      const data = await response.json();
+      console.log('Payroll details data received:', data);
+      setSelectedPayrollData(data);
+      console.log('Modal state after setting data:', { payrollModalOpen: true, payrollDetailsLoading: false, selectedPayrollData: data });
+    } catch (error) {
+      console.error('Error fetching payroll details:', error);
+      setError(error.message);
+    } finally {
+      setPayrollDetailsLoading(false);
+      console.log('Final modal state:', { payrollModalOpen: true, payrollDetailsLoading: false });
+    }
+  };
+
+  const closePayrollModal = () => {
+    setPayrollModalOpen(false);
+    setSelectedPayrollData(null);
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount || 0);
+  };
+
+  const getMonthName = (month) => {
+    return new Date(2000, month - 1).toLocaleString('default', { month: 'long' });
+  };
+
   if (loading) return <div style={styles.loading}>Loading Staffma Dashboard...</div>;
   if (error) return <div style={styles.error}>{error}</div>;
 
@@ -208,6 +276,8 @@ function StaffmaDashboard() {
 
   // Business Details View
   if (selectedBusiness && businessDetails) {
+    console.log('Rendering business details view. Modal state:', { payrollModalOpen, payrollDetailsLoading, selectedPayrollData });
+    
     return (
       <div style={styles.container}>
         <div style={styles.header}>
@@ -252,8 +322,8 @@ function StaffmaDashboard() {
                   <span style={styles.businessStatLabel}>Active Users</span>
                 </div>
               </div>
-            </div>
-          </div>
+                </div>
+              </div>
 
           {/* Payroll Overview */}
           <div style={styles.payrollOverviewSection}>
@@ -295,88 +365,42 @@ function StaffmaDashboard() {
               }
               
               return (
-                <div style={styles.payrollTableContainer}>
-                  <table style={styles.payrollTable}>
-                    <thead>
-                      <tr style={styles.payrollTableHeader}>
-                        <th style={styles.payrollTableHeaderCell}>Metric</th>
-                        <th style={styles.payrollTableHeaderCell}>Value</th>
-                        <th style={styles.payrollTableHeaderCell}>Description</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr style={styles.payrollTableRow}>
-                        <td style={styles.payrollTableCell}>
-                          <div style={styles.payrollMetric}>
-                            <span style={styles.payrollMetricIcon}>📊</span>
-                            <span style={styles.payrollMetricLabel}>Total Payroll Records</span>
-                          </div>
-                        </td>
-                        <td style={styles.payrollTableValue}>
-                          <span style={styles.payrollValue}>{totalPayrollRecords}</span>
-                        </td>
-                        <td style={styles.payrollTableDescription}>
-                          Total number of payroll records processed
-                        </td>
-                      </tr>
-                      <tr style={styles.payrollTableRow}>
-                        <td style={styles.payrollTableCell}>
-                          <div style={styles.payrollMetric}>
-                            <span style={styles.payrollMetricIcon}>💵</span>
-                            <span style={styles.payrollMetricLabel}>Total Net Paid</span>
-                          </div>
-                        </td>
-                        <td style={styles.payrollTableValue}>
-                          <span style={styles.payrollValue}>${totalNetPaid.toLocaleString()}</span>
-                        </td>
-                        <td style={styles.payrollTableDescription}>
-                          Total net salary amount paid to employees
-                        </td>
-                      </tr>
-                      <tr style={styles.payrollTableRow}>
-                        <td style={styles.payrollTableCell}>
-                          <div style={styles.payrollMetric}>
-                            <span style={styles.payrollMetricIcon}>📈</span>
-                            <span style={styles.payrollMetricLabel}>Total Gross Amount</span>
-                          </div>
-                        </td>
-                        <td style={styles.payrollTableValue}>
-                          <span style={styles.payrollValue}>${totalGrossAmount.toLocaleString()}</span>
-                        </td>
-                        <td style={styles.payrollTableDescription}>
-                          Total gross salary before deductions
-                        </td>
-                      </tr>
-                      <tr style={styles.payrollTableRow}>
-                        <td style={styles.payrollTableCell}>
-                          <div style={styles.payrollMetric}>
-                            <span style={styles.payrollMetricIcon}>➕</span>
-                            <span style={styles.payrollMetricLabel}>Total Allowances</span>
-                          </div>
-                        </td>
-                        <td style={styles.payrollTableValue}>
-                          <span style={styles.payrollValue}>${totalAllowances.toLocaleString()}</span>
-                        </td>
-                        <td style={styles.payrollTableDescription}>
-                          Total allowances given to employees
-                        </td>
-                      </tr>
-                      <tr style={styles.payrollTableRow}>
-                        <td style={styles.payrollTableCell}>
-                          <div style={styles.payrollMetric}>
-                            <span style={styles.payrollMetricIcon}>➖</span>
-                            <span style={styles.payrollMetricLabel}>Total Deductions</span>
-                          </div>
-                        </td>
-                        <td style={styles.payrollTableValue}>
-                          <span style={styles.payrollValue}>${totalDeductions.toLocaleString()}</span>
-                        </td>
-                        <td style={styles.payrollTableDescription}>
-                          Total deductions taken from salaries
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div style={styles.payrollOverviewGrid}>
+                  <div style={styles.payrollOverviewCard}>
+                    <div style={styles.payrollOverviewIcon}>📊</div>
+                    <div style={styles.payrollOverviewContent}>
+                      <span style={styles.payrollOverviewValue}>{totalPayrollRecords}</span>
+                      <span style={styles.payrollOverviewLabel}>Payroll Records</span>
+                    </div>
+                  </div>
+                  <div style={styles.payrollOverviewCard}>
+                    <div style={styles.payrollOverviewIcon}>💵</div>
+                    <div style={styles.payrollOverviewContent}>
+                      <span style={styles.payrollOverviewValue}>${totalNetPaid.toLocaleString()}</span>
+                      <span style={styles.payrollOverviewLabel}>Net Paid</span>
+                    </div>
+                  </div>
+                  <div style={styles.payrollOverviewCard}>
+                    <div style={styles.payrollOverviewIcon}>📈</div>
+                    <div style={styles.payrollOverviewContent}>
+                      <span style={styles.payrollOverviewValue}>${totalGrossAmount.toLocaleString()}</span>
+                      <span style={styles.payrollOverviewLabel}>Gross Amount</span>
+                    </div>
+                  </div>
+                  <div style={styles.payrollOverviewCard}>
+                    <div style={styles.payrollOverviewIcon}>➕</div>
+                    <div style={styles.payrollOverviewContent}>
+                      <span style={styles.payrollOverviewValue}>${totalAllowances.toLocaleString()}</span>
+                      <span style={styles.payrollOverviewLabel}>Allowances</span>
+                    </div>
+                  </div>
+                  <div style={styles.payrollOverviewCard}>
+                    <div style={styles.payrollOverviewIcon}>➖</div>
+                    <div style={styles.payrollOverviewContent}>
+                      <span style={styles.payrollOverviewValue}>${totalDeductions.toLocaleString()}</span>
+                      <span style={styles.payrollOverviewLabel}>Deductions</span>
+                    </div>
+                  </div>
                 </div>
               );
             })()}
@@ -439,12 +463,12 @@ function StaffmaDashboard() {
             </div>
           )}
 
-          {/* Recent Employees */}
+          {/* All Employees */}
           {businessDetails.recentEmployees && businessDetails.recentEmployees.length > 0 && (
             <div style={styles.recentEmployeesSection}>
               <h2 style={styles.sectionTitle}>
                 <span style={styles.icon}>👥</span>
-                Recent Employees
+                All Employees
               </h2>
               <div style={styles.recentEmployeesTableContainer}>
                 <table style={styles.recentEmployeesTable}>
@@ -495,8 +519,8 @@ function StaffmaDashboard() {
                     ))}
                   </tbody>
                 </table>
-              </div>
             </div>
+          </div>
           )}
 
           {/* Business Activities */}
@@ -638,21 +662,21 @@ function StaffmaDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {dashboardData.businessActivities.businesses.length > 0 ? (
-                  dashboardData.businessActivities.businesses.map((business) => (
+            {dashboardData.businessActivities.businesses.length > 0 ? (
+              dashboardData.businessActivities.businesses.map((business) => (
                     <tr key={business._id} style={styles.businessesTableRow}>
                       <td style={styles.businessesTableCell}>
                         <span style={styles.businessName}>{business.businessName}</span>
                       </td>
                       <td style={styles.businessesTableCell}>
-                        <span style={styles.businessEmail}>{business.email}</span>
+                      <span style={styles.businessEmail}>{business.email}</span>
                       </td>
                       <td style={styles.businessesTableCell}>
-                        {business.totalActivities > 0 ? (
-                          <span style={styles.statusActive}>Active</span>
-                        ) : (
-                          <span style={styles.statusInactive}>Inactive</span>
-                        )}
+                      {business.totalActivities > 0 ? (
+                        <span style={styles.statusActive}>Active</span>
+                      ) : (
+                        <span style={styles.statusInactive}>Inactive</span>
+                      )}
                       </td>
                       <td style={styles.businessesTableCell}>
                         <button 
@@ -663,20 +687,20 @@ function StaffmaDashboard() {
                         </button>
                       </td>
                     </tr>
-                  ))
-                ) : (
+              ))
+            ) : (
                   <tr style={styles.businessesTableRow}>
                     <td colSpan="4" style={styles.emptyStateCell}>
-                      <div style={styles.emptyState}>
-                        <div style={styles.emptyStateIcon}>🏢</div>
-                        <h3 style={styles.emptyStateTitle}>No Businesses Found</h3>
-                        <p style={styles.emptyStateText}>
-                          There are no registered businesses in the system yet.
-                        </p>
-                      </div>
+              <div style={styles.emptyState}>
+                <div style={styles.emptyStateIcon}>🏢</div>
+                <h3 style={styles.emptyStateTitle}>No Businesses Found</h3>
+                <p style={styles.emptyStateText}>
+                  There are no registered businesses in the system yet.
+                </p>
+              </div>
                     </td>
                   </tr>
-                )}
+            )}
               </tbody>
             </table>
           </div>
@@ -729,14 +753,173 @@ function StaffmaDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Place the modal here so it is always available */}
+      {payrollModalOpen && (
+        <div style={styles.modalOverlay} onClick={closePayrollModal}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>
+                Monthly Payroll Details
+                {selectedPayrollData && (
+                  <span style={styles.modalSubtitle}>
+                    {businessDetails?.business?.businessName || 'Business'} - {getMonthName(selectedPayrollData.payrollDetails[0]?.month || 1)} {selectedPayrollData.payrollDetails[0]?.year || new Date().getFullYear()}
+                  </span>
+                )}
+              </h2>
+              <button style={styles.modalCloseButton} onClick={closePayrollModal}>
+                ✕
+              </button>
+            </div>
+            {payrollDetailsLoading ? (
+              <div style={styles.modalLoading}>Loading payroll details...</div>
+            ) : selectedPayrollData ? (
+              <div style={styles.modalBody}>
+                {/* Summary Cards */}
+                <div style={styles.modalSummaryGrid}>
+                  <div style={styles.modalSummaryCard}>
+                    <div style={styles.modalSummaryIcon}>👥</div>
+                    <div style={styles.modalSummaryContent}>
+                      <span style={styles.modalSummaryValue}>{selectedPayrollData.payrollDetails.length}</span>
+                      <span style={styles.modalSummaryLabel}>Total Employees</span>
+                    </div>
+                  </div>
+                  <div style={styles.modalSummaryCard}>
+                    <div style={styles.modalSummaryIcon}>💰</div>
+                    <div style={styles.modalSummaryContent}>
+                      <span style={styles.modalSummaryValue}>
+                        {formatCurrency(selectedPayrollData.payrollDetails.reduce((sum, record) => sum + (record.grossSalary || 0), 0))}
+                      </span>
+                      <span style={styles.modalSummaryLabel}>Total Gross Salary</span>
+                    </div>
+                  </div>
+                  <div style={styles.modalSummaryCard}>
+                    <div style={styles.modalSummaryIcon}>💵</div>
+                    <div style={styles.modalSummaryContent}>
+                      <span style={styles.modalSummaryValue}>
+                        {formatCurrency(selectedPayrollData.payrollDetails.reduce((sum, record) => sum + (record.netSalary || 0), 0))}
+                      </span>
+                      <span style={styles.modalSummaryLabel}>Total Net Salary</span>
+                    </div>
+                  </div>
+                  <div style={styles.modalSummaryCard}>
+                    <div style={styles.modalSummaryIcon}>➕</div>
+                    <div style={styles.modalSummaryContent}>
+                      <span style={styles.modalSummaryValue}>
+                        {formatCurrency(selectedPayrollData.payrollDetails.reduce((sum, record) => sum + (record.allowances?.total || 0), 0))}
+                      </span>
+                      <span style={styles.modalSummaryLabel}>Total Allowances</span>
+                    </div>
+                  </div>
+                  <div style={styles.modalSummaryCard}>
+                    <div style={styles.modalSummaryIcon}>➖</div>
+                    <div style={styles.modalSummaryContent}>
+                      <span style={styles.modalSummaryValue}>
+                        {formatCurrency(selectedPayrollData.payrollDetails.reduce((sum, record) => sum + (record.deductions?.total || 0), 0))}
+                      </span>
+                      <span style={styles.modalSummaryLabel}>Total Deductions</span>
+                    </div>
+                  </div>
+                </div>
+                {/* Payroll Details Table */}
+                <div style={styles.modalTableContainer}>
+                  <h3 style={styles.modalTableTitle}>Employee Payroll Details</h3>
+                  {selectedPayrollData.payrollDetails.length === 0 ? (
+                    <div style={styles.modalEmptyState}>
+                      <div style={styles.modalEmptyStateIcon}>📊</div>
+                      <h4 style={styles.modalEmptyStateTitle}>No Payroll Data Available</h4>
+                      <p style={styles.modalEmptyStateText}>
+                        No payroll records found for this month.
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={styles.modalTableWrapper}>
+                      <table style={styles.modalTable}>
+                        <thead>
+                          <tr style={styles.modalTableHeader}>
+                            <th style={styles.modalTableHeaderCell}>Employee</th>
+                            <th style={styles.modalTableHeaderCell}>Employee #</th>
+                            <th style={styles.modalTableHeaderCell}>Position</th>
+                            <th style={styles.modalTableHeaderCell}>Department</th>
+                            <th style={styles.modalTableHeaderCell}>Basic Salary</th>
+                            <th style={styles.modalTableHeaderCell}>Allowances</th>
+                            <th style={styles.modalTableHeaderCell}>Gross Salary</th>
+                            <th style={styles.modalTableHeaderCell}>Deductions</th>
+                            <th style={styles.modalTableHeaderCell}>Net Salary</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedPayrollData.payrollDetails.map((record) => (
+                            <tr key={record._id} style={styles.modalTableRow}>
+                              <td style={styles.modalTableCell}>
+                                <div style={styles.modalEmployeeInfo}>
+                                  <span style={styles.modalEmployeeName}>
+                                    {record.employeeId?.firstName} {record.employeeId?.lastName}
+                                  </span>
+                                </div>
+                              </td>
+                              <td style={styles.modalTableCell}>
+                                <span style={styles.modalEmployeeNumber}>
+                                  #{record.employeeNumber}
+                                </span>
+                              </td>
+                              <td style={styles.modalTableCell}>
+                                <span style={styles.modalEmployeePosition}>
+                                  {record.employeeId?.position}
+                                </span>
+                              </td>
+                              <td style={styles.modalTableCell}>
+                                <span style={styles.modalEmployeeDepartment}>
+                                  {record.employeeId?.department}
+                                </span>
+                              </td>
+                              <td style={styles.modalTableCell}>
+                                <span style={styles.modalSalaryValue}>
+                                  {formatCurrency(record.basicSalary)}
+                                </span>
+                              </td>
+                              <td style={styles.modalTableCell}>
+                                <span style={styles.modalSalaryValue}>
+                                  {formatCurrency(record.allowances?.total)}
+                                </span>
+                              </td>
+                              <td style={styles.modalTableCell}>
+                                <span style={styles.modalSalaryValue}>
+                                  {formatCurrency(record.grossSalary)}
+                                </span>
+                              </td>
+                              <td style={styles.modalTableCell}>
+                                <span style={styles.modalSalaryValue}>
+                                  {formatCurrency(record.deductions?.total)}
+                                </span>
+                              </td>
+                              <td style={styles.modalTableCell}>
+                                <span style={styles.modalNetSalaryValue}>
+                                  {formatCurrency(record.netSalary)}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div style={styles.modalError}>Failed to load payroll details</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 const styles = {
   container: {
-    padding: '20px',
-    maxWidth: '1400px',
+    padding: '15px',
+    maxWidth: '1200px',
     margin: '0 auto',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     backgroundColor: '#f8fafc',
@@ -746,16 +929,16 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '30px',
-    padding: '25px 30px',
+    marginBottom: '20px',
+    padding: '15px 20px',
     backgroundColor: 'white',
-    borderRadius: '16px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06)',
     border: '1px solid #e2e8f0'
   },
   title: {
-    fontSize: '2.5rem',
-    fontWeight: '800',
+    fontSize: '1.75rem',
+    fontWeight: '700',
     color: '#1e293b',
     margin: 0,
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -764,72 +947,72 @@ const styles = {
     backgroundClip: 'text'
   },
   subtitle: {
-    fontSize: '1.1rem',
+    fontSize: '0.875rem',
     color: '#64748b',
-    margin: '8px 0 0 0',
+    margin: '4px 0 0 0',
     fontWeight: '500'
   },
   logoutBtn: {
-    padding: '12px 24px',
+    padding: '8px 16px',
     backgroundColor: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
     background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
     color: 'white',
     border: 'none',
-    borderRadius: '12px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     fontWeight: '600',
     transition: 'all 0.3s ease',
-    boxShadow: '0 4px 6px -1px rgba(239, 68, 68, 0.3)',
+    boxShadow: '0 2px 4px -1px rgba(239, 68, 68, 0.3)',
     '&:hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 8px 15px -3px rgba(239, 68, 68, 0.4)'
+      transform: 'translateY(-1px)',
+      boxShadow: '0 4px 8px -2px rgba(239, 68, 68, 0.4)'
     }
   },
   overviewGrid: {
     display: 'grid',
-    gap: '30px'
+    gap: '20px'
   },
   quickStats: {
     backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '16px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    padding: '20px',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06)',
     border: '1px solid #e2e8f0'
   },
   sectionTitle: {
-    fontSize: '1.75rem',
-    fontWeight: '700',
+    fontSize: '1.25rem',
+    fontWeight: '600',
     color: '#1e293b',
-    marginBottom: '25px',
+    marginBottom: '15px',
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
-    paddingBottom: '15px',
-    borderBottom: '2px solid #f1f5f9'
+    gap: '8px',
+    paddingBottom: '10px',
+    borderBottom: '1px solid #f1f5f9'
   },
   icon: {
-    fontSize: '1.5rem',
-    filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))'
+    fontSize: '1.125rem',
+    filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))'
   },
   statsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '25px'
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '15px'
   },
   statCard: {
     backgroundColor: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
     background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-    padding: '25px',
-    borderRadius: '12px',
+    padding: '15px',
+    borderRadius: '8px',
     textAlign: 'center',
     border: '1px solid #e2e8f0',
     transition: 'all 0.3s ease',
     position: 'relative',
     overflow: 'hidden',
     '&:hover': {
-      transform: 'translateY(-4px)',
-      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+      transform: 'translateY(-2px)',
+      boxShadow: '0 6px 12px -3px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.05)'
     },
     '&::before': {
       content: '""',
@@ -837,57 +1020,57 @@ const styles = {
       top: 0,
       left: 0,
       right: 0,
-      height: '4px',
+      height: '3px',
       background: 'linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4)',
-      borderRadius: '12px 12px 0 0'
+      borderRadius: '8px 8px 0 0'
     }
   },
   statValue: {
-    fontSize: '2.5rem',
-    fontWeight: '800',
+    fontSize: '1.75rem',
+    fontWeight: '700',
     color: '#1e293b',
-    margin: '15px 0 8px 0',
-    textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+    margin: '10px 0 4px 0',
+    textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
   },
   statLabel: {
-    fontSize: '0.9rem',
+    fontSize: '0.75rem',
     color: '#64748b',
     display: 'block',
-    marginTop: '8px',
+    marginTop: '4px',
     fontWeight: '500',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px'
+    letterSpacing: '0.3px'
   },
   businessesSection: {
     backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '16px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    padding: '20px',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06)',
     border: '1px solid #e2e8f0'
   },
   businessesTableContainer: {
     overflowX: 'auto',
-    borderRadius: '8px',
+    borderRadius: '6px',
     border: '1px solid #e2e8f0',
     backgroundColor: 'white'
   },
   businessesTable: {
     width: '100%',
     borderCollapse: 'collapse',
-    fontSize: '0.875rem'
+    fontSize: '0.75rem'
   },
   businessesTableHeader: {
     backgroundColor: '#f8fafc',
-    borderBottom: '2px solid #e2e8f0'
+    borderBottom: '1px solid #e2e8f0'
   },
   businessesTableHeaderCell: {
-    padding: '16px 12px',
+    padding: '10px 8px',
     textAlign: 'left',
     fontWeight: '600',
     color: '#374151',
-    fontSize: '0.875rem',
+    fontSize: '0.75rem',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px'
+    letterSpacing: '0.3px'
   },
   businessesTableRow: {
     borderBottom: '1px solid #f3f4f6',
@@ -900,19 +1083,19 @@ const styles = {
     }
   },
   businessesTableCell: {
-    padding: '16px 12px',
+    padding: '10px 8px',
     textAlign: 'left',
     verticalAlign: 'middle'
   },
   businessName: {
-    fontSize: '1.1rem',
+    fontSize: '0.875rem',
     fontWeight: '600',
     color: '#1e293b',
     margin: 0,
-    lineHeight: '1.4'
+    lineHeight: '1.3'
   },
   businessEmail: {
-    fontSize: '0.875rem',
+    fontSize: '0.75rem',
     color: '#64748b',
     margin: 0,
     fontStyle: 'italic'
@@ -920,61 +1103,111 @@ const styles = {
   statusActive: {
     backgroundColor: '#10b981',
     color: 'white',
-    padding: '6px 12px',
-    borderRadius: '20px',
-    fontSize: '0.75rem',
-    fontWeight: '700',
+    padding: '4px 8px',
+    borderRadius: '12px',
+    fontSize: '0.625rem',
+    fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-    boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)'
+    letterSpacing: '0.3px',
+    boxShadow: '0 1px 2px rgba(16, 185, 129, 0.3)'
   },
   statusInactive: {
     backgroundColor: '#6b7280',
     color: 'white',
-    padding: '6px 12px',
-    borderRadius: '20px',
-    fontSize: '0.75rem',
-    fontWeight: '700',
+    padding: '4px 8px',
+    borderRadius: '12px',
+    fontSize: '0.625rem',
+    fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-    boxShadow: '0 2px 4px rgba(107, 114, 128, 0.3)'
+    letterSpacing: '0.3px',
+    boxShadow: '0 1px 2px rgba(107, 114, 128, 0.3)'
   },
   viewDetailsButton: {
-    padding: '12px 24px',
+    padding: '6px 12px',
     backgroundColor: '#64748b',
     color: 'white',
     border: 'none',
-    borderRadius: '10px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '1rem',
+    fontSize: '0.75rem',
     fontWeight: '600',
     transition: 'all 0.3s ease',
     '&:hover': {
       backgroundColor: '#475569',
-      transform: 'translateY(-2px)'
+      transform: 'translateY(-1px)'
     }
+  },
+  eyeIconButton: {
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    fontSize: '14px',
+    cursor: 'pointer',
+    padding: '4px',
+    borderRadius: '4px',
+    transition: 'all 0.2s ease',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: '28px',
+    minHeight: '28px',
+    '&:hover': {
+      backgroundColor: '#e2e8f0',
+      borderColor: '#3b82f6',
+      transform: 'scale(1.05)',
+      boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
+    },
+    '&:active': {
+      transform: 'scale(0.95)'
+    }
+  },
+  testModalButton: {
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    font: 'inherit',
+    cursor: 'pointer',
+    outline: 'inherit',
+    fontSize: '0.75rem',
+    fontWeight: '600',
+    color: '#1976d2',
+    textDecoration: 'underline',
+    transition: 'color 0.2s ease',
+    '&:hover': {
+      color: '#1565c0'
+    }
+  },
+  testButton: {
+    background: '#3b82f6',
+    color: 'white',
+    border: 'none',
+    padding: '2px 6px',
+    borderRadius: '3px',
+    cursor: 'pointer',
+    fontSize: '10px',
+    marginLeft: '6px'
   },
   recentActivitiesSection: {
     backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '16px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-    border: '1px solid #e2e8f0'
+    padding: '20px',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06)',
+    border: '1px solid #e2e8f0',
+    marginBottom: '20px'
   },
   recentActivitiesList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '20px'
+    gap: '12px'
   },
   recentActivityCard: {
     border: '1px solid #e2e8f0',
-    borderRadius: '12px',
-    padding: '20px',
+    borderRadius: '6px',
+    padding: '12px',
     backgroundColor: '#fafbfc',
     transition: 'all 0.3s ease',
     '&:hover': {
-      transform: 'translateX(4px)',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+      transform: 'translateX(2px)',
+      boxShadow: '0 2px 4px -1px rgba(0, 0, 0, 0.1)',
       borderColor: '#3b82f6'
     }
   },
@@ -982,44 +1215,44 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: '12px'
+    marginBottom: '8px'
   },
   activityTitle: {
-    fontSize: '1.1rem',
+    fontSize: '0.875rem',
     fontWeight: '600',
     color: '#1e293b',
     margin: 0,
-    lineHeight: '1.4'
+    lineHeight: '1.3'
   },
   severityBadge: {
-    padding: '6px 12px',
-    borderRadius: '20px',
+    padding: '3px 8px',
+    borderRadius: '12px',
     color: 'white',
-    fontSize: '0.75rem',
-    fontWeight: '700',
+    fontSize: '0.625rem',
+    fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+    letterSpacing: '0.3px',
+    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
   },
   activityDescription: {
     color: '#475569',
-    marginBottom: '15px',
-    lineHeight: '1.6',
-    fontSize: '0.9rem'
+    marginBottom: '10px',
+    lineHeight: '1.4',
+    fontSize: '0.75rem'
   },
   activityMeta: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '10px'
+    marginBottom: '6px'
   },
   activityTime: {
-    fontSize: '0.8rem',
+    fontSize: '0.625rem',
     color: '#94a3b8',
     fontWeight: '500'
   },
   activityUser: {
-    fontSize: '0.85rem',
+    fontSize: '0.75rem',
     color: '#64748b',
     margin: 0,
     fontStyle: 'italic'
@@ -1028,66 +1261,66 @@ const styles = {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    height: '50vh',
-    fontSize: '1.2rem',
+    height: '40vh',
+    fontSize: '1rem',
     color: '#64748b',
     fontWeight: '500'
   },
   error: {
     backgroundColor: '#fef2f2',
     color: '#dc2626',
-    padding: '20px',
-    borderRadius: '12px',
-    margin: '20px 0',
+    padding: '15px',
+    borderRadius: '6px',
+    margin: '15px 0',
     border: '1px solid #fecaca',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     fontWeight: '500'
   },
   backButton: {
-    padding: '12px 20px',
+    padding: '8px 12px',
     backgroundColor: '#64748b',
     color: 'white',
     border: 'none',
-    borderRadius: '10px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     fontWeight: '600',
-    marginRight: '15px',
+    marginRight: '10px',
     transition: 'all 0.3s ease',
     '&:hover': {
       backgroundColor: '#475569',
-      transform: 'translateY(-2px)'
+      transform: 'translateY(-1px)'
     }
   },
   businessDetailsContainer: {
-    padding: '20px'
+    padding: '15px'
   },
   businessOverviewSection: {
     backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '16px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    padding: '20px',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06)',
     border: '1px solid #e2e8f0',
-    marginBottom: '30px'
+    marginBottom: '20px'
   },
   businessStatsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '20px'
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: '12px'
   },
   businessStatCard: {
     backgroundColor: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
     background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-    padding: '25px',
-    borderRadius: '12px',
+    padding: '15px',
+    borderRadius: '8px',
     textAlign: 'center',
     border: '1px solid #e2e8f0',
     transition: 'all 0.3s ease',
     position: 'relative',
     overflow: 'hidden',
     '&:hover': {
-      transform: 'translateY(-4px)',
-      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+      transform: 'translateY(-2px)',
+      boxShadow: '0 6px 12px -3px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.05)'
     },
     '&::before': {
       content: '""',
@@ -1095,15 +1328,15 @@ const styles = {
       top: 0,
       left: 0,
       right: 0,
-      height: '4px',
+      height: '3px',
       background: 'linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4)',
-      borderRadius: '12px 12px 0 0'
+      borderRadius: '8px 8px 0 0'
     }
   },
   businessStatIcon: {
-    fontSize: '2.5rem',
-    marginBottom: '15px',
-    filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))'
+    fontSize: '1.75rem',
+    marginBottom: '8px',
+    filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))'
   },
   businessStatContent: {
     display: 'flex',
@@ -1111,50 +1344,50 @@ const styles = {
     alignItems: 'center'
   },
   businessStatValue: {
-    fontSize: '2.5rem',
-    fontWeight: '800',
+    fontSize: '1.75rem',
+    fontWeight: '700',
     color: '#1e293b',
-    marginBottom: '8px',
-    textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+    marginBottom: '4px',
+    textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
   },
   businessStatLabel: {
-    fontSize: '0.9rem',
+    fontSize: '0.75rem',
     color: '#64748b',
     fontWeight: '500',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px'
+    letterSpacing: '0.3px'
   },
   activityMetaLeft: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px'
+    gap: '4px'
   },
   activityEmployee: {
-    fontSize: '0.85rem',
+    fontSize: '0.75rem',
     color: '#64748b',
     fontStyle: 'italic'
   },
   activitiesSection: {
     backgroundColor: 'white',
-    padding: '25px',
-    borderRadius: '12px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+    padding: '15px',
+    borderRadius: '6px',
+    boxShadow: '0 2px 4px -1px rgba(0, 0, 0, 0.1)',
     border: '1px solid #e2e8f0'
   },
   activitiesList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '15px'
+    gap: '10px'
   },
   activityCard: {
     border: '1px solid #e2e8f0',
-    borderRadius: '10px',
-    padding: '20px',
+    borderRadius: '6px',
+    padding: '12px',
     backgroundColor: '#fafbfc',
     transition: 'all 0.3s ease',
     '&:hover': {
-      transform: 'translateX(4px)',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+      transform: 'translateX(2px)',
+      boxShadow: '0 2px 4px -1px rgba(0, 0, 0, 0.1)',
       borderColor: '#3b82f6'
     }
   },
@@ -1166,31 +1399,31 @@ const styles = {
   activityCategory: {
     backgroundColor: '#dbeafe',
     color: '#1e40af',
-    padding: '4px 8px',
-    borderRadius: '6px',
-    fontSize: '0.75rem',
+    padding: '2px 6px',
+    borderRadius: '4px',
+    fontSize: '0.625rem',
     fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px'
+    letterSpacing: '0.3px'
   },
   activityDetails: {
-    marginTop: '10px'
+    marginTop: '6px'
   },
   detailsElement: {
     border: '1px solid #e2e8f0',
-    borderRadius: '8px',
-    padding: '10px',
+    borderRadius: '4px',
+    padding: '6px',
     backgroundColor: '#fafbfc'
   },
   detailsSummary: {
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     fontWeight: '600',
     color: '#1e293b',
     cursor: 'pointer'
   },
   detailsContent: {
-    marginTop: '10px',
-    fontSize: '0.875rem',
+    marginTop: '6px',
+    fontSize: '0.75rem',
     color: '#475569'
   },
   emptyState: {
@@ -1198,132 +1431,125 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '60px 40px',
-    borderRadius: '16px',
-    border: '2px dashed #e2e8f0',
+    padding: '40px 20px',
+    borderRadius: '8px',
+    border: '1px dashed #e2e8f0',
     backgroundColor: '#fafbfc',
     textAlign: 'center',
     gridColumn: '1 / -1'
   },
   emptyStateIcon: {
-    fontSize: '4rem',
+    fontSize: '2.5rem',
     color: '#94a3b8',
-    marginBottom: '20px',
+    marginBottom: '12px',
     opacity: '0.7'
   },
   emptyStateTitle: {
-    fontSize: '1.5rem',
-    fontWeight: '700',
+    fontSize: '1.125rem',
+    fontWeight: '600',
     color: '#475569',
-    marginBottom: '10px'
+    marginBottom: '6px'
   },
   emptyStateText: {
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     color: '#64748b',
-    lineHeight: '1.6',
-    maxWidth: '400px'
+    lineHeight: '1.4',
+    maxWidth: '300px'
   },
   payrollOverviewSection: {
     backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '16px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-    border: '1px solid #e2e8f0',
-    marginBottom: '30px'
-  },
-  payrollTableContainer: {
-    overflowX: 'auto',
+    padding: '20px',
     borderRadius: '8px',
+    boxShadow: '0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06)',
     border: '1px solid #e2e8f0',
-    backgroundColor: 'white'
+    marginBottom: '20px'
   },
-  payrollTable: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '0.875rem'
+  payrollOverviewGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+    gap: '10px',
+    marginBottom: '15px'
   },
-  payrollTableHeader: {
-    backgroundColor: '#f8fafc',
-    borderBottom: '2px solid #e2e8f0'
-  },
-  payrollTableRow: {
-    borderBottom: '1px solid #f3f4f6',
-    transition: 'background-color 0.2s ease',
+  payrollOverviewCard: {
+    backgroundColor: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+    padding: '10px',
+    borderRadius: '6px',
+    textAlign: 'center',
+    border: '1px solid #e2e8f0',
+    transition: 'all 0.3s ease',
+    position: 'relative',
+    overflow: 'hidden',
     '&:hover': {
-      backgroundColor: '#f9fafb'
+      transform: 'translateY(-1px)',
+      boxShadow: '0 4px 8px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.05)'
     },
-    '&:nth-child(even)': {
-      backgroundColor: '#fafbfc'
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: '2px',
+      background: 'linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4)',
+      borderRadius: '6px 6px 0 0'
     }
   },
-  payrollTableCell: {
-    padding: '16px 12px',
-    textAlign: 'left',
-    verticalAlign: 'middle'
-  },
-  payrollMetric: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px'
-  },
-  payrollMetricIcon: {
-    fontSize: '1.25rem',
-    width: '24px',
-    textAlign: 'center'
-  },
-  payrollMetricLabel: {
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    color: '#374151'
-  },
-  payrollTableValue: {
-    padding: '16px 12px',
-    textAlign: 'right',
-    verticalAlign: 'middle'
-  },
-  payrollValue: {
+  payrollOverviewIcon: {
     fontSize: '1.125rem',
-    fontWeight: '700',
-    color: '#1e293b',
-    fontFamily: 'monospace'
+    marginBottom: '4px',
+    filter: 'drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1))'
   },
-  payrollTableDescription: {
-    fontSize: '0.8rem',
-    color: '#6b7280',
-    lineHeight: '1.4',
-    maxWidth: '200px'
+  payrollOverviewContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center'
+  },
+  payrollOverviewValue: {
+    fontSize: '1.125rem',
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: '2px',
+    textShadow: '0 1px 1px rgba(0, 0, 0, 0.1)'
+  },
+  payrollOverviewLabel: {
+    fontSize: '0.625rem',
+    color: '#64748b',
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: '0.2px'
   },
   payrollHistorySection: {
     backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '16px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    padding: '20px',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06)',
     border: '1px solid #e2e8f0',
-    marginBottom: '30px'
+    marginBottom: '20px'
   },
   payrollHistoryTableContainer: {
     overflowX: 'auto',
-    borderRadius: '8px',
+    borderRadius: '6px',
     border: '1px solid #e2e8f0',
     backgroundColor: 'white'
   },
   payrollHistoryTable: {
     width: '100%',
     borderCollapse: 'collapse',
-    fontSize: '0.875rem'
+    fontSize: '0.75rem'
   },
   payrollHistoryTableHeader: {
     backgroundColor: '#f8fafc',
-    borderBottom: '2px solid #e2e8f0'
+    borderBottom: '1px solid #e2e8f0'
   },
   payrollHistoryTableHeaderCell: {
-    padding: '16px 12px',
+    padding: '8px 6px',
     textAlign: 'left',
     fontWeight: '600',
     color: '#374151',
-    fontSize: '0.875rem',
+    fontSize: '0.75rem',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px'
+    letterSpacing: '0.3px'
   },
   payrollHistoryTableRow: {
     borderBottom: '1px solid #f3f4f6',
@@ -1336,50 +1562,54 @@ const styles = {
     }
   },
   payrollHistoryTableCell: {
-    padding: '16px 12px',
+    padding: '8px 6px',
     textAlign: 'left',
     verticalAlign: 'middle'
   },
-  payrollHistoryTableValue: {
-    padding: '16px 12px',
-    textAlign: 'right',
-    verticalAlign: 'middle'
-  },
-  payrollHistoryPeriod: {
-    fontSize: '0.875rem',
+  payrollHistoryLink: {
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    font: 'inherit',
+    cursor: 'pointer',
+    outline: 'inherit',
+    fontSize: '0.75rem',
     fontWeight: '600',
-    color: '#1e293b',
-    margin: 0,
-    lineHeight: '1.4'
+    color: '#1976d2',
+    textDecoration: 'underline',
+    transition: 'color 0.2s ease',
+    '&:hover': {
+      color: '#1565c0'
+    }
   },
   payrollHistoryValue: {
-    fontSize: '1.125rem',
-    fontWeight: '700',
+    fontSize: '0.875rem',
+    fontWeight: '600',
     color: '#1e293b',
     fontFamily: 'monospace'
   },
   recentEmployeesSection: {
     backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '16px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    padding: '20px',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06)',
     border: '1px solid #e2e8f0',
-    marginBottom: '30px'
+    marginBottom: '20px'
   },
   recentEmployeesTableContainer: {
     overflowX: 'auto',
-    borderRadius: '8px',
+    borderRadius: '6px',
     border: '1px solid #e2e8f0',
     backgroundColor: 'white'
   },
   recentEmployeesTable: {
     width: '100%',
     borderCollapse: 'collapse',
-    fontSize: '0.875rem'
+    fontSize: '0.75rem'
   },
   recentEmployeesTableHeader: {
     backgroundColor: '#f8fafc',
-    borderBottom: '2px solid #e2e8f0'
+    borderBottom: '1px solid #e2e8f0'
   },
   recentEmployeesTableRow: {
     borderBottom: '1px solid #f3f4f6',
@@ -1392,47 +1622,288 @@ const styles = {
     }
   },
   recentEmployeesTableCell: {
-    padding: '16px 12px',
+    padding: '8px 6px',
     textAlign: 'left',
     verticalAlign: 'middle'
   },
   recentEmployeeName: {
-    fontSize: '1.1rem',
+    fontSize: '0.875rem',
     fontWeight: '600',
     color: '#1e293b',
     margin: 0,
-    lineHeight: '1.4'
+    lineHeight: '1.3'
   },
   recentEmployeePosition: {
-    fontSize: '0.875rem',
+    fontSize: '0.75rem',
     color: '#64748b',
     fontStyle: 'italic'
   },
   recentEmployeeDepartment: {
-    fontSize: '0.875rem',
+    fontSize: '0.75rem',
     color: '#64748b',
     fontStyle: 'italic'
   },
   recentEmployeeNumber: {
-    fontSize: '1.5rem',
-    fontWeight: '800',
+    fontSize: '1.125rem',
+    fontWeight: '700',
     color: '#10b981',
     margin: 0,
-    lineHeight: '1.4'
+    lineHeight: '1.3'
   },
   recentEmployeeStartDate: {
-    fontSize: '0.875rem',
+    fontSize: '0.75rem',
     color: '#64748b',
     fontStyle: 'italic'
   },
   recentEmployeeAdded: {
-    fontSize: '0.875rem',
+    fontSize: '0.75rem',
     color: '#64748b',
     fontStyle: 'italic'
   },
   emptyStateCell: {
-    padding: '40px 20px',
+    padding: '30px 15px',
     textAlign: 'center'
+  },
+  payrollHistoryPeriod: {
+    fontSize: '0.75rem',
+    fontWeight: '600',
+    color: '#374151'
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    padding: '15px'
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: '8px',
+    maxWidth: '85vw',
+    maxHeight: '85vh',
+    width: '1000px',
+    overflow: 'hidden',
+    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+  },
+  modalHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '15px 20px',
+    borderBottom: '1px solid #e5e7eb',
+    backgroundColor: '#f9fafb'
+  },
+  modalTitle: {
+    margin: 0,
+    fontSize: '1.25rem',
+    fontWeight: '600',
+    color: '#111827',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px'
+  },
+  modalSubtitle: {
+    fontSize: '0.875rem',
+    color: '#6b7280',
+    fontWeight: '400'
+  },
+  modalCloseButton: {
+    background: 'none',
+    border: 'none',
+    fontSize: '1.25rem',
+    cursor: 'pointer',
+    padding: '4px',
+    borderRadius: '4px',
+    color: '#6b7280',
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#f3f4f6',
+      color: '#374151'
+    }
+  },
+  modalBody: {
+    padding: '20px',
+    maxHeight: 'calc(85vh - 80px)',
+    overflowY: 'auto'
+  },
+  modalLoading: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '150px',
+    fontSize: '0.875rem',
+    color: '#6b7280'
+  },
+  modalError: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '150px',
+    fontSize: '0.875rem',
+    color: '#dc2626',
+    backgroundColor: '#fef2f2',
+    borderRadius: '6px',
+    border: '1px solid #fecaca'
+  },
+  modalSummaryGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: '12px',
+    marginBottom: '20px'
+  },
+  modalSummaryCard: {
+    background: 'white',
+    padding: '12px',
+    borderRadius: '6px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    border: '1px solid #e5e7eb'
+  },
+  modalSummaryIcon: {
+    fontSize: '1.125rem',
+    width: '30px',
+    height: '30px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '4px',
+    backgroundColor: '#f0f8ff'
+  },
+  modalSummaryContent: {
+    display: 'flex',
+    flexDirection: 'column'
+  },
+  modalSummaryValue: {
+    fontSize: '1rem',
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: '1px'
+  },
+  modalSummaryLabel: {
+    fontSize: '0.625rem',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: '0.3px'
+  },
+  modalTableContainer: {
+    background: 'white',
+    borderRadius: '6px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    overflow: 'hidden',
+    border: '1px solid #e5e7eb'
+  },
+  modalTableTitle: {
+    margin: '0',
+    padding: '12px',
+    fontSize: '1rem',
+    fontWeight: '600',
+    color: '#333',
+    borderBottom: '1px solid #e0e0e0'
+  },
+  modalTableWrapper: {
+    overflowX: 'auto'
+  },
+  modalTable: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: '0.75rem'
+  },
+  modalTableHeader: {
+    backgroundColor: '#f8f9fa',
+    borderBottom: '1px solid #e0e0e0'
+  },
+  modalTableHeaderCell: {
+    padding: '8px 6px',
+    textAlign: 'left',
+    fontWeight: '600',
+    color: '#333',
+    fontSize: '0.625rem',
+    textTransform: 'uppercase',
+    letterSpacing: '0.3px'
+  },
+  modalTableRow: {
+    borderBottom: '1px solid #f0f0f0',
+    transition: 'background-color 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#f8f9fa'
+    }
+  },
+  modalTableCell: {
+    padding: '8px 6px',
+    verticalAlign: 'middle'
+  },
+  modalEmployeeInfo: {
+    display: 'flex',
+    flexDirection: 'column'
+  },
+  modalEmployeeName: {
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: '1px',
+    fontSize: '0.75rem'
+  },
+  modalEmployeeNumber: {
+    fontSize: '0.625rem',
+    color: '#666',
+    fontFamily: 'monospace'
+  },
+  modalEmployeePosition: {
+    fontSize: '0.75rem',
+    color: '#555'
+  },
+  modalEmployeeDepartment: {
+    fontSize: '0.75rem',
+    color: '#555'
+  },
+  modalSalaryValue: {
+    fontFamily: 'monospace',
+    fontSize: '0.75rem',
+    color: '#333',
+    fontWeight: '500'
+  },
+  modalNetSalaryValue: {
+    fontFamily: 'monospace',
+    fontSize: '0.75rem',
+    color: '#1976d2',
+    fontWeight: '600'
+  },
+  modalEmptyState: {
+    textAlign: 'center',
+    padding: '40px 15px'
+  },
+  modalEmptyStateIcon: {
+    fontSize: '2rem',
+    marginBottom: '12px'
+  },
+  modalEmptyStateTitle: {
+    fontSize: '1rem',
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: '6px'
+  },
+  modalEmptyStateText: {
+    fontSize: '0.75rem',
+    color: '#666',
+    maxWidth: '300px',
+    margin: '0 auto'
+  },
+  debugInfo: {
+    backgroundColor: '#fef2f2',
+    color: '#dc2626',
+    padding: '8px',
+    borderRadius: '4px',
+    margin: '8px 0',
+    border: '1px solid #fecaca',
+    fontSize: '0.75rem',
+    fontWeight: '500'
   }
 };
 

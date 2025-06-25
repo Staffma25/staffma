@@ -749,11 +749,11 @@ router.get('/business/:businessId', auth, async (req, res) => {
       activities,
       statistics: {
         ...activityStats[0] || {
-          totalActivities: 0,
-          criticalActivities: 0,
-          highActivities: 0,
-          mediumActivities: 0,
-          lowActivities: 0
+        totalActivities: 0,
+        criticalActivities: 0,
+        highActivities: 0,
+        mediumActivities: 0,
+        lowActivities: 0
         },
         employeeCount,
         userCount,
@@ -889,6 +889,50 @@ router.delete('/', auth, async (req, res) => {
     console.error('Error bulk deleting activities:', error);
     res.status(500).json({ 
       error: 'Failed to delete activities',
+      details: error.message 
+    });
+  }
+});
+
+// @route   GET api/activities/business/:businessId/payroll/:year/:month
+// @desc    Get payroll details for a specific business and month
+// @access  Private (Staffma users only)
+router.get('/business/:businessId/payroll/:year/:month', auth, async (req, res) => {
+  try {
+    // Check if user is a Staffma user
+    if (!isStaffmaAdmin(req.user)) {
+      return res.status(403).json({ 
+        error: 'Unauthorized',
+        message: 'Only Staffma administrators can access payroll details'
+      });
+    }
+
+    const { businessId, year, month } = req.params;
+
+    // Validate business exists
+    const business = await Business.findById(businessId).select('businessName email');
+    if (!business) {
+      return res.status(404).json({ message: 'Business not found' });
+    }
+
+    // Get payroll details for the specific month
+    const payrollDetails = await Payroll.find({
+      businessId: new mongoose.Types.ObjectId(businessId),
+      year: parseInt(year),
+      month: parseInt(month)
+    })
+    .populate('employeeId', 'firstName lastName position department employeeNumber')
+    .sort({ 'employeeId.firstName': 1, 'employeeId.lastName': 1 });
+
+    res.json({
+      businessInfo: business,
+      payrollDetails: payrollDetails
+    });
+
+  } catch (error) {
+    console.error('Error fetching payroll details:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch payroll details',
       details: error.message 
     });
   }

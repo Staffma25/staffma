@@ -328,78 +328,78 @@ const styles = {
   container: {
     maxWidth: '800px',
     margin: '0 auto',
-    padding: '2rem',
+    padding: '15px',
     backgroundColor: '#ffffff',
-    borderRadius: '8px',
+    borderRadius: '6px',
     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
   },
   title: {
-    fontSize: '1.8rem',
+    fontSize: '1.5rem',
     color: '#2c3e50',
-    marginBottom: '2rem',
+    marginBottom: '15px',
     textAlign: 'center'
   },
   form: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '1.5rem'
+    gap: '15px'
   },
   formGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.5rem'
+    gap: '4px'
   },
   label: {
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     color: '#2c3e50',
     fontWeight: '500'
   },
   input: {
-    padding: '0.75rem',
+    padding: '8px',
     borderRadius: '4px',
     border: '1px solid #dcdde1',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     width: '100%'
   },
   select: {
-    padding: '0.75rem',
+    padding: '8px',
     borderRadius: '4px',
     border: '1px solid #dcdde1',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     width: '100%',
     backgroundColor: '#ffffff'
   },
   textarea: {
-    padding: '0.75rem',
+    padding: '8px',
     borderRadius: '4px',
     border: '1px solid #dcdde1',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     width: '100%',
     resize: 'vertical'
   },
   fileInput: {
-    padding: '0.5rem',
+    padding: '6px',
     border: '1px dashed #dcdde1',
     borderRadius: '4px',
     width: '100%'
   },
   helperText: {
-    fontSize: '0.875rem',
+    fontSize: '0.75rem',
     color: '#7f8c8d',
-    marginTop: '0.25rem'
+    marginTop: '2px'
   },
   buttonGroup: {
     display: 'flex',
-    gap: '1rem',
-    marginTop: '1rem'
+    gap: '8px',
+    marginTop: '8px'
   },
   submitButton: {
-    padding: '0.75rem 1.5rem',
+    padding: '8px 16px',
     backgroundColor: '#3498db',
     color: '#ffffff',
     border: 'none',
     borderRadius: '4px',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     cursor: 'pointer',
     flex: 1,
     '&:hover': {
@@ -411,12 +411,12 @@ const styles = {
     }
   },
   cancelButton: {
-    padding: '0.75rem 1.5rem',
+    padding: '8px 16px',
     backgroundColor: '#e74c3c',
     color: '#ffffff',
     border: 'none',
     borderRadius: '4px',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     cursor: 'pointer',
     flex: 1,
     '&:hover': {
@@ -424,34 +424,36 @@ const styles = {
     }
   },
   error: {
-    padding: '1rem',
+    padding: '8px',
     backgroundColor: '#fde8e8',
     color: '#c81e1e',
     borderRadius: '4px',
-    marginBottom: '1rem'
+    marginBottom: '8px',
+    fontSize: '0.875rem',
   },
   success: {
-    padding: '1rem',
+    padding: '8px',
     backgroundColor: '#e8f5e9',
     color: '#2e7d32',
     borderRadius: '4px',
-    marginBottom: '1rem'
+    marginBottom: '8px',
+    fontSize: '0.875rem',
   },
   employeeInfo: {
     backgroundColor: '#f8f9fa',
-    padding: '1.5rem',
-    borderRadius: '8px',
-    marginBottom: '2rem',
+    padding: '12px',
+    borderRadius: '6px',
+    marginBottom: '15px',
     border: '1px solid #e9ecef',
   },
   employeeName: {
-    fontSize: '1.5rem',
+    fontSize: '1.25rem',
     color: '#2c3e50',
-    margin: '0 0 0.5rem 0',
+    margin: '0 0 4px 0',
     fontWeight: '600',
   },
   employeeDepartment: {
-    fontSize: '1.1rem',
+    fontSize: '0.875rem',
     color: '#6c757d',
     margin: 0,
   },

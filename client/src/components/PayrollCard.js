@@ -34,31 +34,33 @@ function PayrollCard({ payrollSummary }) {
 const styles = {
   card: {
     backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '20px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    marginBottom: '20px',
+    borderRadius: '6px',
+    padding: '15px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    marginBottom: '15px',
   },
   title: {
-    margin: '0 0 15px 0',
+    margin: '0 0 10px 0',
     color: '#2c3e50',
+    fontSize: '1rem',
   },
   content: {
     display: 'flex',
     justifyContent: 'space-between',
-    marginBottom: '20px',
+    marginBottom: '15px',
   },
   stat: {
     textAlign: 'center',
   },
   button: {
     width: '100%',
-    padding: '10px',
+    padding: '8px',
     backgroundColor: '#3498db',
     color: 'white',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '3px',
     cursor: 'pointer',
+    fontSize: '0.875rem',
   }
 };
 

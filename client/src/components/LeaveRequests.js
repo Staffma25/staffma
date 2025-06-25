@@ -201,7 +201,7 @@ function LeaveRequests() {
 
 const styles = {
   container: {
-    padding: '2rem',
+    padding: '15px',
     maxWidth: '1200px',
     margin: '0 auto'
   },
@@ -209,39 +209,39 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '2rem'
+    marginBottom: '15px'
   },
   title: {
-    fontSize: '1.875rem',
+    fontSize: '1.5rem',
     color: '#1f2937',
     margin: 0
   },
   filters: {
     display: 'flex',
-    gap: '1rem',
-    marginBottom: '1.5rem'
+    gap: '8px',
+    marginBottom: '15px'
   },
   filterGroup: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem'
+    gap: '4px'
   },
   label: {
-    fontSize: '0.875rem',
+    fontSize: '0.75rem',
     color: '#4b5563',
     fontWeight: '500'
   },
   select: {
-    padding: '0.5rem',
+    padding: '6px',
     border: '1px solid #d1d5db',
-    borderRadius: '0.375rem',
+    borderRadius: '4px',
     fontSize: '0.875rem',
     backgroundColor: 'white'
   },
   tableContainer: {
     overflowX: 'auto',
     backgroundColor: 'white',
-    borderRadius: '0.5rem',
+    borderRadius: '6px',
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
   },
   table: {
@@ -249,11 +249,11 @@ const styles = {
     borderCollapse: 'collapse'
   },
   th: {
-    padding: '1rem',
+    padding: '10px 12px',
     textAlign: 'left',
     backgroundColor: '#f9fafb',
     color: '#374151',
-    fontSize: '0.875rem',
+    fontSize: '0.75rem',
     fontWeight: '600',
     borderBottom: '1px solid #e5e7eb'
   },
@@ -264,25 +264,25 @@ const styles = {
     }
   },
   td: {
-    padding: '1rem',
-    fontSize: '0.875rem',
+    padding: '10px 12px',
+    fontSize: '0.75rem',
     color: '#4b5563'
   },
   status: {
-    padding: '0.25rem 0.75rem',
-    borderRadius: '9999px',
-    fontSize: '0.75rem',
+    padding: '3px 6px',
+    borderRadius: '12px',
+    fontSize: '0.625rem',
     fontWeight: '500',
     color: 'white',
     textTransform: 'capitalize'
   },
   viewButton: {
-    padding: '0.5rem 1rem',
+    padding: '4px 8px',
     backgroundColor: '#f3f4f6',
     color: '#374151',
     border: 'none',
-    borderRadius: '0.375rem',
-    fontSize: '0.875rem',
+    borderRadius: '4px',
+    fontSize: '0.75rem',
     cursor: 'pointer',
     transition: 'background-color 0.2s',
     '&:hover': {
@@ -291,21 +291,24 @@ const styles = {
   },
   loading: {
     textAlign: 'center',
-    padding: '2rem',
-    color: '#6b7280'
+    padding: '15px',
+    color: '#6b7280',
+    fontSize: '0.875rem',
   },
   error: {
     textAlign: 'center',
-    padding: '2rem',
-    color: '#ef4444'
+    padding: '15px',
+    color: '#ef4444',
+    fontSize: '0.875rem',
   },
   noData: {
     textAlign: 'center',
-    padding: '2rem',
+    padding: '15px',
     color: '#6b7280',
     backgroundColor: 'white',
-    borderRadius: '0.5rem',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+    borderRadius: '6px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    fontSize: '0.875rem',
   }
 };
 

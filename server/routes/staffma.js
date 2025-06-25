@@ -175,7 +175,12 @@ router.get('/users', auth, async (req, res) => {
     }
 
     const currentUser = await StaffmaUser.findById(req.user.userId);
-    if (!currentUser || !currentUser.hasPermission('userManagement', 'manageStaffmaUsers')) {
+    if (!currentUser) {
+      return res.status(403).json({ message: 'User not found' });
+    }
+
+    // Allow super admins to view all users, or check specific permission for other roles
+    if (currentUser.role !== 'super_admin' && !currentUser.hasPermission('userManagement', 'manageStaffmaUsers')) {
       return res.status(403).json({ message: 'Insufficient permissions' });
     }
 
@@ -189,6 +194,7 @@ router.get('/users', auth, async (req, res) => {
         email: user.email,
         role: user.role,
         status: user.status,
+        dynamicStatus: user.getDynamicStatus(),
         lastLogin: user.lastLogin,
         createdAt: user.createdAt,
         createdBy: user.createdBy
@@ -210,7 +216,12 @@ router.post('/users', auth, async (req, res) => {
     }
 
     const currentUser = await StaffmaUser.findById(req.user.userId);
-    if (!currentUser || !currentUser.hasPermission('userManagement', 'createStaffmaUsers')) {
+    if (!currentUser) {
+      return res.status(403).json({ message: 'User not found' });
+    }
+
+    // Allow super admins to create users, or check specific permission for other roles
+    if (currentUser.role !== 'super_admin' && !currentUser.hasPermission('userManagement', 'createStaffmaUsers')) {
       return res.status(403).json({ message: 'Insufficient permissions' });
     }
 
@@ -262,7 +273,12 @@ router.put('/users/:id', auth, async (req, res) => {
     }
 
     const currentUser = await StaffmaUser.findById(req.user.userId);
-    if (!currentUser || !currentUser.hasPermission('userManagement', 'manageStaffmaUsers')) {
+    if (!currentUser) {
+      return res.status(403).json({ message: 'User not found' });
+    }
+
+    // Allow super admins to update users, or check specific permission for other roles
+    if (currentUser.role !== 'super_admin' && !currentUser.hasPermission('userManagement', 'manageStaffmaUsers')) {
       return res.status(403).json({ message: 'Insufficient permissions' });
     }
 
@@ -310,7 +326,12 @@ router.delete('/users/:id', auth, async (req, res) => {
     }
 
     const currentUser = await StaffmaUser.findById(req.user.userId);
-    if (!currentUser || !currentUser.hasPermission('userManagement', 'manageStaffmaUsers')) {
+    if (!currentUser) {
+      return res.status(403).json({ message: 'User not found' });
+    }
+
+    // Allow super admins to delete users, or check specific permission for other roles
+    if (currentUser.role !== 'super_admin' && !currentUser.hasPermission('userManagement', 'manageStaffmaUsers')) {
       return res.status(403).json({ message: 'Insufficient permissions' });
     }
 

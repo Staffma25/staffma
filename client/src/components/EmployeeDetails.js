@@ -659,23 +659,23 @@ function EmployeeDetails() {
               <form onSubmit={handleAddCustomDeduction} style={styles.form}>
                 <div style={styles.formGrid}>
                   <div style={styles.formGroup}>
-                    <label style={styles.label}>Description *</label>
+                    <label style={styles.formLabel}>Description *</label>
                     <input
                       type="text"
                       value={newDeduction.description}
                       onChange={(e) => setNewDeduction({...newDeduction, description: e.target.value})}
-                      style={styles.input}
+                      style={styles.formInput}
                       placeholder="e.g., Salary Advance, Loan Repayment"
                       required
                     />
                   </div>
                   
                   <div style={styles.formGroup}>
-                    <label style={styles.label}>Type *</label>
+                    <label style={styles.formLabel}>Type *</label>
                     <select
                       value={newDeduction.type}
                       onChange={(e) => setNewDeduction({...newDeduction, type: e.target.value})}
-                      style={styles.select}
+                      style={styles.formSelect}
                       required
                     >
                       <option value="salary_advance">Salary Advance</option>
@@ -685,57 +685,57 @@ function EmployeeDetails() {
                   </div>
                   
                   <div style={styles.formGroup}>
-                    <label style={styles.label}>Total Amount *</label>
+                    <label style={styles.formLabel}>Total Amount *</label>
                     <input
                       type="number"
                       min="0"
                       step="0.01"
                       value={newDeduction.amount}
                       onChange={(e) => setNewDeduction({...newDeduction, amount: e.target.value})}
-                      style={styles.input}
+                      style={styles.formInput}
                       placeholder="0.00"
                       required
                     />
                   </div>
                   
                   <div style={styles.formGroup}>
-                    <label style={styles.label}>Monthly Deduction Amount *</label>
+                    <label style={styles.formLabel}>Monthly Deduction Amount *</label>
                     <input
                       type="number"
                       min="0"
                       step="0.01"
                       value={newDeduction.monthlyAmount}
                       onChange={(e) => setNewDeduction({...newDeduction, monthlyAmount: e.target.value})}
-                      style={styles.input}
+                      style={styles.formInput}
                       placeholder="0.00"
                       required
                     />
                   </div>
                   
                   <div style={styles.formGroup}>
-                    <label style={styles.label}>Start Date *</label>
+                    <label style={styles.formLabel}>Start Date *</label>
                     <input
                       type="date"
                       value={newDeduction.startDate}
                       onChange={(e) => setNewDeduction({...newDeduction, startDate: e.target.value})}
-                      style={styles.input}
+                      style={styles.formInput}
                       required
                     />
                   </div>
                   
                   <div style={styles.formGroup}>
-                    <label style={styles.label}>End Date</label>
+                    <label style={styles.formLabel}>End Date</label>
                     <input
                       type="date"
                       value={newDeduction.endDate}
                       onChange={(e) => setNewDeduction({...newDeduction, endDate: e.target.value})}
-                      style={styles.input}
+                      style={styles.formInput}
                     />
                   </div>
                 </div>
                 
                 <div style={styles.formButtons}>
-                  <button type="submit" style={styles.submitButton}>
+                  <button type="submit" style={styles.addButton}>
                     Add Deduction
                   </button>
                 </div>
@@ -777,11 +777,11 @@ function EmployeeDetails() {
                             </span>
                           </td>
                           <td style={styles.tableCell}>
-                            <div style={styles.actionButtons}>
+                            <div style={styles.deductionActions}>
                               {deduction.status === 'active' && (
                                 <button
                                   onClick={() => handleUpdateDeductionStatus(deduction._id, 'completed')}
-                                  style={styles.actionButton}
+                                  style={styles.actionBtn}
                                 >
                                   Complete
                                 </button>
@@ -789,14 +789,14 @@ function EmployeeDetails() {
                               {deduction.status === 'active' && (
                                 <button
                                   onClick={() => handleUpdateDeductionStatus(deduction._id, 'cancelled')}
-                                  style={styles.actionButton}
+                                  style={styles.actionBtn}
                                 >
                                   Cancel
                                 </button>
                               )}
                               <button
                                 onClick={() => handleDeleteDeduction(deduction._id)}
-                                style={{...styles.actionButton, backgroundColor: '#e74c3c'}}
+                                style={styles.deleteBtn}
                               >
                                 Delete
                               </button>
@@ -832,14 +832,14 @@ function EmployeeDetails() {
             <div style={styles.modalButtons}>
               <button
                 onClick={() => setShowDeleteModal(false)}
-                style={styles.modalButton}
+                style={styles.cancelButton}
                 disabled={actionLoading}
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteEmployee}
-                style={{...styles.modalButton, ...styles.deleteButton}}
+                style={{...styles.confirmButton, ...styles.deleteButton}}
                 disabled={actionLoading}
               >
                 {actionLoading ? 'Deleting...' : 'Delete Employee'}
@@ -863,7 +863,7 @@ function EmployeeDetails() {
             <div style={styles.modalButtons}>
               <button
                 onClick={() => setShowBlockModal(false)}
-                style={styles.modalButton}
+                style={styles.cancelButton}
                 disabled={actionLoading}
               >
                 Cancel
@@ -871,7 +871,7 @@ function EmployeeDetails() {
               <button
                 onClick={handleToggleEmployeeStatus}
                 style={{
-                  ...styles.modalButton,
+                  ...styles.confirmButton,
                   backgroundColor: employee.status === 'active' ? '#e74c3c' : '#2ecc71'
                 }}
                 disabled={actionLoading}
@@ -914,41 +914,44 @@ const getStatusStyle = (status) => ({
 
 const styles = {
   container: {
-    padding: '20px',
+    padding: '15px',
     maxWidth: '1200px',
     margin: '0 auto',
   },
   header: {
     display: 'flex',
     alignItems: 'center',
-    gap: '20px',
-    marginBottom: '30px',
+    gap: '15px',
+    marginBottom: '20px',
   },
   title: {
     margin: 0,
     color: '#2c3e50',
+    fontSize: '1.5rem',
   },
   backButton: {
-    padding: '8px 16px',
+    padding: '6px 12px',
     backgroundColor: '#f1f1f1',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
+    gap: '6px',
+    fontSize: '0.875rem',
   },
   tabs: {
     display: 'flex',
-    gap: '10px',
-    marginBottom: '20px',
+    gap: '8px',
+    marginBottom: '15px',
   },
   tab: {
-    padding: '10px 20px',
+    padding: '8px 16px',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
     backgroundColor: '#f1f1f1',
+    fontSize: '0.875rem',
   },
   activeTab: {
     backgroundColor: '#3498db',
@@ -956,56 +959,58 @@ const styles = {
   },
   card: {
     backgroundColor: 'white',
-    padding: '20px',
-    borderRadius: '8px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    padding: '15px',
+    borderRadius: '6px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
   },
   detailsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '20px',
-    marginTop: '20px',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '15px',
+    marginTop: '15px',
   },
   detailItem: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '4px',
+    gap: '3px',
   },
   label: {
     color: '#666',
-    fontSize: '0.9rem',
+    fontSize: '0.75rem',
   },
   value: {
     color: '#2c3e50',
-    fontSize: '1.1rem',
+    fontSize: '0.875rem',
     fontWeight: '500',
   },
   reviewCard: {
-    padding: '15px',
+    padding: '12px',
     borderBottom: '1px solid #eee',
-    marginBottom: '15px',
+    marginBottom: '12px',
   },
   table: {
     width: '100%',
     borderCollapse: 'collapse',
-    marginTop: '20px',
+    marginTop: '15px',
     backgroundColor: 'white',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    borderRadius: '8px',
+    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+    borderRadius: '6px',
     overflow: 'hidden',
   },
   tableHeader: {
     backgroundColor: '#f8f9fa',
-    padding: '12px 15px',
+    padding: '8px 12px',
     textAlign: 'left',
     fontWeight: '600',
     color: '#2c3e50',
-    borderBottom: '2px solid #e9ecef',
+    borderBottom: '1px solid #e9ecef',
+    fontSize: '0.75rem',
   },
   tableCell: {
-    padding: '12px 15px',
+    padding: '8px 12px',
     borderBottom: '1px solid #e9ecef',
     color: '#2c3e50',
+    fontSize: '0.75rem',
   },
   tableRow: {
     '&:hover': {
@@ -1013,105 +1018,112 @@ const styles = {
     },
   },
   downloadButton: {
-    padding: '6px 12px',
+    padding: '4px 8px',
     backgroundColor: '#2ecc71',
     color: 'white',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '3px',
     cursor: 'pointer',
+    fontSize: '0.75rem',
   },
   error: {
     color: '#e74c3c',
-    padding: '20px',
+    padding: '15px',
     backgroundColor: '#ffd5d5',
-    borderRadius: '8px',
+    borderRadius: '6px',
     textAlign: 'center',
+    fontSize: '0.875rem',
   },
   loadingMessage: {
     textAlign: 'center',
-    padding: '20px',
+    padding: '15px',
     color: '#666',
+    fontSize: '0.875rem',
   },
   headerLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: '20px',
+    gap: '15px',
   },
   documentSection: {
-    marginBottom: '30px',
-    padding: '20px',
+    marginBottom: '20px',
+    padding: '15px',
     backgroundColor: '#f8f9fa',
-    borderRadius: '8px',
+    borderRadius: '6px',
   },
   documentTitle: {
-    margin: '0 0 15px 0',
+    margin: '0 0 10px 0',
     color: '#2c3e50',
+    fontSize: '1rem',
   },
   documentInfo: {
-    marginBottom: '15px',
+    marginBottom: '10px',
   },
   downloadLink: {
     display: 'inline-block',
-    padding: '8px 16px',
+    padding: '6px 12px',
     backgroundColor: '#3498db',
     color: 'white',
     textDecoration: 'none',
-    borderRadius: '4px',
-    marginTop: '10px',
+    borderRadius: '3px',
+    marginTop: '8px',
+    fontSize: '0.75rem',
   },
   fileInput: {
-    marginTop: '10px',
-    padding: '8px',
+    marginTop: '8px',
+    padding: '6px',
     border: '1px solid #ddd',
-    borderRadius: '4px',
+    borderRadius: '3px',
     width: '100%',
+    fontSize: '0.75rem',
   },
   insuranceSection: {
-    marginBottom: '30px',
-    padding: '20px',
+    marginBottom: '20px',
+    padding: '15px',
     backgroundColor: '#f8f9fa',
-    borderRadius: '8px',
+    borderRadius: '6px',
   },
   insuranceTitle: {
-    margin: '0 0 15px 0',
+    margin: '0 0 10px 0',
     color: '#2c3e50',
+    fontSize: '1rem',
   },
   insuranceInfo: {
-    marginBottom: '15px',
+    marginBottom: '10px',
   },
   uploadSection: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
+    gap: '8px',
   },
   input: {
-    padding: '8px 12px',
+    padding: '6px 10px',
     border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '14px',
+    borderRadius: '3px',
+    fontSize: '0.75rem',
     width: '100%',
   },
   select: {
-    padding: '8px 12px',
+    padding: '6px 10px',
     border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '14px',
+    borderRadius: '3px',
+    fontSize: '0.75rem',
     backgroundColor: 'white',
     width: '100%',
   },
   actionButtons: {
     display: 'flex',
-    gap: '10px',
+    gap: '8px',
     marginLeft: 'auto',
   },
   actionButton: {
-    padding: '8px 16px',
+    padding: '6px 12px',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '3px',
     color: 'white',
     cursor: 'pointer',
     fontWeight: '500',
-    fontSize: '12px',
+    fontSize: '0.75rem',
     backgroundColor: '#3498db',
     '&:disabled': {
       opacity: 0.7,
@@ -1132,103 +1144,89 @@ const styles = {
   },
   modal: {
     backgroundColor: 'white',
-    padding: '24px',
-    borderRadius: '8px',
+    padding: '20px',
+    borderRadius: '6px',
     maxWidth: '500px',
     width: '90%',
   },
   modalTitle: {
-    margin: '0 0 16px 0',
+    margin: '0 0 12px 0',
     color: '#2c3e50',
+    fontSize: '1.125rem',
   },
   modalText: {
-    margin: '0 0 16px 0',
+    margin: '0 0 12px 0',
     color: '#666',
+    fontSize: '0.875rem',
   },
   modalList: {
-    margin: '0 0 16px 0',
-    paddingLeft: '20px',
-    color: '#666',
-  },
-  modalWarning: {
-    color: '#e74c3c',
-    fontWeight: '500',
-    margin: '0 0 16px 0',
+    margin: '0 0 12px 0',
+    fontSize: '0.875rem',
   },
   modalButtons: {
     display: 'flex',
-    gap: '10px',
+    gap: '8px',
     justifyContent: 'flex-end',
   },
   modalButton: {
-    padding: '8px 16px',
+    padding: '6px 12px',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '3px',
     cursor: 'pointer',
-    fontWeight: '500',
-    '&:disabled': {
-      opacity: 0.7,
-      cursor: 'not-allowed',
-    },
+    fontSize: '0.875rem',
   },
-  deleteButton: {
+  confirmButton: {
     backgroundColor: '#e74c3c',
     color: 'white',
   },
-  documentsSection: {
-    marginTop: '2rem',
-    padding: '1rem',
-    background: 'white',
-    borderRadius: '0.5rem',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-  },
-  documentsSectionH3: {
-    marginBottom: '1.5rem',
-    color: '#2d3748',
-  },
-  documentsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    gap: '1rem',
+  cancelButton: {
+    backgroundColor: '#95a5a6',
+    color: 'white',
   },
   deductionForm: {
     backgroundColor: '#f8f9fa',
-    padding: '20px',
-    borderRadius: '8px',
-    marginBottom: '20px',
-  },
-  formTitle: {
-    margin: '0 0 15px 0',
-    color: '#2c3e50',
-    fontSize: '16px',
-    fontWeight: '600',
-  },
-  form: {
-    width: '100%',
+    padding: '15px',
+    borderRadius: '6px',
+    marginBottom: '15px',
   },
   formGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '15px',
-    marginBottom: '15px',
+    gap: '10px',
+    marginBottom: '10px',
   },
   formGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '5px',
+    gap: '4px',
   },
-  formButtons: {
-    display: 'flex',
-    justifyContent: 'flex-end',
+  formLabel: {
+    fontSize: '0.75rem',
+    fontWeight: '600',
+    color: '#2c3e50',
   },
-  submitButton: {
-    padding: '10px 20px',
-    backgroundColor: '#3498db',
+  formInput: {
+    padding: '6px 10px',
+    border: '1px solid #ddd',
+    borderRadius: '3px',
+    fontSize: '0.75rem',
+  },
+  formSelect: {
+    padding: '6px 10px',
+    border: '1px solid #ddd',
+    borderRadius: '3px',
+    fontSize: '0.75rem',
+    backgroundColor: 'white',
+  },
+  addButton: {
+    padding: '6px 12px',
+    backgroundColor: '#27ae60',
     color: 'white',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '3px',
     cursor: 'pointer',
-    fontSize: '14px',
+    fontSize: '0.75rem',
+    fontWeight: '500',
   },
   deductionsList: {
     marginTop: '20px',
@@ -1254,6 +1252,15 @@ const styles = {
     color: '#2c3e50',
     fontSize: '18px',
     fontWeight: '600',
+  },
+  deleteButton: {
+    backgroundColor: '#e74c3c',
+    color: 'white',
+  },
+  modalWarning: {
+    color: '#e74c3c',
+    fontWeight: '500',
+    margin: '0 0 16px 0',
   },
 };
 

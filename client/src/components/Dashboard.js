@@ -533,12 +533,6 @@ function Dashboard() {
                       <p style={styles.employeePosition}>{employee.position}</p>
                       <p style={styles.employeeDepartment}>{employee.department}</p>
                     </div>
-                    <button 
-                      onClick={() => handleViewEmployee(employee)}
-                      style={styles.viewEmployeeBtn}
-                    >
-                      View Details
-                    </button>
                   </div>
                 ))
               ) : (
@@ -953,7 +947,7 @@ function Dashboard() {
 
 const styles = {
   container: {
-    padding: '2rem',
+    padding: '15px',
     maxWidth: '1400px',
     margin: '0 auto',
     minHeight: '100vh',
@@ -963,98 +957,98 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '2.5rem',
-    padding: '1rem 0',
-    borderBottom: '2px solid #e9ecef',
+    marginBottom: '20px',
+    padding: '15px 0',
+    borderBottom: '1px solid #e9ecef',
   },
   title: {
-    fontSize: '2.5rem',
+    fontSize: '1.75rem',
     color: '#2c3e50',
-    marginBottom: '0.5rem',
+    marginBottom: '4px',
     fontWeight: '600',
   },
   subtitle: {
     color: '#6c757d',
-    fontSize: '1.1rem',
+    fontSize: '0.875rem',
   },
   logoutBtn: {
-    padding: '0.75rem 1.5rem',
+    padding: '8px 16px',
     backgroundColor: '#e74c3c',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     transition: 'all 0.2s ease',
     '&:hover': {
       backgroundColor: '#c0392b',
     },
   },
   overviewGrid: {
-    marginTop: '2rem',
+    marginTop: '15px',
   },
   quickStats: {
     backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '1.5rem',
-    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.07)',
+    borderRadius: '8px',
+    padding: '20px',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.07)',
   },
   statsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-    gap: '1.5rem',
-    marginTop: '1rem',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '15px',
+    marginTop: '15px',
   },
   statCard: {
     backgroundColor: '#f8fafc',
-    padding: '1.5rem',
-    borderRadius: '8px',
+    padding: '15px',
+    borderRadius: '6px',
     border: '1px solid #e2e8f0',
     transition: 'transform 0.2s ease',
     '&:hover': {
-      transform: 'translateY(-2px)',
+      transform: 'translateY(-1px)',
     },
   },
   statValue: {
-    fontSize: '1.8rem',
+    fontSize: '1.5rem',
     fontWeight: '600',
     color: '#0f172a',
-    marginTop: '0.5rem',
+    marginTop: '4px',
     display: 'flex',
     flexDirection: 'column',
   },
   statLabel: {
-    fontSize: '0.875rem',
+    fontSize: '0.75rem',
     color: '#64748b',
     fontWeight: '400',
-    marginTop: '0.25rem',
+    marginTop: '2px',
   },
   sectionTitle: {
-    fontSize: '1.25rem',
+    fontSize: '1.125rem',
     color: '#2c3e50',
-    marginBottom: '1rem',
+    marginBottom: '15px',
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
+    gap: '8px',
   },
   icon: {
-    fontSize: '1.5rem',
+    fontSize: '1.125rem',
   },
   loading: {
     textAlign: 'center',
-    padding: '2rem',
+    padding: '20px',
     color: '#7f8c8d',
   },
   error: {
     textAlign: 'center',
-    padding: '2rem',
+    padding: '20px',
     color: '#e74c3c',
   },
   formGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '1.5rem',
-    marginBottom: '1.5rem',
+    gap: '15px',
+    marginBottom: '15px',
   },
   '@media (max-width: 768px)': {
     formGrid: {
@@ -1064,33 +1058,33 @@ const styles = {
   formGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.5rem',
+    gap: '4px',
   },
   formButtons: {
     display: 'flex',
-    gap: '1rem',
+    gap: '10px',
     justifyContent: 'flex-end',
   },
   submitBtn: {
-    padding: '0.8rem 2rem',
+    padding: '8px 16px',
     backgroundColor: '#27ae60',
     color: 'white',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     '&:hover': {
       backgroundColor: '#219a52',
     },
   },
   cancelBtn: {
-    padding: '0.8rem 2rem',
+    padding: '8px 16px',
     backgroundColor: '#e74c3c',
     color: 'white',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     '&:hover': {
       backgroundColor: '#c0392b',
     },
@@ -1108,59 +1102,59 @@ const styles = {
   },
   modalContent: {
     backgroundColor: 'white',
-    padding: '2rem',
-    borderRadius: '12px',
+    padding: '20px',
+    borderRadius: '8px',
     width: '90%',
     maxWidth: '800px',
     maxHeight: '90vh',
     overflowY: 'auto',
   },
   modalTitle: {
-    fontSize: '1.5rem',
+    fontSize: '1.25rem',
     color: '#2c3e50',
-    marginBottom: '1.5rem',
+    marginBottom: '15px',
     fontWeight: '600',
   },
   permissionsSection: {
-    marginTop: '1.5rem',
-    padding: '1.5rem',
+    marginTop: '15px',
+    padding: '15px',
     backgroundColor: '#f8f9fa',
-    borderRadius: '8px',
+    borderRadius: '6px',
   },
   permissionsTitle: {
-    fontSize: '1.1rem',
+    fontSize: '1rem',
     color: '#2c3e50',
-    marginBottom: '1rem',
+    marginBottom: '10px',
     fontWeight: '600',
   },
   permissionGroup: {
-    marginBottom: '1.5rem',
+    marginBottom: '15px',
   },
   permissionGroupTitle: {
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     color: '#2c3e50',
-    marginBottom: '0.5rem',
+    marginBottom: '4px',
     fontWeight: '600',
   },
   permissionsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '1rem',
+    gap: '10px',
   },
   checkboxLabel: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
-    fontSize: '0.95rem',
+    gap: '4px',
+    fontSize: '0.875rem',
     color: '#2c3e50',
     cursor: 'pointer',
   },
   welcomeSection: {
     backgroundColor: 'white',
-    borderRadius: '16px',
-    padding: '40px',
-    marginBottom: '30px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    borderRadius: '8px',
+    padding: '25px',
+    marginBottom: '20px',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
     border: '1px solid #e2e8f0',
     textAlign: 'center'
   },
@@ -1169,165 +1163,165 @@ const styles = {
     margin: '0 auto'
   },
   welcomeIcon: {
-    fontSize: '4rem',
-    marginBottom: '20px',
-    filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))'
+    fontSize: '2.5rem',
+    marginBottom: '12px',
+    filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))'
   },
   welcomeTitle: {
-    fontSize: '2rem',
+    fontSize: '1.5rem',
     fontWeight: '700',
     color: '#1e293b',
-    marginBottom: '15px'
+    marginBottom: '10px'
   },
   welcomeText: {
-    fontSize: '1.1rem',
+    fontSize: '0.875rem',
     color: '#64748b',
-    lineHeight: '1.6',
-    marginBottom: '30px'
+    lineHeight: '1.5',
+    marginBottom: '20px'
   },
   welcomeActions: {
     display: 'flex',
-    gap: '15px',
+    gap: '10px',
     justifyContent: 'center',
     flexWrap: 'wrap'
   },
   primaryAction: {
-    padding: '12px 24px',
+    padding: '8px 16px',
     backgroundColor: '#3b82f6',
     color: 'white',
     border: 'none',
-    borderRadius: '12px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     fontWeight: '600',
     transition: 'all 0.3s ease',
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.3)',
+    gap: '6px',
+    boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)',
     '&:hover': {
       backgroundColor: '#2563eb',
-      transform: 'translateY(-2px)',
-      boxShadow: '0 8px 15px -3px rgba(59, 130, 246, 0.4)'
+      transform: 'translateY(-1px)',
+      boxShadow: '0 4px 8px rgba(59, 130, 246, 0.4)'
     }
   },
   secondaryAction: {
-    padding: '12px 24px',
+    padding: '8px 16px',
     backgroundColor: '#f8fafc',
     color: '#475569',
     border: '1px solid #e2e8f0',
-    borderRadius: '12px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '1rem',
+    fontSize: '0.875rem',
     fontWeight: '600',
     transition: 'all 0.3s ease',
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
+    gap: '6px',
     '&:hover': {
       backgroundColor: '#f1f5f9',
-      transform: 'translateY(-2px)',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+      transform: 'translateY(-1px)',
+      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
     }
   },
   actionIcon: {
-    fontSize: '1.2rem'
+    fontSize: '1rem'
   },
   quickActionsSection: {
     backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '16px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    padding: '20px',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
     border: '1px solid #e2e8f0',
-    marginBottom: '30px'
+    marginBottom: '20px'
   },
   actionsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-    gap: '20px'
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: '15px'
   },
   actionCard: {
     backgroundColor: '#f8fafc',
-    borderRadius: '12px',
-    padding: '25px',
+    borderRadius: '6px',
+    padding: '15px',
     border: '1px solid #e2e8f0',
     cursor: 'pointer',
     transition: 'all 0.3s ease',
     textAlign: 'center',
     '&:hover': {
-      transform: 'translateY(-4px)',
-      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+      transform: 'translateY(-2px)',
+      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
       borderColor: '#3b82f6'
     }
   },
   actionCardIcon: {
-    fontSize: '2.5rem',
-    marginBottom: '15px',
-    filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))'
+    fontSize: '1.75rem',
+    marginBottom: '10px',
+    filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))'
   },
   actionCardTitle: {
-    fontSize: '1.25rem',
+    fontSize: '1rem',
     fontWeight: '600',
     color: '#1e293b',
-    marginBottom: '10px'
+    marginBottom: '6px'
   },
   actionCardText: {
     color: '#64748b',
-    fontSize: '0.9rem',
-    lineHeight: '1.5'
+    fontSize: '0.75rem',
+    lineHeight: '1.4'
   },
   recentEmployeesSection: {
     backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '16px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    padding: '20px',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
     border: '1px solid #e2e8f0',
-    marginBottom: '30px'
+    marginBottom: '20px'
   },
   employeesList: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-    gap: '20px'
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '15px'
   },
   employeeCard: {
     backgroundColor: '#f8fafc',
-    borderRadius: '12px',
-    padding: '20px',
+    borderRadius: '6px',
+    padding: '15px',
     border: '1px solid #e2e8f0',
     transition: 'all 0.3s ease',
     '&:hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+      transform: 'translateY(-1px)',
+      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
       borderColor: '#3b82f6'
     }
   },
   employeeInfo: {
-    marginBottom: '15px'
+    marginBottom: '10px'
   },
   employeeName: {
-    fontSize: '1.1rem',
+    fontSize: '1rem',
     fontWeight: '600',
     color: '#1e293b',
-    marginBottom: '5px'
+    marginBottom: '4px'
   },
   employeePosition: {
     color: '#64748b',
-    fontSize: '0.9rem',
-    marginBottom: '3px'
+    fontSize: '0.75rem',
+    marginBottom: '2px'
   },
   employeeDepartment: {
     color: '#94a3b8',
-    fontSize: '0.85rem',
+    fontSize: '0.75rem',
     fontStyle: 'italic'
   },
   viewEmployeeBtn: {
-    padding: '8px 16px',
+    padding: '6px 12px',
     backgroundColor: '#3b82f6',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '0.9rem',
+    fontSize: '0.75rem',
     fontWeight: '500',
     transition: 'all 0.2s ease',
     '&:hover': {
@@ -1336,83 +1330,82 @@ const styles = {
   },
   recentActivitiesSection: {
     backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '16px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    padding: '20px',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
     border: '1px solid #e2e8f0'
   },
   activitiesList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '15px'
+    gap: '10px'
   },
   activityItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: '15px',
-    padding: '15px',
+    gap: '10px',
+    padding: '10px',
     backgroundColor: '#f8fafc',
-    borderRadius: '8px',
+    borderRadius: '6px',
     border: '1px solid #e2e8f0'
   },
   activityIcon: {
-    fontSize: '1.5rem'
+    fontSize: '1.125rem'
   },
   activityText: {
     color: '#475569',
-    fontSize: '0.9rem'
+    fontSize: '0.75rem'
   },
   emptyState: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '40px',
+    padding: '25px',
     textAlign: 'center',
     backgroundColor: '#f8fafc',
-    borderRadius: '12px',
-    border: '2px dashed #e2e8f0'
+    borderRadius: '6px',
+    border: '1px dashed #e2e8f0'
   },
   emptyStateIcon: {
-    fontSize: '3rem',
+    fontSize: '2rem',
     color: '#94a3b8',
-    marginBottom: '15px',
+    marginBottom: '10px',
     opacity: '0.7'
   },
   emptyStateTitle: {
-    fontSize: '1.25rem',
+    fontSize: '1rem',
     fontWeight: '600',
     color: '#475569',
-    marginBottom: '8px'
+    marginBottom: '6px'
   },
   emptyStateText: {
     color: '#64748b',
-    fontSize: '0.9rem',
-    lineHeight: '1.5',
-    marginBottom: '20px',
-    maxWidth: '300px'
+    fontSize: '0.75rem',
+    lineHeight: '1.4',
+    marginBottom: '15px',
+    maxWidth: '250px'
   },
   emptyStateAction: {
-    padding: '10px 20px',
+    padding: '8px 16px',
     backgroundColor: '#3b82f6',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '0.9rem',
+    fontSize: '0.875rem',
     fontWeight: '500',
     transition: 'all 0.2s ease',
     '&:hover': {
-      backgroundColor: '#2563eb',
-      transform: 'translateY(-1px)'
+      backgroundColor: '#2563eb'
     }
   },
   businessInfo: {
-    fontSize: '0.9rem',
+    fontSize: '0.75rem',
     color: '#64748b',
-    marginTop: '0.5rem',
+    marginTop: '4px',
     display: 'flex',
-    gap: '10px'
+    gap: '8px'
   },
   businessId: {
     fontWeight: '600'

@@ -165,9 +165,9 @@ function PerformanceReviews() {
 }
 
 const getStatusStyle = (status) => ({
-  padding: '4px 8px',
-  borderRadius: '4px',
-  fontSize: '14px',
+  padding: '3px 6px',
+  borderRadius: '3px',
+  fontSize: '0.75rem',
   fontWeight: '500',
   backgroundColor: 
     status === 'draft' ? '#ffd700' :
@@ -178,7 +178,7 @@ const getStatusStyle = (status) => ({
 
 const styles = {
   container: {
-    padding: '20px',
+    padding: '15px',
     maxWidth: '1400px',
     width: '95%',
     margin: '0 auto',
@@ -186,54 +186,60 @@ const styles = {
   header: {
     display: 'flex',
     alignItems: 'center',
-    gap: '20px',
-    marginBottom: '30px',
+    gap: '15px',
+    marginBottom: '20px',
   },
   title: {
     margin: 0,
     color: '#333',
+    fontSize: '1.5rem',
   },
   backButton: {
-    padding: '8px 16px',
+    padding: '6px 12px',
     backgroundColor: '#6c757d',
     color: 'white',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
+    fontSize: '0.875rem',
   },
   filters: {
     display: 'flex',
-    gap: '20px',
-    marginBottom: '20px',
+    gap: '15px',
+    marginBottom: '15px',
   },
   filterGroup: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
+    gap: '8px',
   },
   label: {
     fontWeight: '500',
     color: '#333',
+    fontSize: '0.875rem',
   },
   select: {
-    padding: '8px',
+    padding: '6px',
     borderRadius: '4px',
     border: '1px solid #ddd',
+    fontSize: '0.875rem',
   },
   periodInfo: {
-    marginBottom: '20px',
-    padding: '15px',
+    marginBottom: '15px',
+    padding: '12px',
     backgroundColor: '#f8f9fa',
-    borderRadius: '8px',
+    borderRadius: '6px',
     textAlign: 'center',
   },
   periodInfoTitle: {
-    margin: '0 0 10px 0',
+    margin: '0 0 8px 0',
     color: '#333',
+    fontSize: '1rem',
   },
   periodInfoText: {
     margin: 0,
     color: '#666',
+    fontSize: '0.875rem',
   },
   tableContainer: {
     overflowX: 'auto',
@@ -241,37 +247,50 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse',
-    marginTop: '20px',
+    marginTop: '15px',
   },
   th: {
     backgroundColor: '#f8f9fa',
-    padding: '12px',
+    padding: '10px 12px',
     textAlign: 'left',
     borderBottom: '2px solid #dee2e6',
     color: '#333',
+    fontSize: '0.75rem',
   },
   td: {
-    padding: '12px',
+    padding: '10px 12px',
     borderBottom: '1px solid #dee2e6',
     color: '#333',
+    fontSize: '0.75rem',
   },
   actionButton: {
-    padding: '6px 12px',
+    padding: '4px 8px',
     backgroundColor: '#007bff',
     color: 'white',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '3px',
     cursor: 'pointer',
+    fontSize: '0.75rem',
   },
   loading: {
     textAlign: 'center',
     color: '#666',
-    padding: '20px',
+    padding: '15px',
+    fontSize: '0.875rem',
   },
   noReviews: {
     textAlign: 'center',
     color: '#666',
-    padding: '20px',
+    padding: '15px',
+    fontSize: '0.875rem',
+  },
+  subtitle: {
+    fontSize: '1.125rem',
+    marginBottom: '15px',
+    color: '#333',
+  },
+  reviewsContainer: {
+    marginTop: '15px',
   },
 };
 

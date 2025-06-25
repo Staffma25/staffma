@@ -156,6 +156,10 @@ staffmaUserSchema.methods.comparePassword = async function(candidatePassword) {
 
 // Method to check if user has specific permission
 staffmaUserSchema.methods.hasPermission = function(module, action) {
+  // Super admins have all permissions
+  if (this.role === 'super_admin') {
+    return true;
+  }
   return this.permissions?.[module]?.[action] || false;
 };
 
@@ -168,6 +172,45 @@ staffmaUserSchema.methods.isSuperAdmin = function() {
 staffmaUserSchema.methods.isAdmin = function() {
   return this.role === 'admin' || this.role === 'super_admin';
 };
+
+// Method to get dynamic status based on last login and account activity
+staffmaUserSchema.methods.getDynamicStatus = function() {
+  // If manually suspended, return suspended
+  if (this.status === 'suspended') {
+    return 'suspended';
+  }
+  
+  // If no last login, consider inactive
+  if (!this.lastLogin) {
+    return 'inactive';
+  }
+  
+  const now = new Date();
+  const lastLogin = new Date(this.lastLogin);
+  const daysSinceLastLogin = Math.floor((now - lastLogin) / (1000 * 60 * 60 * 24));
+  
+  // If last login was more than 30 days ago, consider inactive
+  if (daysSinceLastLogin > 30) {
+    return 'inactive';
+  }
+  
+  // If last login was more than 7 days ago, consider idle
+  if (daysSinceLastLogin > 7) {
+    return 'idle';
+  }
+  
+  // Otherwise, consider active
+  return 'active';
+};
+
+// Virtual for dynamic status
+staffmaUserSchema.virtual('dynamicStatus').get(function() {
+  return this.getDynamicStatus();
+});
+
+// Ensure virtual fields are serialized
+staffmaUserSchema.set('toJSON', { virtuals: true });
+staffmaUserSchema.set('toObject', { virtuals: true });
 
 // Static method to create first super admin
 staffmaUserSchema.statics.createFirstSuperAdmin = async function(userData) {
