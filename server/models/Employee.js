@@ -94,6 +94,177 @@ const customDeductionSchema = new mongoose.Schema({
     }
 });
 
+const bankAccountSchema = new mongoose.Schema({
+    bankName: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    accountNumber: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    accountType: {
+        type: String,
+        enum: ['savings', 'current', 'salary'],
+        default: 'savings'
+    },
+    branchCode: {
+        type: String,
+        trim: true
+    },
+    swiftCode: {
+        type: String,
+        trim: true
+    },
+    isPrimary: {
+        type: Boolean,
+        default: false
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
+    }
+});
+
+const staffpesaWalletSchema = new mongoose.Schema({
+    walletId: {
+        type: String,
+        trim: true
+    },
+    employeeId: {
+        type: String,
+        trim: true
+    },
+    phoneNumber: {
+        type: String,
+        trim: true,
+        match: [/^254\d{9}$/, 'Phone number must be in format 254XXXXXXXXX']
+    },
+    isActive: {
+        type: Boolean,
+        default: false
+    },
+    status: {
+        type: String,
+        enum: ['pending', 'active', 'suspended', 'closed'],
+        default: 'pending'
+    },
+    balance: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    lastTransactionDate: {
+        type: Date
+    },
+    kycStatus: {
+        type: String,
+        enum: ['pending', 'verified', 'rejected'],
+        default: 'pending'
+    },
+    kycDocuments: {
+        idCard: {
+            url: String,
+            uploadedAt: Date,
+            status: {
+                type: String,
+                enum: ['pending', 'approved', 'rejected'],
+                default: 'pending'
+            }
+        },
+        selfie: {
+            url: String,
+            uploadedAt: Date,
+            status: {
+                type: String,
+                enum: ['pending', 'approved', 'rejected'],
+                default: 'pending'
+            }
+        }
+    },
+    securitySettings: {
+        pinEnabled: {
+            type: Boolean,
+            default: false
+        },
+        biometricEnabled: {
+            type: Boolean,
+            default: false
+        },
+        twoFactorEnabled: {
+            type: Boolean,
+            default: false
+        }
+    },
+    preferences: {
+        notifications: {
+            sms: {
+                type: Boolean,
+                default: true
+            },
+            email: {
+                type: Boolean,
+                default: true
+            },
+            push: {
+                type: Boolean,
+                default: true
+            }
+        },
+        language: {
+            type: String,
+            enum: ['en', 'sw'],
+            default: 'en'
+        },
+        currency: {
+            type: String,
+            default: 'KES'
+        }
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
+    },
+    activatedAt: {
+        type: Date
+    },
+    deactivatedAt: {
+        type: Date
+    },
+    notes: {
+        type: String,
+        trim: true
+    }
+});
+
+// Add custom validation to only require fields when walletId exists
+staffpesaWalletSchema.pre('validate', function(next) {
+    if (this.walletId) {
+        // If walletId exists, then employeeId and phoneNumber are required
+        if (!this.employeeId) {
+            this.invalidate('employeeId', 'Employee ID is required when wallet ID is provided');
+        }
+        if (!this.phoneNumber) {
+            this.invalidate('phoneNumber', 'Phone number is required when wallet ID is provided');
+        }
+    }
+    next();
+});
+
 const employeeSchema = new mongoose.Schema({
     employeeNumber: {
         type: String,
@@ -204,6 +375,18 @@ const employeeSchema = new mongoose.Schema({
         bankName: String,
         accountNumber: String,
         branchCode: String
+    },
+    bankAccounts: [bankAccountSchema],
+    staffpesaWallet: {
+        type: staffpesaWalletSchema
+    },
+    paymentMethodType: {
+        type: String,
+        enum: ['bank', 'wallet', null],
+        default: null
+    },
+    paymentMethodUpdatedAt: {
+        type: Date
     },
     status: {
         type: String,

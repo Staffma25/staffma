@@ -592,6 +592,367 @@ router.get('/:id/custom-deductions', auth, async (req, res) => {
   }
 });
 
+// ==================== BANK ACCOUNTS ROUTES ====================
+
+// Add bank account
+router.post('/:id/bank-accounts', auth, async (req, res) => {
+  try {
+    // Check if user has permission to edit employees
+    if (!req.user.hasPermission('employeeManagement', 'edit')) {
+      return res.status(403).json({ message: 'You do not have permission to edit employees' });
+    }
+
+    const { bankName, accountNumber, accountType, branchCode, swiftCode, isPrimary } = req.body;
+
+    // Validate required fields
+    if (!bankName || !accountNumber) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        details: 'Bank name and account number are required'
+      });
+    }
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.user.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // If setting as primary, unset other primary accounts
+    if (isPrimary) {
+      employee.bankAccounts.forEach(account => {
+        account.isPrimary = false;
+      });
+    }
+
+    const newBankAccount = {
+      bankName,
+      accountNumber,
+      accountType: accountType || 'savings',
+      branchCode,
+      swiftCode,
+      isPrimary: isPrimary || false
+    };
+
+    employee.bankAccounts.push(newBankAccount);
+    await employee.save();
+
+    res.status(201).json(employee);
+  } catch (error) {
+    console.error('Error adding bank account:', error);
+    res.status(500).json({ 
+      error: 'Failed to add bank account',
+      details: error.message 
+    });
+  }
+});
+
+// Update bank account
+router.put('/:id/bank-accounts/:accountId', auth, async (req, res) => {
+  try {
+    // Check if user has permission to edit employees
+    if (!req.user.hasPermission('employeeManagement', 'edit')) {
+      return res.status(403).json({ message: 'You do not have permission to edit employees' });
+    }
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.user.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    const bankAccount = employee.bankAccounts.id(req.params.accountId);
+    if (!bankAccount) {
+      return res.status(404).json({ message: 'Bank account not found' });
+    }
+
+    // Update fields
+    Object.keys(req.body).forEach(key => {
+      if (bankAccount[key] !== undefined) {
+        bankAccount[key] = req.body[key];
+      }
+    });
+
+    // If setting as primary, unset other primary accounts
+    if (req.body.isPrimary) {
+      employee.bankAccounts.forEach(account => {
+        if (account._id.toString() !== req.params.accountId) {
+          account.isPrimary = false;
+        }
+      });
+    }
+
+    bankAccount.updatedAt = new Date();
+    await employee.save();
+
+    res.json(employee);
+  } catch (error) {
+    console.error('Error updating bank account:', error);
+    res.status(500).json({ 
+      error: 'Failed to update bank account',
+      details: error.message 
+    });
+  }
+});
+
+// Delete bank account
+router.delete('/:id/bank-accounts/:accountId', auth, async (req, res) => {
+  try {
+    // Check if user has permission to edit employees
+    if (!req.user.hasPermission('employeeManagement', 'edit')) {
+      return res.status(403).json({ message: 'You do not have permission to edit employees' });
+    }
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.user.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    const bankAccount = employee.bankAccounts.id(req.params.accountId);
+    if (!bankAccount) {
+      return res.status(404).json({ message: 'Bank account not found' });
+    }
+
+    employee.bankAccounts.pull(req.params.accountId);
+    await employee.save();
+
+    res.json({ message: 'Bank account deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting bank account:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete bank account',
+      details: error.message 
+    });
+  }
+});
+
+// Delete all bank accounts for an employee
+router.delete('/:id/bank-accounts', auth, async (req, res) => {
+  try {
+    // Check if user has permission to edit employees
+    if (!req.user.hasPermission('employeeManagement', 'edit')) {
+      return res.status(403).json({ message: 'You do not have permission to edit employees' });
+    }
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.user.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Clear all bank accounts
+    employee.bankAccounts = [];
+    await employee.save();
+
+    res.json({ message: 'All bank accounts deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting all bank accounts:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete bank accounts',
+      details: error.message 
+    });
+  }
+});
+
+// ==================== STAFFPESA WALLET ROUTES ====================
+
+// Create or update staffpesa wallet (POST for compatibility)
+router.post('/:id/staffpesa-wallet', auth, async (req, res) => {
+  try {
+    // Check if user has permission to edit employees
+    if (!req.user.hasPermission('employeeManagement', 'edit')) {
+      return res.status(403).json({ message: 'You do not have permission to edit employees' });
+    }
+
+    const { walletId, phoneNumber, isActive, status, notes } = req.body;
+
+    // Validate required fields
+    if (!walletId || !phoneNumber) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        details: 'Wallet ID and phone number are required'
+      });
+    }
+
+    // Validate phone number format
+    const phoneRegex = /^254\d{9}$/;
+    if (!phoneRegex.test(phoneNumber)) {
+      return res.status(400).json({ 
+        error: 'Invalid phone number format',
+        details: 'Phone number must be in format 254XXXXXXXXX'
+      });
+    }
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.user.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Check if wallet ID already exists for another employee
+    const existingWallet = await Employee.findOne({
+      'staffpesaWallet.walletId': walletId,
+      _id: { $ne: req.params.id },
+      businessId: req.user.businessId
+    });
+
+    if (existingWallet) {
+      return res.status(400).json({ 
+        error: 'Wallet ID already exists',
+        details: 'This wallet ID is already assigned to another employee'
+      });
+    }
+
+    // Create or update wallet
+    const walletData = {
+      walletId,
+      employeeId: employee.employeeNumber,
+      phoneNumber,
+      isActive: isActive || false,
+      status: status || 'pending',
+      notes,
+      updatedAt: new Date(),
+      createdBy: req.user._id
+    };
+
+    if (!employee.staffpesaWallet || !employee.staffpesaWallet.walletId) {
+      walletData.createdAt = new Date();
+    }
+    if (isActive && (!employee.staffpesaWallet || !employee.staffpesaWallet.isActive)) {
+      walletData.activatedAt = new Date();
+    } else if (!isActive && employee.staffpesaWallet && employee.staffpesaWallet.isActive) {
+      walletData.deactivatedAt = new Date();
+    }
+
+    employee.staffpesaWallet = walletData;
+    await employee.save();
+
+    res.json(employee);
+  } catch (error) {
+    console.error('Error updating staffpesa wallet (POST):', error);
+    res.status(500).json({ 
+      error: 'Failed to update staffpesa wallet',
+      details: error.message 
+    });
+  }
+});
+
+// Delete staffpesa wallet
+router.delete('/:id/staffpesa-wallet', auth, async (req, res) => {
+  try {
+    if (!req.user.hasPermission('employeeManagement', 'edit')) {
+      return res.status(403).json({ message: 'You do not have permission to edit employees' });
+    }
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.user.businessId
+    });
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+    employee.staffpesaWallet = undefined;
+    await employee.save();
+    res.json({ message: 'Staffpesa wallet removed successfully' });
+  } catch (error) {
+    console.error('Error deleting staffpesa wallet:', error);
+    res.status(500).json({ error: 'Failed to delete staffpesa wallet', details: error.message });
+  }
+});
+
+// Get staffpesa wallet details
+router.get('/:id/staffpesa-wallet', auth, async (req, res) => {
+  try {
+    // Check if user has permission to view employees
+    if (!req.user.hasPermission('employeeManagement', 'view')) {
+      return res.status(403).json({ message: 'You do not have permission to view employee details' });
+    }
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.user.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    res.json(employee.staffpesaWallet || {});
+  } catch (error) {
+    console.error('Error fetching staffpesa wallet:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch staffpesa wallet',
+      details: error.message 
+    });
+  }
+});
+
+// Toggle wallet status
+router.patch('/:id/staffpesa-wallet/toggle', auth, async (req, res) => {
+  try {
+    // Check if user has permission to edit employees
+    if (!req.user.hasPermission('employeeManagement', 'edit')) {
+      return res.status(403).json({ message: 'You do not have permission to edit employees' });
+    }
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.user.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    if (!employee.staffpesaWallet || !employee.staffpesaWallet.walletId) {
+      return res.status(400).json({ 
+        error: 'No wallet found',
+        details: 'Please create a wallet first before toggling status'
+      });
+    }
+
+    const newStatus = !employee.staffpesaWallet.isActive;
+    employee.staffpesaWallet.isActive = newStatus;
+    employee.staffpesaWallet.updatedAt = new Date();
+
+    if (newStatus) {
+      employee.staffpesaWallet.activatedAt = new Date();
+      employee.staffpesaWallet.status = 'active';
+    } else {
+      employee.staffpesaWallet.deactivatedAt = new Date();
+      employee.staffpesaWallet.status = 'suspended';
+    }
+
+    await employee.save();
+
+    res.json({
+      message: `Wallet ${newStatus ? 'activated' : 'deactivated'} successfully`,
+      wallet: employee.staffpesaWallet
+    });
+  } catch (error) {
+    console.error('Error toggling wallet status:', error);
+    res.status(500).json({ 
+      error: 'Failed to toggle wallet status',
+      details: error.message 
+    });
+  }
+});
+
 module.exports = router; 
 
 

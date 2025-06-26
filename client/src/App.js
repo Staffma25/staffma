@@ -9,6 +9,9 @@ import EmployeesList from './components/EmployeesList';
 import EmployeeDetails from './components/EmployeeDetails';
 import PayrollManagement from './components/PayrollManagement';
 import PayrollSettings from './components/PayrollSettings';
+import PayrollReview from './components/PayrollReview';
+import PaymentProcessing from './components/PaymentProcessing';
+import PayrollWorkflow from './components/PayrollWorkflow';
 import PerformanceReviews from './components/PerformanceReviews';
 import ReviewForm from './components/ReviewForm';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -282,6 +285,36 @@ function App() {
                 <ProtectedRoute>
                   <DashboardLayout>
                     <PayrollSettings />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/payroll/workflow/:month/:year" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <PayrollWorkflow />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/payroll/review/:month/:year" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <PayrollReview />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/payroll/payments/:month/:year" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <PaymentProcessing />
                   </DashboardLayout>
                 </ProtectedRoute>
               } 

@@ -369,11 +369,42 @@ app.post('/api/employees', authenticateBusiness, async (req, res) => {
       return res.status(404).json({ message: 'Business not found' });
     }
 
-    console.log('Creating employee for business:', business.businessName);
+    console.log('Creating employee for business:', {
+      businessId: req.businessId,
+      businessName: business.businessName,
+      email: business.email
+    });
 
-    // Generate employee number
-    const employeeNumber = await generateEmployeeNumber(business.businessName);
-    console.log('Generated employee number:', employeeNumber);
+    // Validate business name
+    if (!business.businessName || business.businessName.trim().length === 0) {
+      return res.status(400).json({ 
+        error: 'Business name is required',
+        details: 'Please update your business profile with a valid business name'
+      });
+    }
+
+    // Generate employee number with retry logic
+    let employeeNumber;
+    let retries = 3;
+    
+    while (retries > 0) {
+      try {
+        employeeNumber = await generateEmployeeNumber(business.businessName);
+        console.log('Generated employee number:', employeeNumber);
+        break;
+      } catch (error) {
+        retries--;
+        console.error(`Employee number generation failed, retries left: ${retries}`, error.message);
+        if (retries === 0) {
+          return res.status(500).json({ 
+            error: 'Failed to generate employee number',
+            details: 'Please try again or contact support. Error: ' + error.message
+          });
+        }
+        // Wait a bit before retrying
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
 
     // Validate salary before creating employee
     const basicSalary = Number(req.body.salary?.basic);
@@ -404,11 +435,13 @@ app.post('/api/employees', authenticateBusiness, async (req, res) => {
     };
 
     console.log('Creating employee with data:', {
-      ...employeeData,
-      salary: {
-        ...employeeData.salary,
-        basic: employeeData.salary.basic
-      }
+      firstName: employeeData.firstName,
+      lastName: employeeData.lastName,
+      email: employeeData.email,
+      employeeNumber: employeeData.employeeNumber,
+      department: employeeData.department,
+      position: employeeData.position,
+      salary: employeeData.salary.basic
     });
 
     const employee = new Employee(employeeData);
@@ -430,6 +463,12 @@ app.post('/api/employees', authenticateBusiness, async (req, res) => {
   } catch (error) {
     console.error('Error adding employee:', error);
     if (error.code === 11000) {
+      if (error.keyPattern?.employeeNumber) {
+        return res.status(400).json({ 
+          error: 'Employee number conflict',
+          details: 'Please try again. The system will generate a new employee number.'
+        });
+      }
       return res.status(400).json({ 
         error: 'An employee with this email already exists in your business',
         details: error.message 
@@ -625,7 +664,7 @@ app.put('/api/employees/:id/status', authenticateBusiness, async (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/employees', employeeRoutes);
+// app.use('/api/employees', employeeRoutes); // Commented out due to duplicate endpoints
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/performance-reviews', performanceReviewsRouter);
@@ -879,6 +918,539 @@ app.delete('/api/employees/:id/insurance/:type', authenticateBusiness, async (re
   }
 });
 
+// ==================== BANK ACCOUNTS ROUTES ====================
+
+// Add bank account
+app.post('/api/employees/:id/bank-accounts', authenticateBusiness, async (req, res) => {
+  try {
+    console.log('Adding bank account for employee:', req.params.id);
+    console.log('Request body:', req.body);
+    
+    const { bankName, accountNumber, accountType, branchCode, swiftCode, isPrimary } = req.body;
+
+    // Validate required fields
+    if (!bankName || !accountNumber) {
+      console.log('Missing required fields:', { bankName, accountNumber });
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        details: 'Bank name and account number are required'
+      });
+    }
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      console.log('Employee not found:', req.params.id);
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    console.log('Found employee:', employee._id);
+
+    // Check if employee already has a Staffpesa wallet for salary deposits
+    if (employee.staffpesaWallet && employee.staffpesaWallet.walletId) {
+      console.log('Employee already has Staffpesa wallet');
+      return res.status(400).json({ 
+        error: 'Payment method already exists',
+        details: 'This employee already has a Staffpesa wallet. Please remove it before adding a bank account.'
+      });
+    }
+
+    // Initialize bankAccounts array if it doesn't exist
+    if (!employee.bankAccounts) {
+      console.log('Initializing bankAccounts array');
+      employee.bankAccounts = [];
+    }
+
+    // If setting as primary, unset other primary accounts
+    if (isPrimary) {
+      employee.bankAccounts.forEach(account => {
+        account.isPrimary = false;
+      });
+    }
+
+    const newBankAccount = {
+      bankName: bankName.trim(),
+      accountNumber: accountNumber.trim(),
+      accountType: accountType || 'savings',
+      branchCode: branchCode ? branchCode.trim() : '',
+      swiftCode: swiftCode ? swiftCode.trim() : '',
+      isPrimary: isPrimary || false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    console.log('Adding new bank account:', newBankAccount);
+    employee.bankAccounts.push(newBankAccount);
+    
+    // Set payment method type to bank
+    employee.paymentMethodType = 'bank';
+    employee.paymentMethodUpdatedAt = new Date();
+    
+    console.log('Saving employee...');
+    await employee.save();
+    console.log('Employee saved successfully');
+
+    res.status(201).json(employee);
+  } catch (error) {
+    console.error('Error adding bank account:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to add bank account',
+      details: error.message 
+    });
+  }
+});
+
+// Update bank account
+app.put('/api/employees/:id/bank-accounts/:accountId', authenticateBusiness, async (req, res) => {
+  try {
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Initialize bankAccounts array if it doesn't exist
+    if (!employee.bankAccounts) {
+      employee.bankAccounts = [];
+    }
+
+    const bankAccount = employee.bankAccounts.id(req.params.accountId);
+    if (!bankAccount) {
+      return res.status(404).json({ message: 'Bank account not found' });
+    }
+
+    // Update fields
+    Object.keys(req.body).forEach(key => {
+      if (bankAccount[key] !== undefined) {
+        bankAccount[key] = req.body[key];
+      }
+    });
+
+    // If setting as primary, unset other primary accounts
+    if (req.body.isPrimary) {
+      employee.bankAccounts.forEach(account => {
+        if (account._id.toString() !== req.params.accountId) {
+          account.isPrimary = false;
+        }
+      });
+    }
+
+    bankAccount.updatedAt = new Date();
+    await employee.save();
+
+    res.json(employee);
+  } catch (error) {
+    console.error('Error updating bank account:', error);
+    res.status(500).json({ 
+      error: 'Failed to update bank account',
+      details: error.message 
+    });
+  }
+});
+
+// Delete specific bank account
+app.delete('/api/employees/:id/bank-accounts/:accountId', authenticateBusiness, async (req, res) => {
+  try {
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    const bankAccount = employee.bankAccounts.id(req.params.accountId);
+    if (!bankAccount) {
+      return res.status(404).json({ message: 'Bank account not found' });
+    }
+
+    employee.bankAccounts.pull(req.params.accountId);
+    await employee.save();
+
+    res.json({ message: 'Bank account deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting bank account:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete bank account',
+      details: error.message 
+    });
+  }
+});
+
+// Delete all bank accounts (to switch to Staffpesa wallet)
+app.delete('/api/employees/:id/bank-accounts', authenticateBusiness, async (req, res) => {
+  try {
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Clear all bank accounts
+    employee.bankAccounts = [];
+    
+    // Clear payment method type if no wallet exists
+    if (!employee.staffpesaWallet || !employee.staffpesaWallet.walletId) {
+      employee.paymentMethodType = null;
+      employee.paymentMethodUpdatedAt = new Date();
+    }
+    
+    await employee.save();
+
+    res.json({ 
+      message: 'All bank accounts deleted successfully. You can now create a Staffpesa wallet.',
+      employee 
+    });
+  } catch (error) {
+    console.error('Error deleting all bank accounts:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete bank accounts',
+      details: error.message 
+    });
+  }
+});
+
+// ==================== STAFFPESA WALLET ROUTES ====================
+
+// Create or update staffpesa wallet (POST for compatibility)
+app.post('/api/employees/:id/staffpesa-wallet', authenticateBusiness, async (req, res) => {
+  try {
+    const { walletId, phoneNumber, isActive, status, notes } = req.body;
+
+    // Validate required fields
+    if (!walletId || !phoneNumber) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        details: 'Wallet ID and phone number are required'
+      });
+    }
+
+    // Validate phone number format and convert to required format
+    let formattedPhoneNumber = phoneNumber.trim();
+    
+    // Remove any non-digit characters
+    formattedPhoneNumber = formattedPhoneNumber.replace(/\D/g, '');
+    
+    // Handle different input formats
+    if (formattedPhoneNumber.startsWith('0')) {
+      // Convert 07XXXXXXXX to 254XXXXXXXXX
+      formattedPhoneNumber = '254' + formattedPhoneNumber.substring(1);
+    } else if (formattedPhoneNumber.startsWith('7')) {
+      // Convert 7XXXXXXXX to 254XXXXXXXXX
+      formattedPhoneNumber = '254' + formattedPhoneNumber;
+    } else if (formattedPhoneNumber.startsWith('+254')) {
+      // Convert +254XXXXXXXXX to 254XXXXXXXXX
+      formattedPhoneNumber = formattedPhoneNumber.substring(1);
+    }
+    
+    // Final validation for 254XXXXXXXXX format
+    const phoneRegex = /^254\d{9}$/;
+    if (!phoneRegex.test(formattedPhoneNumber)) {
+      return res.status(400).json({ 
+        error: 'Invalid phone number format',
+        details: 'Phone number must be in format 254XXXXXXXXX. You can enter: 07XXXXXXXX, 7XXXXXXXX, +254XXXXXXXXX, or 254XXXXXXXXX'
+      });
+    }
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Check if employee already has bank accounts for salary deposits
+    if (employee.bankAccounts && employee.bankAccounts.length > 0) {
+      return res.status(400).json({ 
+        error: 'Payment method already exists',
+        details: 'This employee already has bank accounts. Please remove them before adding a Staffpesa wallet.'
+      });
+    }
+
+    // Check if wallet ID already exists for another employee
+    const existingWallet = await Employee.findOne({
+      'staffpesaWallet.walletId': walletId,
+      _id: { $ne: req.params.id },
+      businessId: req.businessId
+    });
+
+    if (existingWallet) {
+      return res.status(400).json({ 
+        error: 'Wallet ID already exists',
+        details: 'This wallet ID is already assigned to another employee'
+      });
+    }
+
+    // Create or update wallet
+    const walletData = {
+      walletId,
+      employeeId: employee.employeeNumber,
+      phoneNumber: formattedPhoneNumber,
+      isActive: isActive || false,
+      status: status || 'pending',
+      notes,
+      updatedAt: new Date()
+    };
+
+    // If wallet doesn't exist, set creation date
+    if (!employee.staffpesaWallet || !employee.staffpesaWallet.walletId) {
+      walletData.createdAt = new Date();
+    }
+
+    // Handle activation/deactivation timestamps
+    if (isActive && (!employee.staffpesaWallet || !employee.staffpesaWallet.isActive)) {
+      walletData.activatedAt = new Date();
+    } else if (!isActive && employee.staffpesaWallet && employee.staffpesaWallet.isActive) {
+      walletData.deactivatedAt = new Date();
+    }
+
+    employee.staffpesaWallet = walletData;
+    
+    // Set payment method type to wallet
+    employee.paymentMethodType = 'wallet';
+    employee.paymentMethodUpdatedAt = new Date();
+    
+    await employee.save();
+
+    res.json(employee);
+  } catch (error) {
+    console.error('Error updating staffpesa wallet:', error);
+    res.status(500).json({ 
+      error: 'Failed to update staffpesa wallet',
+      details: error.message 
+    });
+  }
+});
+
+// Create or update staffpesa wallet
+app.put('/api/employees/:id/staffpesa-wallet', authenticateBusiness, async (req, res) => {
+  try {
+    const { walletId, phoneNumber, isActive, status, notes } = req.body;
+
+    // Validate required fields
+    if (!walletId || !phoneNumber) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        details: 'Wallet ID and phone number are required'
+      });
+    }
+
+    // Validate phone number format and convert to required format
+    let formattedPhoneNumber = phoneNumber.trim();
+    
+    // Remove any non-digit characters
+    formattedPhoneNumber = formattedPhoneNumber.replace(/\D/g, '');
+    
+    // Handle different input formats
+    if (formattedPhoneNumber.startsWith('0')) {
+      // Convert 07XXXXXXXX to 254XXXXXXXXX
+      formattedPhoneNumber = '254' + formattedPhoneNumber.substring(1);
+    } else if (formattedPhoneNumber.startsWith('7')) {
+      // Convert 7XXXXXXXX to 254XXXXXXXXX
+      formattedPhoneNumber = '254' + formattedPhoneNumber;
+    } else if (formattedPhoneNumber.startsWith('+254')) {
+      // Convert +254XXXXXXXXX to 254XXXXXXXXX
+      formattedPhoneNumber = formattedPhoneNumber.substring(1);
+    }
+    
+    // Final validation for 254XXXXXXXXX format
+    const phoneRegex = /^254\d{9}$/;
+    if (!phoneRegex.test(formattedPhoneNumber)) {
+      return res.status(400).json({ 
+        error: 'Invalid phone number format',
+        details: 'Phone number must be in format 254XXXXXXXXX. You can enter: 07XXXXXXXX, 7XXXXXXXX, +254XXXXXXXXX, or 254XXXXXXXXX'
+      });
+    }
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Check if employee already has bank accounts for salary deposits
+    if (employee.bankAccounts && employee.bankAccounts.length > 0) {
+      return res.status(400).json({ 
+        error: 'Payment method already exists',
+        details: 'This employee already has bank accounts. Please remove them before adding a Staffpesa wallet.'
+      });
+    }
+
+    // Check if wallet ID already exists for another employee
+    const existingWallet = await Employee.findOne({
+      'staffpesaWallet.walletId': walletId,
+      _id: { $ne: req.params.id },
+      businessId: req.businessId
+    });
+
+    if (existingWallet) {
+      return res.status(400).json({ 
+        error: 'Wallet ID already exists',
+        details: 'This wallet ID is already assigned to another employee'
+      });
+    }
+
+    // Create or update wallet
+    const walletData = {
+      walletId,
+      employeeId: employee.employeeNumber,
+      phoneNumber: formattedPhoneNumber,
+      isActive: isActive || false,
+      status: status || 'pending',
+      notes,
+      updatedAt: new Date()
+    };
+
+    // If wallet doesn't exist, set creation date
+    if (!employee.staffpesaWallet || !employee.staffpesaWallet.walletId) {
+      walletData.createdAt = new Date();
+    }
+
+    // Handle activation/deactivation timestamps
+    if (isActive && (!employee.staffpesaWallet || !employee.staffpesaWallet.isActive)) {
+      walletData.activatedAt = new Date();
+    } else if (!isActive && employee.staffpesaWallet && employee.staffpesaWallet.isActive) {
+      walletData.deactivatedAt = new Date();
+    }
+
+    employee.staffpesaWallet = walletData;
+    
+    // Set payment method type to wallet
+    employee.paymentMethodType = 'wallet';
+    employee.paymentMethodUpdatedAt = new Date();
+    
+    await employee.save();
+
+    res.json(employee);
+  } catch (error) {
+    console.error('Error updating staffpesa wallet:', error);
+    res.status(500).json({ 
+      error: 'Failed to update staffpesa wallet',
+      details: error.message 
+    });
+  }
+});
+
+// Get staffpesa wallet details
+app.get('/api/employees/:id/staffpesa-wallet', authenticateBusiness, async (req, res) => {
+  try {
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    res.json(employee.staffpesaWallet || {});
+  } catch (error) {
+    console.error('Error fetching staffpesa wallet:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch staffpesa wallet',
+      details: error.message 
+    });
+  }
+});
+
+// Toggle wallet status
+app.patch('/api/employees/:id/staffpesa-wallet/toggle', authenticateBusiness, async (req, res) => {
+  try {
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    if (!employee.staffpesaWallet || !employee.staffpesaWallet.walletId) {
+      return res.status(400).json({ 
+        error: 'No wallet found',
+        details: 'Please create a wallet first before toggling status'
+      });
+    }
+
+    const newStatus = !employee.staffpesaWallet.isActive;
+    employee.staffpesaWallet.isActive = newStatus;
+    employee.staffpesaWallet.updatedAt = new Date();
+
+    if (newStatus) {
+      employee.staffpesaWallet.activatedAt = new Date();
+      employee.staffpesaWallet.status = 'active';
+    } else {
+      employee.staffpesaWallet.deactivatedAt = new Date();
+      employee.staffpesaWallet.status = 'suspended';
+    }
+
+    await employee.save();
+
+    res.json({
+      message: `Wallet ${newStatus ? 'activated' : 'deactivated'} successfully`,
+      wallet: employee.staffpesaWallet
+    });
+  } catch (error) {
+    console.error('Error toggling wallet status:', error);
+    res.status(500).json({ 
+      error: 'Failed to toggle wallet status',
+      details: error.message 
+    });
+  }
+});
+
+// Delete staffpesa wallet (to switch to bank accounts)
+app.delete('/api/employees/:id/staffpesa-wallet', authenticateBusiness, async (req, res) => {
+  try {
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Clear staffpesa wallet by setting it to undefined
+    employee.staffpesaWallet = undefined;
+    
+    // Clear payment method type if no bank accounts exist
+    if (!employee.bankAccounts || employee.bankAccounts.length === 0) {
+      employee.paymentMethodType = null;
+      employee.paymentMethodUpdatedAt = new Date();
+    }
+    
+    await employee.save();
+
+    res.json({ 
+      message: 'Staffpesa wallet deleted successfully. You can now create bank accounts.',
+      employee 
+    });
+  } catch (error) {
+    console.error('Error deleting staffpesa wallet:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete staffpesa wallet',
+      details: error.message 
+    });
+  }
+});
+
 // Add registration endpoint
 app.post('/api/register', async (req, res) => {
   try {
@@ -947,6 +1519,418 @@ app.post('/api/register', async (req, res) => {
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Registration failed. Please try again.' });
+  }
+});
+
+// Test bank account route
+app.post('/api/employees/:id/bank-accounts-test', authenticateBusiness, async (req, res) => {
+  try {
+    console.log('Test: Adding bank account for employee:', req.params.id);
+    
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      businessId: req.businessId
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Initialize bankAccounts array if it doesn't exist
+    if (!employee.bankAccounts) {
+      employee.bankAccounts = [];
+    }
+
+    const newBankAccount = {
+      bankName: 'Test Bank',
+      accountNumber: '1234567890',
+      accountType: 'savings',
+      isPrimary: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    employee.bankAccounts.push(newBankAccount);
+    await employee.save();
+
+    res.status(201).json({ message: 'Test bank account added successfully', employee });
+  } catch (error) {
+    console.error('Test error:', error);
+    res.status(500).json({ 
+      error: 'Test failed',
+      details: error.message 
+    });
+  }
+});
+
+// Approve payroll for payment processing
+app.post('/api/payroll/approve', authenticateBusiness, async (req, res) => {
+  try {
+    const { month, year, employeeIds, notes } = req.body;
+
+    console.log('=== PAYROLL APPROVAL DEBUG ===');
+    console.log('Request body:', { month, year, employeeIds, notes });
+    console.log('Business ID:', req.businessId);
+
+    // Validate required fields
+    if (!month || !year || !employeeIds || !Array.isArray(employeeIds)) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        details: 'Month, year, and employee IDs array are required'
+      });
+    }
+
+    // First, let's check what payroll records exist
+    const existingPayroll = await Payroll.find({
+      businessId: req.businessId,
+      month: month,
+      year: year
+    });
+
+    console.log('Existing payroll records:', existingPayroll.map(p => ({
+      id: p._id,
+      employeeId: p.employeeId,
+      status: p.status
+    })));
+
+    // Update payroll records to approved status
+    // Note: employeeIds actually contains payroll record IDs, not employee IDs
+    const updateResult = await Payroll.updateMany(
+      {
+        _id: { $in: employeeIds },
+        businessId: req.businessId,
+        month: month,
+        year: year,
+        status: 'processed'
+      },
+      {
+        $set: {
+          status: 'approved',
+          approvedAt: new Date(),
+          approvedBy: req.businessId,
+          reviewNotes: notes || ''
+        }
+      }
+    );
+
+    console.log('Update result:', updateResult);
+    console.log('=== END PAYROLL APPROVAL DEBUG ===');
+
+    if (updateResult.modifiedCount === 0) {
+      return res.status(400).json({ 
+        error: 'No payroll records found to approve',
+        details: 'Make sure payroll has been processed first and you have selected valid records'
+      });
+    }
+
+    res.json({
+      message: `Successfully approved ${updateResult.modifiedCount} payroll records`,
+      approvedCount: updateResult.modifiedCount
+    });
+  } catch (error) {
+    console.error('Error approving payroll:', error);
+    res.status(500).json({ 
+      error: 'Failed to approve payroll',
+      details: error.message 
+    });
+  }
+});
+
+// Get approved payroll for payment processing
+app.get('/api/payroll/approved', authenticateBusiness, async (req, res) => {
+  try {
+    const { month, year } = req.query;
+
+    if (!month || !year) {
+      return res.status(400).json({ 
+        error: 'Missing required parameters',
+        details: 'Month and year are required'
+      });
+    }
+
+    const approvedPayroll = await Payroll.find({
+      businessId: req.businessId,
+      month: parseInt(month),
+      year: parseInt(year),
+      status: 'approved'
+    }).populate('employeeId');
+
+    res.json(approvedPayroll);
+  } catch (error) {
+    console.error('Error fetching approved payroll:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch approved payroll',
+      details: error.message 
+    });
+  }
+});
+
+// Process payments for approved payroll
+app.post('/api/payroll/process-payments', authenticateBusiness, async (req, res) => {
+  try {
+    const { month, year, paymentIds } = req.body;
+
+    // Validate required fields
+    if (!month || !year || !paymentIds || !Array.isArray(paymentIds)) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        details: 'Month, year, and payment IDs array are required'
+      });
+    }
+
+    // Get approved payroll records
+    const payrollRecords = await Payroll.find({
+      _id: { $in: paymentIds },
+      businessId: req.businessId,
+      month: parseInt(month),
+      year: parseInt(year),
+      status: 'approved'
+    }).populate('employeeId');
+
+    if (payrollRecords.length === 0) {
+      return res.status(400).json({ 
+        error: 'No approved payroll records found',
+        details: 'Make sure payroll has been approved first'
+      });
+    }
+
+    const paymentStatus = {};
+    let processedCount = 0;
+    let failedCount = 0;
+
+    // Process each payment
+    for (const record of payrollRecords) {
+      try {
+        const employee = record.employeeId;
+        let paymentResult = null;
+
+        // Check payment method and process accordingly
+        if (employee.staffpesaWallet && employee.staffpesaWallet.walletId) {
+          // Process Staffpesa wallet payment
+          paymentResult = await processWalletPayment(record, employee);
+        } else if (employee.bankAccounts && employee.bankAccounts.length > 0) {
+          // Process bank account payment
+          paymentResult = await processBankPayment(record, employee);
+        } else {
+          // No payment method available
+          paymentStatus[record._id] = 'failed';
+          failedCount++;
+          continue;
+        }
+
+        if (paymentResult.success) {
+          // Update payroll record status
+          await Payroll.findByIdAndUpdate(record._id, {
+            $set: {
+              status: 'paid',
+              paidAt: new Date(),
+              paymentMethod: paymentResult.method,
+              paymentReference: paymentResult.reference
+            }
+          });
+
+          paymentStatus[record._id] = 'completed';
+          processedCount++;
+        } else {
+          paymentStatus[record._id] = 'failed';
+          failedCount++;
+        }
+      } catch (error) {
+        console.error(`Error processing payment for employee ${record.employeeId?.firstName} ${record.employeeId?.lastName}:`, error);
+        paymentStatus[record._id] = 'failed';
+        failedCount++;
+      }
+    }
+
+    res.json({
+      message: `Payment processing completed. ${processedCount} successful, ${failedCount} failed.`,
+      processedCount,
+      failedCount,
+      paymentStatus
+    });
+  } catch (error) {
+    console.error('Error processing payments:', error);
+    res.status(500).json({ 
+      error: 'Failed to process payments',
+      details: error.message 
+    });
+  }
+});
+
+// Helper function to process Staffpesa wallet payments
+async function processWalletPayment(payrollRecord, employee) {
+  try {
+    // Simulate Staffpesa wallet payment processing
+    // In a real implementation, this would integrate with the Staffpesa API
+    console.log(`Processing wallet payment for ${employee.firstName} ${employee.lastName}`);
+    console.log(`Amount: KES ${payrollRecord.netSalary}`);
+    console.log(`Wallet ID: ${employee.staffpesaWallet.walletId}`);
+    console.log(`Phone: ${employee.staffpesaWallet.phoneNumber}`);
+
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Simulate success (90% success rate for demo)
+    const isSuccess = Math.random() > 0.1;
+    
+    if (isSuccess) {
+      return {
+        success: true,
+        method: 'staffpesa_wallet',
+        reference: `WAL-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+      };
+    } else {
+      return {
+        success: false,
+        method: 'staffpesa_wallet',
+        error: 'Wallet payment failed'
+      };
+    }
+  } catch (error) {
+    console.error('Wallet payment processing error:', error);
+    return {
+      success: false,
+      method: 'staffpesa_wallet',
+      error: error.message
+    };
+  }
+}
+
+// Helper function to process bank account payments
+async function processBankPayment(payrollRecord, employee) {
+  try {
+    // Get primary bank account
+    const primaryAccount = employee.bankAccounts.find(acc => acc.isPrimary) || employee.bankAccounts[0];
+    
+    console.log(`Processing bank payment for ${employee.firstName} ${employee.lastName}`);
+    console.log(`Amount: KES ${payrollRecord.netSalary}`);
+    console.log(`Bank: ${primaryAccount.bankName}`);
+    console.log(`Account: ${primaryAccount.accountNumber}`);
+
+    // Simulate bank transfer processing
+    // In a real implementation, this would integrate with bank APIs or payment gateways
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Simulate success (95% success rate for demo)
+    const isSuccess = Math.random() > 0.05;
+    
+    if (isSuccess) {
+      return {
+        success: true,
+        method: 'bank_transfer',
+        reference: `BANK-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+      };
+    } else {
+      return {
+        success: false,
+        method: 'bank_transfer',
+        error: 'Bank transfer failed'
+      };
+    }
+  } catch (error) {
+    console.error('Bank payment processing error:', error);
+    return {
+      success: false,
+      method: 'bank_transfer',
+      error: error.message
+    };
+  }
+}
+
+// Get payroll status for a specific month/year
+app.get('/api/payroll/status/:month/:year', authenticateBusiness, async (req, res) => {
+  try {
+    const { month, year } = req.params;
+
+    const payrollStatus = await Payroll.aggregate([
+      {
+        $match: {
+          businessId: new mongoose.Types.ObjectId(req.businessId),
+          month: parseInt(month),
+          year: parseInt(year)
+        }
+      },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Convert to a more readable format
+    const statusSummary = {
+      processed: 0,
+      approved: 0,
+      paid: 0,
+      failed: 0
+    };
+
+    payrollStatus.forEach(status => {
+      statusSummary[status._id] = status.count;
+    });
+
+    res.json(statusSummary);
+  } catch (error) {
+    console.error('Error fetching payroll status:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch payroll status',
+      details: error.message 
+    });
+  }
+});
+
+// Debug endpoint to check payroll status
+app.get('/api/payroll/debug-status/:month/:year', authenticateBusiness, async (req, res) => {
+  try {
+    const { month, year } = req.params;
+    
+    console.log('=== PAYROLL STATUS DEBUG ===');
+    console.log('Business ID:', req.businessId);
+    console.log('Month:', month, 'Year:', year);
+
+    const payrollRecords = await Payroll.find({
+      businessId: req.businessId,
+      month: parseInt(month),
+      year: parseInt(year)
+    }).populate('employeeId', 'firstName lastName employeeNumber');
+
+    console.log('Found payroll records:', payrollRecords.length);
+    payrollRecords.forEach((record, index) => {
+      console.log(`Record ${index + 1}:`, {
+        id: record._id,
+        employeeId: record.employeeId?._id,
+        employeeName: `${record.employeeId?.firstName} ${record.employeeId?.lastName}`,
+        status: record.status,
+        netSalary: record.netSalary
+      });
+    });
+
+    const statusCounts = payrollRecords.reduce((acc, record) => {
+      acc[record.status] = (acc[record.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    console.log('Status counts:', statusCounts);
+    console.log('=== END PAYROLL STATUS DEBUG ===');
+
+    res.json({
+      totalRecords: payrollRecords.length,
+      statusCounts,
+      records: payrollRecords.map(record => ({
+        id: record._id,
+        employeeId: record.employeeId?._id,
+        employeeName: `${record.employeeId?.firstName} ${record.employeeId?.lastName}`,
+        status: record.status,
+        netSalary: record.netSalary
+      }))
+    });
+  } catch (error) {
+    console.error('Error in payroll status debug:', error);
+    res.status(500).json({ 
+      error: 'Failed to get payroll status debug info',
+      details: error.message 
+    });
   }
 });
 

@@ -433,7 +433,7 @@ function StaffmaDashboard() {
                               month: 'long', 
                               year: 'numeric' 
                             })}
-                          </span>
+                  </span>
                         </td>
                         <td style={styles.payrollHistoryTableValue}>
                           <span style={styles.payrollHistoryValue}>
@@ -459,8 +459,8 @@ function StaffmaDashboard() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
-            </div>
           )}
 
           {/* All Employees */}

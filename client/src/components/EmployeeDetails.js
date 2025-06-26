@@ -26,6 +26,18 @@ function EmployeeDetails() {
     remainingAmount: '',
     status: 'active' // active, completed, cancelled
   });
+  const [bankForm, setBankForm] = useState({
+    bankName: '',
+    accountNumber: '',
+    accountType: '',
+    isPrimary: false
+  });
+  const [walletForm, setWalletForm] = useState({
+    walletId: '',
+    phoneNumber: '',
+    isActive: false
+  });
+  const [activePaymentMethod, setActivePaymentMethod] = useState('bank'); // 'bank' or 'wallet'
 
   useEffect(() => {
     if (!id) {
@@ -49,6 +61,15 @@ function EmployeeDetails() {
       const data = await response.json();
       console.log('Received employee data:', data);
       setEmployee(data);
+      
+      // Set active payment method based on existing data
+      if (data.staffpesaWallet && data.staffpesaWallet.walletId) {
+        setActivePaymentMethod('wallet');
+      } else if (data.bankAccounts && data.bankAccounts.length > 0) {
+        setActivePaymentMethod('bank');
+      } else {
+        setActivePaymentMethod('bank'); // Default to bank
+      }
     } catch (error) {
       console.error('Error in fetchEmployeeDetails:', error);
       setError(error.message);
@@ -293,6 +314,164 @@ function EmployeeDetails() {
     }
   };
 
+  const handleAddBankAccount = async (e) => {
+    e.preventDefault();
+    try {
+      // Remove Staffpesa wallet if exists
+      const updatedEmployee = { ...employee, bankAccounts: [{ ...bankForm }], staffpesaWallet: null };
+      const response = await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/bank-accounts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...bankForm, isPrimary: true })
+      });
+      if (!response.ok) throw new Error('Failed to add bank account');
+      // Remove wallet
+      await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/staffpesa-wallet`, { method: 'DELETE' });
+      await fetchEmployeeDetails();
+      setBankForm({ bankName: '', accountNumber: '', accountType: '', isPrimary: false });
+    } catch (error) {
+      alert('Failed to add bank account: ' + error.message);
+    }
+  };
+
+  const handleAddWallet = async (e) => {
+    e.preventDefault();
+    try {
+      // Remove all bank accounts if exist
+      await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/bank-accounts`, { method: 'DELETE' });
+      // Add/update wallet
+      const response = await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/staffpesa-wallet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(walletForm)
+      });
+      if (!response.ok) throw new Error('Failed to add/update Staffpesa wallet');
+      await fetchEmployeeDetails();
+      setWalletForm({ walletId: '', phoneNumber: '', isActive: false });
+    } catch (error) {
+      alert('Failed to add/update Staffpesa wallet: ' + error.message);
+    }
+  };
+
+  const handlePaymentMethodChange = async (method) => {
+    if (method === activePaymentMethod) return;
+    
+    try {
+      if (method === 'bank') {
+        // Switch to bank account - remove wallet if exists
+        if (employee.staffpesaWallet && employee.staffpesaWallet.walletId) {
+          await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/staffpesa-wallet`, { 
+            method: 'DELETE' 
+          });
+          // Update employee state directly
+          setEmployee(prev => ({
+            ...prev,
+            staffpesaWallet: null
+          }));
+        }
+      } else if (method === 'wallet') {
+        // Switch to wallet - remove bank accounts if exist
+        if (employee.bankAccounts && employee.bankAccounts.length > 0) {
+          await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/bank-accounts`, { 
+            method: 'DELETE' 
+          });
+          // Update employee state directly
+          setEmployee(prev => ({
+            ...prev,
+            bankAccounts: []
+          }));
+        }
+      }
+      
+      setActivePaymentMethod(method);
+    } catch (error) {
+      console.error('Error switching payment method:', error);
+      alert('Failed to switch payment method: ' + error.message);
+    }
+  };
+
+  const handleRemoveBankAccounts = async () => {
+    if (!window.confirm('Are you sure you want to remove all bank accounts?')) {
+      return;
+    }
+
+    try {
+      await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/bank-accounts`, { method: 'DELETE' });
+      await fetchEmployeeDetails();
+      alert('All bank accounts removed successfully');
+    } catch (error) {
+      console.error('Error removing bank accounts:', error);
+      alert('Failed to remove bank accounts: ' + error.message);
+    }
+  };
+
+  const handleRemoveWallet = async () => {
+    if (!window.confirm('Are you sure you want to remove the Staffpesa wallet?')) {
+      return;
+    }
+
+    try {
+      await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/staffpesa-wallet`, { method: 'DELETE' });
+      await fetchEmployeeDetails();
+      alert('Staffpesa wallet removed successfully');
+    } catch (error) {
+      console.error('Error removing Staffpesa wallet:', error);
+      alert('Failed to remove Staffpesa wallet: ' + error.message);
+    }
+  };
+
+  const handleQuickSwitchToWallet = async () => {
+    if (!window.confirm('This will remove all bank accounts and switch to Staffpesa Wallet. Continue?')) {
+      return;
+    }
+    
+    try {
+      setActionLoading(true);
+      // Remove bank accounts
+      await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/bank-accounts`, { method: 'DELETE' });
+      // Switch to wallet
+      setActivePaymentMethod('wallet');
+      // Update employee state
+      setEmployee(prev => ({
+        ...prev,
+        bankAccounts: [],
+        paymentMethodType: null
+      }));
+      alert('Successfully switched to Staffpesa Wallet. Please add your wallet details below.');
+    } catch (error) {
+      console.error('Error switching to wallet:', error);
+      alert('Failed to switch payment method: ' + error.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleQuickSwitchToBank = async () => {
+    if (!window.confirm('This will remove the Staffpesa wallet and switch to Bank Account. Continue?')) {
+      return;
+    }
+    
+    try {
+      setActionLoading(true);
+      // Remove wallet
+      await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/staffpesa-wallet`, { method: 'DELETE' });
+      // Switch to bank
+      setActivePaymentMethod('bank');
+      // Update employee state
+      setEmployee(prev => ({
+        ...prev,
+        staffpesaWallet: null,
+        paymentMethodType: null
+      }));
+      alert('Successfully switched to Bank Account. Please add your bank details below.');
+    } catch (error) {
+      console.error('Error switching to bank:', error);
+      alert('Failed to switch payment method: ' + error.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={styles.container}>
@@ -407,6 +586,12 @@ function EmployeeDetails() {
           onClick={() => setActiveTab('deductions')}
         >
           Custom Deductions
+        </button>
+        <button 
+          style={{...styles.tab, ...(activeTab === 'paymentMethods' && styles.activeTab)}}
+          onClick={() => setActiveTab('paymentMethods')}
+        >
+          Payment Methods
         </button>
       </div>
 
@@ -813,6 +998,182 @@ function EmployeeDetails() {
             </div>
           </div>
         )}
+
+        {activeTab === 'paymentMethods' && (
+          <div style={styles.card}>
+            <h2 style={styles.subtitle}>Payment Methods</h2>
+            
+            {/* Current Payment Method Status */}
+            <div style={styles.paymentStatus}>
+              <h3 style={styles.statusTitle}>Current Payment Method</h3>
+              {employee.paymentMethodType ? (
+                <div style={styles.statusInfo}>
+                  <span style={styles.statusBadge}>
+                    {employee.paymentMethodType === 'bank' ? '🏦 Bank Account' : '📱 Staffpesa Wallet'}
+                  </span>
+                  <p style={styles.statusText}>
+                    {employee.paymentMethodType === 'bank' 
+                      ? 'Employee receives salary via bank transfer'
+                      : 'Employee receives salary via Staffpesa wallet'
+                    }
+                  </p>
+                  {employee.paymentMethodUpdatedAt && (
+                    <small style={styles.statusDate}>
+                      Last updated: {new Date(employee.paymentMethodUpdatedAt).toLocaleDateString()}
+                    </small>
+                  )}
+                </div>
+              ) : (
+                <div style={styles.statusInfo}>
+                  <span style={styles.statusBadge}>❌ No Payment Method</span>
+                  <p style={styles.statusText}>Please select a payment method below</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Payment Method Selection */}
+            <div style={styles.paymentMethodSelector}>
+              <h3 style={styles.selectorTitle}>Select Payment Method</h3>
+              <div style={styles.radioGroup}>
+                <label style={styles.radioLabel}>
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="bank"
+                    checked={activePaymentMethod === 'bank'}
+                    onChange={(e) => handlePaymentMethodChange(e.target.value)}
+                    style={styles.radioInput}
+                    disabled={employee.paymentMethodType === 'wallet'}
+                  />
+                  <span style={styles.radioText}>🏦 Bank Account</span>
+                </label>
+                <label style={styles.radioLabel}>
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="wallet"
+                    checked={activePaymentMethod === 'wallet'}
+                    onChange={(e) => handlePaymentMethodChange(e.target.value)}
+                    style={styles.radioInput}
+                    disabled={employee.paymentMethodType === 'bank'}
+                  />
+                  <span style={styles.radioText}>📱 Staffpesa Wallet</span>
+                </label>
+              </div>
+              
+              {/* Clear guidance for switching */}
+              {employee.paymentMethodType === 'bank' && (
+                <div style={styles.switchGuidance}>
+                  <p style={styles.guidanceText}>
+                    💡 <strong>Want to switch to Staffpesa Wallet?</strong>
+                  </p>
+                  <p style={styles.guidanceText}>
+                    Click "Remove Bank Accounts" above, then select "Staffpesa Wallet" and add your wallet details.
+                  </p>
+                </div>
+              )}
+              
+              {employee.paymentMethodType === 'wallet' && (
+                <div style={styles.switchGuidance}>
+                  <p style={styles.guidanceText}>
+                    💡 <strong>Want to switch to Bank Account?</strong>
+                  </p>
+                  <p style={styles.guidanceText}>
+                    Click "Remove Staffpesa Wallet" above, then select "Bank Account" and add your bank details.
+                  </p>
+                </div>
+              )}
+              
+              {!employee.paymentMethodType && (
+                <div style={styles.switchGuidance}>
+                  <p style={styles.guidanceText}>
+                    💡 <strong>No payment method configured</strong>
+                  </p>
+                  <p style={styles.guidanceText}>
+                    Select a payment method above and add the required details to enable salary payments.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Bank Accounts Section */}
+            {activePaymentMethod === 'bank' && (
+              <div style={{ marginBottom: '24px' }}>
+                <h3>Bank Accounts</h3>
+                {employee.bankAccounts && employee.bankAccounts.length > 0 ? (
+                  <div>
+                    <ul>
+                      {employee.bankAccounts.map((acc, idx) => (
+                        <li key={acc._id || idx} style={{ marginBottom: 8 }}>
+                          <strong>{acc.bankName}</strong> - {acc.accountNumber} ({acc.accountType})
+                          {acc.isPrimary && <span style={{ color: '#27ae60', marginLeft: 8 }}>(Primary)</span>}
+                        </li>
+                      ))}
+                    </ul>
+                    <button 
+                      onClick={handleRemoveBankAccounts}
+                      style={styles.removeButton}
+                      disabled={actionLoading}
+                    >
+                      {actionLoading ? 'Removing...' : 'Remove Bank Accounts'}
+                    </button>
+                  </div>
+                ) : (
+                  <p>No bank accounts added.</p>
+                )}
+                <form onSubmit={handleAddBankAccount} style={{ marginTop: 12 }}>
+                  <input type="text" placeholder="Bank Name" value={bankForm.bankName} onChange={e => setBankForm({ ...bankForm, bankName: e.target.value })} style={styles.formInput} required disabled={employee.paymentMethodType === 'wallet'} />
+                  <input type="text" placeholder="Account Number" value={bankForm.accountNumber} onChange={e => setBankForm({ ...bankForm, accountNumber: e.target.value })} style={styles.formInput} required disabled={employee.paymentMethodType === 'wallet'} />
+                  <input type="text" placeholder="Account Type" value={bankForm.accountType} onChange={e => setBankForm({ ...bankForm, accountType: e.target.value })} style={styles.formInput} required disabled={employee.paymentMethodType === 'wallet'} />
+                  <label style={{ fontSize: '0.75rem', marginTop: 4 }}>
+                    <input type="checkbox" checked={bankForm.isPrimary} onChange={e => setBankForm({ ...bankForm, isPrimary: e.target.checked })} disabled={employee.paymentMethodType === 'wallet'} /> Primary
+                  </label>
+                  <button type="submit" style={styles.addButton} disabled={employee.paymentMethodType === 'wallet'}>Add Bank Account</button>
+                </form>
+                {employee.paymentMethodType === 'wallet' && (
+                  <p style={{ color: '#e67e22', marginTop: 8 }}>Staffpesa wallet is active. Remove it to add a bank account.</p>
+                )}
+              </div>
+            )}
+
+            {/* Staffpesa Wallet Section */}
+            {activePaymentMethod === 'wallet' && (
+              <div>
+                <h3>Staffpesa Wallet</h3>
+                {employee.staffpesaWallet && employee.staffpesaWallet.walletId ? (
+                  <div>
+                    <p><strong>Wallet ID:</strong> {employee.staffpesaWallet.walletId}</p>
+                    <p><strong>Phone Number:</strong> {employee.staffpesaWallet.phoneNumber}</p>
+                    <p><strong>Status:</strong> {employee.staffpesaWallet.isActive ? 'Active' : 'Inactive'}</p>
+                    <button 
+                      onClick={handleRemoveWallet}
+                      style={styles.removeButton}
+                      disabled={actionLoading}
+                    >
+                      {actionLoading ? 'Removing...' : 'Remove Staffpesa Wallet'}
+                    </button>
+                  </div>
+                ) : (
+                  <p>No Staffpesa wallet added.</p>
+                )}
+                <form onSubmit={handleAddWallet} style={{ marginTop: 12 }}>
+                  <input type="text" placeholder="Wallet ID" value={walletForm.walletId} onChange={e => setWalletForm({ ...walletForm, walletId: e.target.value })} style={styles.formInput} required disabled={employee.paymentMethodType === 'bank'} />
+                  <input type="text" placeholder="Phone Number (07XXXXXXXX)" value={walletForm.phoneNumber} onChange={e => setWalletForm({ ...walletForm, phoneNumber: e.target.value })} style={styles.formInput} required disabled={employee.paymentMethodType === 'bank'} />
+                  <small style={{ fontSize: '0.75rem', color: '#666', marginTop: '4px', display: 'block' }}>
+                    Accepted formats: 07XXXXXXXX, 7XXXXXXXX, +254XXXXXXXXX, or 254XXXXXXXXX
+                  </small>
+                  <label style={{ fontSize: '0.75rem', marginTop: 4 }}>
+                    <input type="checkbox" checked={walletForm.isActive} onChange={e => setWalletForm({ ...walletForm, isActive: e.target.checked })} disabled={employee.paymentMethodType === 'bank'} /> Active
+                  </label>
+                  <button type="submit" style={styles.addButton} disabled={employee.paymentMethodType === 'bank'}>Add/Update Wallet</button>
+                </form>
+                {employee.paymentMethodType === 'bank' && (
+                  <p style={{ color: '#e67e22', marginTop: 8 }}>Bank account is active. Remove it to add a Staffpesa wallet.</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {showDeleteModal && (
@@ -1174,7 +1535,7 @@ const styles = {
     borderRadius: '3px',
     cursor: 'pointer',
     fontSize: '0.875rem',
-  },
+    },
   confirmButton: {
     backgroundColor: '#e74c3c',
     color: 'white',
@@ -1261,6 +1622,102 @@ const styles = {
     color: '#e74c3c',
     fontWeight: '500',
     margin: '0 0 16px 0',
+  },
+  paymentMethodSelector: {
+    marginBottom: '20px',
+  },
+  selectorTitle: {
+    margin: '0 0 10px 0',
+    color: '#2c3e50',
+    fontSize: '1rem',
+  },
+  radioGroup: {
+    display: 'flex',
+    gap: '8px',
+  },
+  radioLabel: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  radioInput: {
+    marginRight: '8px',
+  },
+  radioText: {
+    fontSize: '0.875rem',
+  },
+  paymentStatus: {
+    marginBottom: '20px',
+  },
+  statusTitle: {
+    margin: '0 0 10px 0',
+    color: '#2c3e50',
+    fontSize: '1rem',
+  },
+  statusInfo: {
+    marginBottom: '10px',
+  },
+  statusBadge: {
+    padding: '4px 8px',
+    borderRadius: '4px',
+    fontSize: '12px',
+    fontWeight: '500',
+    backgroundColor: '#e8f5e8',
+    color: '#27ae60',
+    display: 'inline-block',
+    marginBottom: '8px',
+  },
+  statusText: {
+    margin: '4px 0',
+    color: '#666',
+    fontSize: '0.875rem',
+  },
+  statusDate: {
+    color: '#999',
+    fontSize: '0.75rem',
+  },
+  warningText: {
+    color: '#e67e22',
+    fontSize: '0.875rem',
+    marginTop: '8px',
+    padding: '8px',
+    backgroundColor: '#fff3cd',
+    borderRadius: '4px',
+    border: '1px solid #ffeaa7',
+  },
+  removeButton: {
+    padding: '6px 12px',
+    backgroundColor: '#e74c3c',
+    color: 'white',
+    border: 'none',
+    borderRadius: '3px',
+    cursor: 'pointer',
+    fontSize: '0.75rem',
+  },
+  quickSwitchButton: {
+    padding: '8px 16px',
+    backgroundColor: '#3498db',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '0.875rem',
+    marginTop: '8px',
+    transition: 'background-color 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#2980b9',
+    },
+  },
+  switchGuidance: {
+    marginTop: '12px',
+    padding: '12px',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '4px',
+    border: '1px solid #e9ecef',
+  },
+  guidanceText: {
+    margin: '4px 0',
+    color: '#666',
+    fontSize: '0.875rem',
   },
 };
 

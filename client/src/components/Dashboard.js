@@ -118,6 +118,19 @@ function Dashboard() {
   const currentYear = new Date().getFullYear();
   const [reviewStats, setReviewStats] = useState({ pendingReviews: 0, completedReviews: 0 });
 
+  const [payrollSummary, setPayrollSummary] = useState({
+    totalEmployees: 0,
+    totalGrossSalary: 0,
+    totalNetSalary: 0,
+    totalAllowances: 0,
+    totalDeductions: 0,
+    totalIndividualDeductions: 0,
+    deductionTotals: {}
+  });
+  const [selectedPayrollMonth, setSelectedPayrollMonth] = useState(new Date().getMonth() + 1);
+  const [selectedPayrollYear, setSelectedPayrollYear] = useState(new Date().getFullYear());
+  const [payrollSettings, setPayrollSettings] = useState(null);
+
   const fetchDashboardData = useCallback(async (abortController) => {
     try {
       const token = getToken();
@@ -170,6 +183,110 @@ function Dashboard() {
     }
   }, [navigate, getToken, logout, businessUser]);
 
+  const fetchPayrollHistory = async () => {
+    try {
+      const token = getToken();
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/payroll/history?month=${selectedPayrollMonth}&year=${selectedPayrollYear}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch payroll history');
+      }
+
+      const data = await response.json();
+      
+      // Calculate summary from payroll data
+      const summary = {
+        totalEmployees: data.length,
+        totalGrossSalary: data.reduce((sum, record) => sum + (record.grossSalary || 0), 0),
+        totalNetSalary: data.reduce((sum, record) => sum + (record.netSalary || 0), 0),
+        totalAllowances: data.reduce((sum, record) => sum + (record.allowances?.total || 0), 0),
+        totalDeductions: data.reduce((sum, record) => sum + (record.deductions?.total || 0), 0),
+        totalIndividualDeductions: data.reduce((sum, record) => {
+          const individualDeductions = record.deductions?.items?.filter(item => item.type) || [];
+          return sum + individualDeductions.reduce((itemSum, item) => itemSum + (item.amount || 0), 0);
+        }, 0),
+        deductionTotals: data.reduce((totals, record) => {
+          if (record.deductions?.items) {
+            record.deductions.items.forEach(item => {
+              totals[item.name] = (totals[item.name] || 0) + (item.amount || 0);
+            });
+          }
+          return totals;
+        }, {})
+      };
+
+      setPayrollSummary(summary);
+    } catch (error) {
+      console.error('Error fetching payroll history:', error);
+    }
+  };
+
+  const fetchPayrollSettings = async () => {
+    try {
+      const token = getToken();
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/payroll/settings`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch payroll settings');
+      }
+
+      const data = await response.json();
+      setPayrollSettings(data);
+    } catch (error) {
+      console.error('Error fetching payroll settings:', error);
+    }
+  };
+
+  const getConfiguredDeductions = () => {
+    if (!payrollSettings?.taxRates) return [];
+    
+    const deductions = [];
+    if (payrollSettings.taxRates.paye?.enabled) deductions.push('PAYE');
+    if (payrollSettings.taxRates.nhif?.enabled) deductions.push('NHIF');
+    if (payrollSettings.taxRates.nssf?.enabled) deductions.push('NSSF');
+    
+    // Add custom deductions
+    if (payrollSettings.taxRates.customDeductions) {
+      payrollSettings.taxRates.customDeductions
+        .filter(d => d.enabled)
+        .forEach(d => deductions.push(d.name));
+    }
+    
+    return deductions;
+  };
+
+  const getConfiguredAllowances = () => {
+    if (!payrollSettings?.taxRates?.allowances) return [];
+    
+    return payrollSettings.taxRates.allowances
+      .filter(a => a.enabled)
+      .map(a => a.name);
+  };
+
   useEffect(() => {
     const abortController = new AbortController();
     fetchDashboardData(abortController);
@@ -177,6 +294,16 @@ function Dashboard() {
       abortController.abort();
     };
   }, [fetchDashboardData]);
+
+  useEffect(() => {
+    fetchPayrollSettings();
+  }, []);
+
+  useEffect(() => {
+    if (payrollSettings) {
+      fetchPayrollHistory();
+    }
+  }, [selectedPayrollMonth, selectedPayrollYear, payrollSettings]);
 
   const handleAddEmployee = async (e) => {
     e.preventDefault();
@@ -445,6 +572,85 @@ function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Payroll Summary Section */}
+        {dashboardData?.metrics?.employeeCount?.total > 0 && (
+          <div style={styles.payrollSummarySection}>
+            <h2 style={styles.sectionTitle}>
+              <span style={styles.icon}>💰</span>
+              Payroll Summary
+              <div style={styles.payrollPeriodSelector}>
+                <select 
+                  value={selectedPayrollMonth}
+                  onChange={(e) => setSelectedPayrollMonth(Number(e.target.value))}
+                  style={styles.periodSelect}
+                >
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                      {new Date(2000, i).toLocaleString('default', { month: 'long' })}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedPayrollYear}
+                  onChange={(e) => setSelectedPayrollYear(Number(e.target.value))}
+                  style={styles.periodSelect}
+                >
+                  {Array.from({ length: 5 }, (_, i) => {
+                    const year = new Date().getFullYear() - i;
+                    return (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </h2>
+            <div style={styles.payrollSummaryGrid}>
+              <div style={styles.payrollSummaryCard}>
+                <div style={styles.payrollCardIcon}>👥</div>
+                <span style={styles.payrollCardLabel}>Total Employees</span>
+                <span style={styles.payrollCardValue}>{payrollSummary.totalEmployees}</span>
+              </div>
+              <div style={styles.payrollSummaryCard}>
+                <div style={styles.payrollCardIcon}>💰</div>
+                <span style={styles.payrollCardLabel}>Total Gross Salary</span>
+                <span style={styles.payrollCardValue}>KES {payrollSummary.totalGrossSalary?.toLocaleString()}</span>
+              </div>
+              <div style={styles.payrollSummaryCard}>
+                <div style={styles.payrollCardIcon}>💵</div>
+                <span style={styles.payrollCardLabel}>Total Net Salary</span>
+                <span style={styles.payrollCardValue}>KES {payrollSummary.totalNetSalary?.toLocaleString()}</span>
+              </div>
+              <div style={styles.payrollSummaryCard}>
+                <div style={styles.payrollCardIcon}>➕</div>
+                <span style={styles.payrollCardLabel}>Total Allowances</span>
+                <span style={styles.payrollCardValue}>KES {payrollSummary.totalAllowances?.toLocaleString()}</span>
+              </div>
+              <div style={styles.payrollSummaryCard}>
+                <div style={styles.payrollCardIcon}>➖</div>
+                <span style={styles.payrollCardLabel}>Total Deductions</span>
+                <span style={styles.payrollCardValue}>KES {payrollSummary.totalDeductions?.toLocaleString()}</span>
+              </div>
+              <div style={styles.payrollSummaryCard}>
+                <div style={styles.payrollCardIcon}>💳</div>
+                <span style={styles.payrollCardLabel}>Individual Deductions</span>
+                <span style={styles.payrollCardValue}>KES {payrollSummary.totalIndividualDeductions?.toLocaleString()}</span>
+              </div>
+              {/* Dynamically render configured deductions */}
+              {getConfiguredDeductions().map(deduction => (
+                <div key={deduction} style={styles.payrollSummaryCard}>
+                  <div style={styles.payrollCardIcon}>📊</div>
+                  <span style={styles.payrollCardLabel}>Total {deduction}</span>
+                  <span style={styles.payrollCardValue}>
+                    KES {payrollSummary.deductionTotals[deduction]?.toLocaleString() || '0'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Welcome Section for New Businesses */}
         {dashboardData?.metrics?.employeeCount?.total === 0 && (
@@ -1412,6 +1618,51 @@ const styles = {
   },
   businessEmail: {
     fontWeight: '400'
+  },
+  payrollSummarySection: {
+    backgroundColor: 'white',
+    padding: '20px',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    border: '1px solid #e2e8f0',
+    marginBottom: '20px'
+  },
+  payrollPeriodSelector: {
+    display: 'flex',
+    gap: '10px',
+    marginTop: '10px'
+  },
+  periodSelect: {
+    padding: '8px',
+    border: '1px solid #e2e8f0',
+    borderRadius: '4px'
+  },
+  payrollSummaryGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '15px',
+    marginTop: '15px'
+  },
+  payrollSummaryCard: {
+    backgroundColor: '#f8fafc',
+    padding: '15px',
+    borderRadius: '6px',
+    border: '1px solid #e2e8f0',
+    textAlign: 'center'
+  },
+  payrollCardIcon: {
+    fontSize: '1.75rem',
+    marginBottom: '10px'
+  },
+  payrollCardLabel: {
+    fontSize: '0.875rem',
+    color: '#64748b',
+    fontWeight: '600'
+  },
+  payrollCardValue: {
+    fontSize: '1.5rem',
+    fontWeight: '600',
+    color: '#0f172a'
   }
 };
 

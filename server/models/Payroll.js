@@ -57,6 +57,34 @@ const PayrollSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  status: {
+    type: String,
+    enum: ['processed', 'approved', 'paid', 'failed'],
+    default: 'processed'
+  },
+  approvedAt: {
+    type: Date
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business'
+  },
+  reviewNotes: {
+    type: String,
+    trim: true
+  },
+  paidAt: {
+    type: Date
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['staffpesa_wallet', 'bank_transfer'],
+    trim: true
+  },
+  paymentReference: {
+    type: String,
+    trim: true
+  },
   processedDate: {
     type: Date,
     default: Date.now

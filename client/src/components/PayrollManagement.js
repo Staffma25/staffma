@@ -6,7 +6,6 @@ import { fetchWithAuth } from '../utils/auth';
 function PayrollManagement() {
   const [employees, setEmployees] = useState([]);
   const [payrollHistory, setPayrollHistory] = useState([]);
-  const [payrollSummary, setPayrollSummary] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(false);
@@ -15,6 +14,11 @@ function PayrollManagement() {
   const [success, setSuccess] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [payrollSettings, setPayrollSettings] = useState(null);
+  const [activeStep, setActiveStep] = useState('process'); // 'process', 'review', 'payments'
+  const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [paymentStatus, setPaymentStatus] = useState({});
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -89,37 +93,40 @@ function PayrollManagement() {
       });
       console.log('=== END PAYROLL DATA DEBUG ===');
 
-      setPayrollHistory(data);
+      // Fetch detailed employee information for each payroll record
+      const enrichedData = await Promise.all(
+        data.map(async (payrollRecord) => {
+          try {
+            const employeeResponse = await fetchWithAuth(
+              `http://localhost:5001/api/employees/${payrollRecord.employeeId._id}`
+            );
+            
+            if (employeeResponse.ok) {
+              const employeeData = await employeeResponse.json();
+              return {
+                ...payrollRecord,
+                employeeId: {
+                  ...payrollRecord.employeeId,
+                  bankAccounts: employeeData.bankAccounts || [],
+                  staffpesaWallet: employeeData.staffpesaWallet
+                }
+              };
+            }
+            
+            return payrollRecord;
+          } catch (error) {
+            console.error('Error fetching employee details:', error);
+            return payrollRecord;
+          }
+        })
+      );
+
+      setPayrollHistory(enrichedData);
     } catch (error) {
       console.error('Error fetching payroll history:', error);
       setError(error.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchPayrollSummary = async () => {
-    try {
-      const response = await fetchWithAuth(
-        `http://localhost:5001/api/payroll/summary?month=${selectedMonth}&year=${selectedYear}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch payroll summary');
-      }
-      
-      const data = await response.json();
-      setPayrollSummary(data);
-    } catch (error) {
-      console.error('Error fetching payroll summary:', error);
-      setError(error.message);
     }
   };
 
@@ -153,6 +160,12 @@ function PayrollManagement() {
       
       if (!payrollSettings) {
         throw new Error('Please configure your payroll settings before processing payroll');
+      }
+
+      // Check if payroll has already been processed and paid for this month
+      const existingPayroll = payrollHistory.filter(record => record.status === 'paid');
+      if (existingPayroll.length > 0) {
+        throw new Error(`Payroll for ${new Date(2000, selectedMonth - 1).toLocaleString('default', { month: 'long' })} ${selectedYear} has already been processed and paid. Cannot reprocess.`);
       }
       
       const response = await fetchWithAuth('http://localhost:5001/api/payroll/process', {
@@ -189,14 +202,96 @@ function PayrollManagement() {
         throw new Error(data.message || data.error || 'Failed to process payroll');
       }
 
-      setSuccess(data.message);
+      setSuccess('Payroll processed successfully! You can now review and approve the payroll.');
       await fetchPayrollHistory();
-      await fetchPayrollSummary();
+      // Automatically advance to review step after successful processing
+      setActiveStep('review');
     } catch (error) {
       console.error('Payroll processing error:', error);
       setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const approvePayroll = async () => {
+    if (selectedEmployees.length === 0) {
+      setError('Please select at least one employee for payroll approval');
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      setError('');
+
+      const requestBody = {
+        month: selectedMonth,
+        year: selectedYear,
+        employeeIds: selectedEmployees
+      };
+
+      const response = await fetchWithAuth('http://localhost:5001/api/payroll/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to approve payroll');
+      }
+
+      setSuccess('Payroll approved successfully! You can now process payments.');
+      await fetchPayrollHistory();
+      setActiveStep('payments');
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const processPayments = async () => {
+    if (selectedEmployees.length === 0) {
+      setError('Please select payments to process');
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      setError('');
+
+      const response = await fetchWithAuth('http://localhost:5001/api/payroll/process-payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          month: selectedMonth,
+          year: selectedYear,
+          paymentIds: selectedEmployees
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to process payments');
+      }
+
+      setSuccess(`Payment successfully disbursed! ${data.processedCount} payments processed.`);
+      setPaymentStatus(data.paymentStatus || {});
+      await fetchPayrollHistory();
+      
+      // Return to step 1 after successful payment processing
+      setTimeout(() => {
+        setActiveStep('process');
+        setSelectedEmployees([]);
+        setSuccess(null);
+      }, 3000);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -222,6 +317,31 @@ function PayrollManagement() {
     } catch (error) {
       console.error('Error downloading payslip:', error);
       setError(error.message || 'Failed to download payslip. Please try again.');
+    }
+  };
+
+  const downloadExcel = async () => {
+    try {
+      const response = await fetchWithAuth(`http://localhost:5001/api/payroll/download-excel?month=${selectedMonth}&year=${selectedYear}`, {
+        method: 'GET'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download Excel file');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `payroll-${selectedMonth}-${selectedYear}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading Excel:', error);
+      setError(error.message || 'Failed to download Excel file. Please try again.');
     }
   };
 
@@ -267,30 +387,6 @@ function PayrollManagement() {
     */
   };
 
-  // Calculate summary from filtered payroll history
-  const calculateSummary = (records) => {
-    return {
-      totalEmployees: records.length,
-      totalGrossSalary: records.reduce((sum, record) => sum + (record.grossSalary || 0), 0),
-      totalNetSalary: records.reduce((sum, record) => sum + (record.netSalary || 0), 0),
-      totalAllowances: records.reduce((sum, record) => sum + (record.allowances?.total || 0), 0),
-      totalDeductions: records.reduce((sum, record) => sum + (record.deductions?.total || 0), 0),
-      totalIndividualDeductions: records.reduce((sum, record) => {
-        const individualDeductions = record.deductions?.items?.filter(item => item.type) || [];
-        return sum + individualDeductions.reduce((itemSum, item) => itemSum + (item.amount || 0), 0);
-      }, 0),
-      // Calculate individual deduction totals based on configured deductions
-      deductionTotals: records.reduce((totals, record) => {
-        if (record.deductions?.items) {
-          record.deductions.items.forEach(item => {
-            totals[item.name] = (totals[item.name] || 0) + (item.amount || 0);
-          });
-        }
-        return totals;
-      }, {})
-    };
-  };
-
   // Filter payroll history based on search term
   const filteredPayrollHistory = payrollHistory.filter(record => {
     const searchLower = searchTerm.toLowerCase();
@@ -304,9 +400,6 @@ function PayrollManagement() {
            department.includes(searchLower) ||
            position.includes(searchLower);
   });
-
-  // Calculate current summary based on filtered data
-  const currentSummary = calculateSummary(filteredPayrollHistory);
 
   // Get configured deductions from payroll settings
   const getConfiguredDeductions = () => {
@@ -339,6 +432,89 @@ function PayrollManagement() {
   const configuredDeductions = getConfiguredDeductions();
   const configuredAllowances = getConfiguredAllowances();
 
+  const getPaymentMethod = (employee) => {
+    // Check for Staffpesa wallet first (takes priority)
+    if (employee.staffpesaWallet && employee.staffpesaWallet.walletId) {
+      return {
+        type: 'wallet',
+        label: 'Staffpesa Wallet',
+        details: `${employee.staffpesaWallet.walletId} (${employee.staffpesaWallet.phoneNumber})`,
+        status: employee.staffpesaWallet.isActive ? 'Active' : 'Inactive',
+        fullDetails: {
+          walletId: employee.staffpesaWallet.walletId,
+          phoneNumber: employee.staffpesaWallet.phoneNumber,
+          isActive: employee.staffpesaWallet.isActive,
+          status: employee.staffpesaWallet.status
+        }
+      };
+    } 
+    
+    // Check for bank accounts
+    if (employee.bankAccounts && employee.bankAccounts.length > 0) {
+      const primaryAccount = employee.bankAccounts.find(acc => acc.isPrimary) || employee.bankAccounts[0];
+      return {
+        type: 'bank',
+        label: 'Bank Account',
+        details: `${primaryAccount.bankName} - ${primaryAccount.accountNumber}`,
+        status: 'Active',
+        fullDetails: {
+          bankName: primaryAccount.bankName,
+          accountNumber: primaryAccount.accountNumber,
+          accountType: primaryAccount.accountType,
+          isPrimary: primaryAccount.isPrimary,
+          totalAccounts: employee.bankAccounts.length
+        }
+      };
+    }
+    
+    // No payment method available
+    return { 
+      type: 'none', 
+      label: 'No Payment Method', 
+      details: 'Employee needs payment setup',
+      status: 'Not Configured',
+      fullDetails: null
+    };
+  };
+
+  const getStatusBadge = (status) => {
+    const statusStyles = {
+      processed: { backgroundColor: '#17a2b8', color: '#fff' },
+      approved: { backgroundColor: '#28a745', color: '#fff' },
+      paid: { backgroundColor: '#28a745', color: '#fff' },
+      failed: { backgroundColor: '#dc3545', color: '#fff' },
+      pending: { backgroundColor: '#ffc107', color: '#000' }
+    };
+    
+    return {
+      ...statusStyles[status] || statusStyles.pending,
+      padding: '4px 8px',
+      borderRadius: '4px',
+      fontSize: '0.75rem',
+      fontWeight: '600'
+    };
+  };
+
+  const getStepStatus = (step) => {
+    if (step === 'process') return 'active';
+    if (step === 'review' && payrollHistory.length > 0 && !payrollHistory.some(p => p.status === 'paid')) return 'active';
+    if (step === 'payments' && payrollHistory.some(p => p.status === 'approved') && !payrollHistory.some(p => p.status === 'paid')) return 'active';
+    return 'disabled';
+  };
+
+  const canNavigateToStep = (step) => {
+    if (step === 'process') return true;
+    if (step === 'review' && payrollHistory.length > 0 && !payrollHistory.some(p => p.status === 'paid')) return true;
+    if (step === 'payments' && payrollHistory.some(p => p.status === 'approved') && !payrollHistory.some(p => p.status === 'paid')) return true;
+    return false;
+  };
+
+  const handleStepClick = (step) => {
+    if (canNavigateToStep(step)) {
+      setActiveStep(step);
+    }
+  };
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -350,17 +526,51 @@ function PayrollManagement() {
         </button>
         <h1 style={styles.title}>Payroll Management</h1>
         <div style={styles.headerActions}>
-          <button
-            style={styles.processButton}
-            onClick={processPayroll}
-            disabled={loading || !isValidPayrollPeriod(selectedMonth, selectedYear)}
-          >
-            {loading ? 'Processing...' : 'Process Payroll'}
-          </button>
         </div>
       </div>
       
       {error && <div style={styles.error}>{error}</div>}
+      {success && <div style={styles.success}>{success}</div>}
+
+      {/* Workflow Steps */}
+      <div style={styles.steps}>
+        <button
+          style={{
+            ...styles.step,
+            ...(activeStep === 'process' && styles.activeStep),
+            ...(getStepStatus('process') === 'disabled' && styles.disabledStep)
+          }}
+          onClick={() => handleStepClick('process')}
+          disabled={!canNavigateToStep('process')}
+        >
+          <span style={styles.stepNumber}>1</span>
+          <span style={styles.stepLabel}>Process Payroll</span>
+        </button>
+        <button
+          style={{
+            ...styles.step,
+            ...(activeStep === 'review' && styles.activeStep),
+            ...(getStepStatus('review') === 'disabled' && styles.disabledStep)
+          }}
+          onClick={() => handleStepClick('review')}
+          disabled={!canNavigateToStep('review')}
+        >
+          <span style={styles.stepNumber}>2</span>
+          <span style={styles.stepLabel}>Review & Approve</span>
+        </button>
+        <button
+          style={{
+            ...styles.step,
+            ...(activeStep === 'payments' && styles.activeStep),
+            ...(getStepStatus('payments') === 'disabled' && styles.disabledStep)
+          }}
+          onClick={() => handleStepClick('payments')}
+          disabled={!canNavigateToStep('payments')}
+        >
+          <span style={styles.stepNumber}>3</span>
+          <span style={styles.stepLabel}>Process Payments</span>
+        </button>
+      </div>
       
       <div style={styles.controls}>
         <div style={styles.dateControls}>
@@ -405,56 +615,23 @@ function PayrollManagement() {
             );
           })}
         </select>
-        </div>
-      </div>
 
-      {/* Updated Payroll Summary */}
-        <div style={styles.summaryContainer}>
-        <h3 style={styles.summaryTitle}>
-          Payroll Summary
-          {searchTerm && <span style={styles.filteredLabel}> (Filtered Results)</span>}
-        </h3>
-          <div style={styles.summaryGrid}>
-            <div style={styles.summaryCard}>
-              <div style={styles.cardIcon}>👥</div>
-              <span style={styles.cardLabel}>Total Employees</span>
-            <span style={styles.cardValue}>{currentSummary.totalEmployees}</span>
-            </div>
-            <div style={styles.summaryCard}>
-              <div style={styles.cardIcon}>💰</div>
-              <span style={styles.cardLabel}>Total Gross Salary</span>
-            <span style={styles.cardValue}>KES {currentSummary.totalGrossSalary?.toLocaleString()}</span>
-            </div>
-            <div style={styles.summaryCard}>
-              <div style={styles.cardIcon}>💵</div>
-              <span style={styles.cardLabel}>Total Net Salary</span>
-            <span style={styles.cardValue}>KES {currentSummary.totalNetSalary?.toLocaleString()}</span>
-          </div>
-          <div style={styles.summaryCard}>
-            <div style={styles.cardIcon}>➕</div>
-            <span style={styles.cardLabel}>Total Allowances</span>
-            <span style={styles.cardValue}>KES {currentSummary.totalAllowances?.toLocaleString()}</span>
-            </div>
-            <div style={styles.summaryCard}>
-            <div style={styles.cardIcon}>➖</div>
-            <span style={styles.cardLabel}>Total Deductions</span>
-            <span style={styles.cardValue}>KES {currentSummary.totalDeductions?.toLocaleString()}</span>
-          </div>
-          <div style={styles.summaryCard}>
-            <div style={styles.cardIcon}>💳</div>
-            <span style={styles.cardLabel}>Individual Deductions</span>
-            <span style={styles.cardValue}>KES {currentSummary.totalIndividualDeductions?.toLocaleString()}</span>
-          </div>
-          {/* Dynamically render configured deductions */}
-          {configuredDeductions.map(deduction => (
-            <div key={deduction} style={styles.summaryCard}>
-              <div style={styles.cardIcon}>📊</div>
-              <span style={styles.cardLabel}>Total {deduction}</span>
-              <span style={styles.cardValue}>
-                KES {currentSummary.deductionTotals[deduction]?.toLocaleString() || '0'}
-              </span>
-            </div>
-          ))}
+        <button
+          style={styles.processButton}
+          onClick={processPayroll}
+          disabled={loading || !isValidPayrollPeriod(selectedMonth, selectedYear)}
+        >
+          {loading ? 'Processing...' : 'Process Payroll'}
+        </button>
+        
+        {filteredPayrollHistory.length > 0 && (
+          <button
+            style={styles.downloadButton}
+            onClick={downloadExcel}
+          >
+            Download Excel
+          </button>
+        )}
         </div>
       </div>
 
@@ -478,14 +655,96 @@ function PayrollManagement() {
       </div>
 
       <div style={styles.tableContainer}>
+        {/* Workflow Action Buttons - Top */}
+        {activeStep === 'review' && (
+          <div style={styles.workflowActions}>
+            <div style={styles.actionInfo}>
+              <p>Selected: {selectedEmployees.length} employees</p>
+              <p>
+                Total Amount: KES {
+                  filteredPayrollHistory
+                    .filter(r => selectedEmployees.includes(r._id))
+                    .reduce((sum, r) => sum + (r.netSalary || 0), 0)
+                    .toLocaleString()
+                }
+              </p>
+            </div>
+            <div style={styles.actionButtons}>
+              <button
+                onClick={() => setSelectedEmployees(filteredPayrollHistory.map(r => r._id))}
+                style={styles.selectAllButton}
+              >
+                Select All
+              </button>
+              <button
+                onClick={() => setSelectedEmployees([])}
+                style={styles.clearButton}
+              >
+                Clear All
+              </button>
+              <button
+                onClick={approvePayroll}
+                disabled={processing || selectedEmployees.length === 0}
+                style={styles.approveButton}
+              >
+                {processing ? 'Approving...' : 'Approve Selected'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeStep === 'payments' && (
+          <div style={styles.workflowActions}>
+            <div style={styles.actionInfo}>
+              <p>Selected: {selectedEmployees.length} payments</p>
+              <p>
+                Total Amount: KES {
+                  filteredPayrollHistory
+                    .filter(r => selectedEmployees.includes(r._id))
+                    .reduce((sum, r) => sum + (r.netSalary || 0), 0)
+                    .toLocaleString()
+                }
+              </p>
+            </div>
+            <div style={styles.actionButtons}>
+              <button
+                onClick={() => setSelectedEmployees(filteredPayrollHistory.filter(r => r.status === 'approved').map(r => r._id))}
+                style={styles.selectAllButton}
+              >
+                Select All Approved
+              </button>
+              <button
+                onClick={() => setSelectedEmployees([])}
+                style={styles.clearButton}
+              >
+                Clear All
+              </button>
+              <button
+                onClick={processPayments}
+                disabled={processing || selectedEmployees.length === 0}
+                style={styles.processButton}
+              >
+                {processing ? 'Processing Payments...' : 'Process Selected Payments'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {filteredPayrollHistory.length > 0 ? (
           <table style={styles.table}>
             <thead>
               <tr>
+                {(activeStep === 'review' || activeStep === 'payments') && (
+                  <th style={styles.tableHeader}>Select</th>
+                )}
                 <th style={styles.tableHeader}>Employee ID</th>
                 <th style={styles.tableHeader}>Employee</th>
-                <th style={styles.tableHeader}>Position</th>
-                <th style={styles.tableHeader}>Department</th>
+                {activeStep === 'process' && (
+                  <>
+                    <th style={styles.tableHeader}>Position</th>
+                    <th style={styles.tableHeader}>Department</th>
+                  </>
+                )}
                 <th style={styles.tableHeader}>Basic Salary</th>
                 {configuredAllowances.map(allowance => (
                   <th key={allowance} style={styles.tableHeader}>{allowance}</th>
@@ -503,24 +762,49 @@ function PayrollManagement() {
                 <th style={styles.tableHeader}>Individual Deductions</th>
                 <th style={styles.tableHeader}>Total Deductions</th>
                 <th style={styles.tableHeader}>Net Salary</th>
+                {(activeStep === 'review' || activeStep === 'payments') && (
+                  <th style={styles.tableHeader}>Payment Method</th>
+                )}
+                {(activeStep === 'review' || activeStep === 'payments') && (
+                  <th style={styles.tableHeader}>Status</th>
+                )}
                 <th style={styles.tableHeader}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredPayrollHistory.map((record) => (
                 <tr key={record._id}>
+                  {(activeStep === 'review' || activeStep === 'payments') && (
+                    <td style={styles.tableCell}>
+                      <input
+                        type="checkbox"
+                        checked={selectedEmployees.includes(record._id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedEmployees([...selectedEmployees, record._id]);
+                          } else {
+                            setSelectedEmployees(selectedEmployees.filter(id => id !== record._id));
+                          }
+                        }}
+                      />
+                    </td>
+                  )}
                   <td style={styles.tableCell}>
                     {record.employeeId?.employeeNumber || 'N/A'}
                   </td>
                   <td style={styles.tableCell}>
                     {`${record.employeeId?.firstName} ${record.employeeId?.lastName}`}
                   </td>
-                  <td style={styles.tableCell}>
-                    {record.employeeId?.position || 'N/A'}
-                  </td>
-                  <td style={styles.tableCell}>
-                    {record.employeeId?.department || 'N/A'}
-                  </td>
+                  {activeStep === 'process' && (
+                    <>
+                      <td style={styles.tableCell}>
+                        {record.employeeId?.position || 'N/A'}
+                      </td>
+                      <td style={styles.tableCell}>
+                        {record.employeeId?.department || 'N/A'}
+                      </td>
+                    </>
+                  )}
                   <td style={styles.tableCell}>
                     KES {record.basicSalary?.toLocaleString()}
                   </td>
@@ -634,13 +918,29 @@ function PayrollManagement() {
                   <td style={styles.tableCell}>
                     KES {record.netSalary?.toLocaleString()}
                   </td>
+                  {(activeStep === 'review' || activeStep === 'payments') && (
+                    <td style={styles.tableCell}>
+                      {getPaymentMethod(record.employeeId).label}
+                    </td>
+                  )}
+                  {(activeStep === 'review' || activeStep === 'payments') && (
+                    <td style={styles.tableCell}>
+                      <span style={getStatusBadge(record.status)}>
+                        {activeStep === 'review' ? 'PROCESSED' : 
+                         activeStep === 'payments' && record.status === 'approved' ? 'APPROVED' :
+                         activeStep === 'payments' && record.status === 'paid' ? 'PAID' :
+                         record.status?.toUpperCase() || 'PENDING'}
+                      </span>
+                    </td>
+                  )}
                   <td style={styles.tableCell}>
                     <div style={styles.actionButtons}>
                       <button 
                         onClick={() => downloadPayslip(record._id)}
                         style={styles.downloadButton}
+                        title="Download Payslip"
                       >
-                        Download Payslip
+                        📄 Payslip
                       </button>
                     </div>
                   </td>
@@ -650,10 +950,18 @@ function PayrollManagement() {
           </table>
         ) : (
           <div style={styles.noData}>
-            {searchTerm 
-              ? 'No payroll records found matching your search criteria.'
-              : `No payroll records found for ${new Date(2000, selectedMonth - 1).toLocaleString('default', { month: 'long' })} ${selectedYear}`
-            }
+            {activeStep === 'process' ? (
+              <div>
+                <p>No payroll records found for {new Date(2000, selectedMonth - 1).toLocaleString('default', { month: 'long' })} {selectedYear}</p>
+                <p style={{ fontSize: '0.875rem', color: '#666', marginTop: '8px' }}>
+                  Click the "Process Payroll" button above to generate payroll for this period.
+                </p>
+              </div>
+            ) : searchTerm ? (
+              'No payroll records found matching your search criteria.'
+            ) : (
+              `No payroll records found for ${new Date(2000, selectedMonth - 1).toLocaleString('default', { month: 'long' })} ${selectedYear}`
+            )}
           </div>
         )}
       </div>
@@ -663,8 +971,8 @@ function PayrollManagement() {
 
 const styles = {
   container: {
-    padding: '15px',
-    maxWidth: '1200px',
+    padding: '10px',
+    maxWidth: '100%',
     margin: '0 auto',
   },
   header: {
@@ -792,9 +1100,10 @@ const styles = {
   tableContainer: {
     backgroundColor: '#ffffff',
     borderRadius: '8px',
-    padding: '15px',
+    padding: '10px',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    overflowX: 'auto',
+    width: '100%',
+    margin: '0 10px',
   },
   table: {
     width: '100%',
@@ -805,9 +1114,9 @@ const styles = {
   tableHeader: {
     backgroundColor: '#f8f9fa',
     color: '#2c3e50',
-    padding: '10px 12px',
+    padding: '6px 4px',
     textAlign: 'left',
-    fontSize: '0.75rem',
+    fontSize: '0.7rem',
     fontWeight: '600',
     borderBottom: '2px solid #dee2e6',
   },
@@ -818,9 +1127,9 @@ const styles = {
     },
   },
   tableCell: {
-    padding: '10px 12px',
+    padding: '6px 4px',
     color: '#2c3e50',
-    fontSize: '0.75rem',
+    fontSize: '0.7rem',
   },
   error: {
     color: 'red',
@@ -833,17 +1142,18 @@ const styles = {
     alignItems: 'center'
   },
   downloadButton: {
-    padding: '6px 12px',
+    padding: '4px 8px',
     backgroundColor: '#3498db',
     color: 'white',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '0.75rem',
+    fontSize: '0.7rem',
     display: 'flex',
     alignItems: 'center',
     gap: '4px',
     transition: 'background-color 0.2s ease',
+    whiteSpace: 'nowrap',
     '&:hover': {
       backgroundColor: '#2980b9',
     },
@@ -895,6 +1205,82 @@ const styles = {
     '&:hover': {
       backgroundColor: '#c0392b',
     },
+  },
+  success: {
+    backgroundColor: '#d4edda',
+    color: '#155724',
+    padding: '10px',
+    borderRadius: '4px',
+    marginBottom: '15px',
+  },
+  steps: {
+    display: 'flex',
+    gap: '8px',
+    marginBottom: '15px',
+  },
+  step: {
+    padding: '6px 12px',
+    backgroundColor: '#f0f0f0',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '0.875rem',
+  },
+  activeStep: {
+    backgroundColor: '#4caf50',
+    color: 'white',
+  },
+  disabledStep: {
+    backgroundColor: '#ccc',
+    cursor: 'not-allowed',
+  },
+  stepNumber: {
+    fontWeight: '600',
+  },
+  stepLabel: {
+    marginLeft: '8px',
+  },
+  workflowActions: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '10px',
+    backgroundColor: '#ffffff',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    marginBottom: '15px',
+  },
+  actionInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  selectAllButton: {
+    padding: '6px 12px',
+    backgroundColor: '#4caf50',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '0.875rem',
+  },
+  clearButton: {
+    padding: '6px 12px',
+    backgroundColor: '#e74c3c',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '0.875rem',
+  },
+  approveButton: {
+    padding: '6px 12px',
+    backgroundColor: '#28a745',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '0.875rem',
   },
 };
 

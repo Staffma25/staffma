@@ -1,57 +1,113 @@
 const Employee = require('../models/Employee');
 
-async function generateEmployeeNumber(businessName) {
+async function generateEmployeeNumber(businessName, retryCount = 0) {
   try {
+    // Prevent infinite recursion
+    if (retryCount > 5) {
+      // Fallback: use timestamp-based numbering
+      console.log('Using fallback timestamp-based numbering');
+      return generateTimestampBasedNumber(businessName);
+    }
+
+    // Validate business name
+    if (!businessName || typeof businessName !== 'string' || businessName.trim().length === 0) {
+      throw new Error('Invalid business name provided');
+    }
+
     // Extract initials from business name
     const initials = businessName
+      .trim()
       .split(' ')
+      .filter(word => word.length > 0) // Filter out empty strings
       .map(word => word.charAt(0))
       .join('')
       .toUpperCase();
 
+    // Ensure we have at least one initial
+    if (initials.length === 0) {
+      throw new Error('Could not extract initials from business name');
+    }
+
     console.log('Generating employee number for business:', businessName);
     console.log('Business initials:', initials);
 
-    // Find the latest employee number with these initials
-    const latestEmployee = await Employee.findOne({
+    // Find all existing employee numbers with these initials
+    const existingEmployees = await Employee.find({
       employeeNumber: new RegExp(`^${initials}`)
-    }).sort({ employeeNumber: -1 });
+    }).sort({ employeeNumber: 1 });
 
-    console.log('Latest employee found:', latestEmployee);
+    console.log(`Found ${existingEmployees.length} existing employees with initials ${initials}`);
 
-    let nextNumber;
-    if (latestEmployee && latestEmployee.employeeNumber) {
-      // Extract the numeric part and increment
-      const numericPart = latestEmployee.employeeNumber.replace(/[^0-9]/g, '');
-      const currentNumber = parseInt(numericPart, 10);
+    let nextNumber = 1;
+    
+    if (existingEmployees.length > 0) {
+      // Find the highest number used
+      const numbers = existingEmployees.map(emp => {
+        const numericPart = emp.employeeNumber.replace(/[^0-9]/g, '');
+        return parseInt(numericPart, 10) || 0;
+      });
       
-      if (isNaN(currentNumber)) {
-        // If parsing fails, start with 0001
-        nextNumber = '0001';
-      } else {
-        // Add a random number between 1-9 to avoid conflicts in concurrent requests
-        const randomIncrement = Math.floor(Math.random() * 9) + 1;
-        nextNumber = (currentNumber + randomIncrement).toString().padStart(4, '0');
-      }
-    } else {
-      // Start with 0001 if no employees exist
-      nextNumber = '0001';
+      const maxNumber = Math.max(...numbers);
+      nextNumber = maxNumber + 1;
+      
+      console.log('Highest existing number:', maxNumber, 'Next number will be:', nextNumber);
     }
 
-    const employeeNumber = `${initials}${nextNumber}`;
+    // Format the number with leading zeros
+    const formattedNumber = nextNumber.toString().padStart(4, '0');
+    const employeeNumber = `${initials}${formattedNumber}`;
+    
     console.log('Generated employee number:', employeeNumber);
 
-    // Verify the number is unique
+    // Double-check that this number doesn't exist (race condition protection)
     const existingEmployee = await Employee.findOne({ employeeNumber });
     if (existingEmployee) {
-      // If number exists, try again with a different random increment
-      return generateEmployeeNumber(businessName);
+      console.log('Employee number already exists, retrying with incremented number...');
+      // Instead of recursion, try the next number directly
+      return generateEmployeeNumber(businessName, retryCount + 1);
     }
 
     return employeeNumber;
   } catch (error) {
     console.error('Error generating employee number:', error);
-    throw new Error('Failed to generate employee number');
+    throw new Error(`Failed to generate employee number: ${error.message}`);
+  }
+}
+
+// Fallback function using timestamp-based numbering
+async function generateTimestampBasedNumber(businessName) {
+  try {
+    // Extract initials from business name
+    const initials = businessName
+      .trim()
+      .split(' ')
+      .filter(word => word.length > 0)
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase();
+
+    // Use timestamp to ensure uniqueness
+    const timestamp = Date.now();
+    const lastFourDigits = timestamp.toString().slice(-4);
+    
+    const employeeNumber = `${initials}${lastFourDigits}`;
+    
+    console.log('Generated timestamp-based employee number:', employeeNumber);
+    
+    // Final check for uniqueness
+    const existingEmployee = await Employee.findOne({ employeeNumber });
+    if (existingEmployee) {
+      // If even timestamp-based number exists, add a random suffix
+      const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const finalEmployeeNumber = `${employeeNumber}${randomSuffix}`;
+      console.log('Generated final employee number with random suffix:', finalEmployeeNumber);
+      return finalEmployeeNumber;
+    }
+    
+    return employeeNumber;
+  } catch (error) {
+    console.error('Error in timestamp-based numbering:', error);
+    throw new Error('Failed to generate employee number with fallback method');
   }
 }
 

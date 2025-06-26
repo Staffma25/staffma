@@ -398,7 +398,7 @@ router.post('/process', auth, async (req, res) => {
               total: totalDeductions
             },
             netSalary,
-            status: 'pending',
+            status: 'processed',
             processedBy: req.user._id,
             processedDate: new Date()
           }
@@ -1466,6 +1466,242 @@ router.post('/debug-add-deduction/:employeeId', auth, async (req, res) => {
   } catch (error) {
     console.error('Error adding test deduction:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Download payroll as Excel
+router.get('/download-excel', auth, async (req, res) => {
+  try {
+    const { month, year } = req.query;
+
+    if (!month || !year) {
+      return res.status(400).json({ error: 'Month and year are required' });
+    }
+
+    // Get payroll data for the specified month and year
+    const payrollData = await Payroll.find({
+      businessId: req.user.businessId,
+      month: Number(month),
+      year: Number(year)
+    })
+    .populate('employeeId', 'firstName lastName position department employeeNumber')
+    .sort({ 'employeeId.firstName': 1, 'employeeId.lastName': 1 });
+
+    if (!payrollData.length) {
+      return res.status(404).json({ message: 'No payroll data found for the specified period' });
+    }
+
+    // Get business details
+    const business = await Business.findById(req.user.businessId);
+    if (!business) {
+      return res.status(404).json({ message: 'Business not found' });
+    }
+
+    // Prepare data for Excel
+    const excelData = payrollData.map(payroll => {
+      const allowances = payroll.allowances?.items || [];
+      const deductions = payroll.deductions?.items || [];
+      
+      // Create a row with all the payroll information
+      const row = {
+        'Employee ID': payroll.employeeId?.employeeNumber || 'N/A',
+        'First Name': payroll.employeeId?.firstName || 'N/A',
+        'Last Name': payroll.employeeId?.lastName || 'N/A',
+        'Position': payroll.employeeId?.position || 'N/A',
+        'Department': payroll.employeeId?.department || 'N/A',
+        'Basic Salary': payroll.basicSalary || 0,
+        'Total Allowances': payroll.allowances?.total || 0,
+        'Gross Salary': payroll.grossSalary || 0,
+        'Taxable Income': payroll.taxableIncome || 0,
+        'Total Deductions': payroll.deductions?.total || 0,
+        'Net Salary': payroll.netSalary || 0,
+        'Status': payroll.status || 'pending',
+        'Processed Date': payroll.processedDate ? new Date(payroll.processedDate).toLocaleDateString() : 'N/A'
+      };
+
+      // Add individual allowances
+      allowances.forEach((allowance, index) => {
+        row[`Allowance ${index + 1} - ${allowance.name}`] = allowance.amount || 0;
+      });
+
+      // Add individual deductions
+      deductions.forEach((deduction, index) => {
+        row[`Deduction ${index + 1} - ${deduction.name}`] = deduction.amount || 0;
+      });
+
+      return row;
+    });
+
+    // Create workbook and worksheet
+    const workbook = xlsx.utils.book_new();
+    const worksheet = xlsx.utils.json_to_sheet(excelData);
+
+    // Set column widths
+    const columnWidths = [
+      { wch: 12 }, // Employee ID
+      { wch: 15 }, // First Name
+      { wch: 15 }, // Last Name
+      { wch: 20 }, // Position
+      { wch: 20 }, // Department
+      { wch: 15 }, // Basic Salary
+      { wch: 18 }, // Total Allowances
+      { wch: 15 }, // Gross Salary
+      { wch: 18 }, // Taxable Income
+      { wch: 18 }, // Total Deductions
+      { wch: 15 }, // Net Salary
+      { wch: 12 }, // Status
+      { wch: 15 }, // Processed Date
+    ];
+
+    // Add more columns for allowances and deductions
+    const maxAllowances = Math.max(...payrollData.map(p => (p.allowances?.items || []).length));
+    const maxDeductions = Math.max(...payrollData.map(p => (p.deductions?.items || []).length));
+
+    for (let i = 0; i < maxAllowances; i++) {
+      columnWidths.push({ wch: 20 });
+    }
+    for (let i = 0; i < maxDeductions; i++) {
+      columnWidths.push({ wch: 20 });
+    }
+
+    worksheet['!cols'] = columnWidths;
+
+    // Add worksheet to workbook
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Payroll');
+
+    // Generate Excel file
+    const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="payroll-${business.businessName}-${month}-${year}.xlsx"`);
+    res.setHeader('Content-Length', excelBuffer.length);
+
+    // Send the Excel file
+    res.send(excelBuffer);
+
+  } catch (error) {
+    console.error('Error downloading Excel:', error);
+    res.status(500).json({ 
+      error: 'Failed to download Excel file',
+      details: error.message 
+    });
+  }
+});
+
+// Download all payroll as Excel
+router.get('/download-excel-all', auth, async (req, res) => {
+  try {
+    // Get all payroll data for the business
+    const payrollData = await Payroll.find({
+      businessId: req.user.businessId
+    })
+    .populate('employeeId', 'firstName lastName position department employeeNumber')
+    .sort({ year: 1, month: 1, 'employeeId.firstName': 1, 'employeeId.lastName': 1 });
+
+    if (!payrollData.length) {
+      return res.status(404).json({ message: 'No payroll data found for this business' });
+    }
+
+    // Get business details
+    const business = await Business.findById(req.user.businessId);
+    if (!business) {
+      return res.status(404).json({ message: 'Business not found' });
+    }
+
+    // Prepare data for Excel
+    const excelData = payrollData.map(payroll => {
+      const allowances = payroll.allowances?.items || [];
+      const deductions = payroll.deductions?.items || [];
+      
+      // Create a row with all the payroll information
+      const row = {
+        'Year': payroll.year,
+        'Month': payroll.month,
+        'Employee ID': payroll.employeeId?.employeeNumber || 'N/A',
+        'First Name': payroll.employeeId?.firstName || 'N/A',
+        'Last Name': payroll.employeeId?.lastName || 'N/A',
+        'Position': payroll.employeeId?.position || 'N/A',
+        'Department': payroll.employeeId?.department || 'N/A',
+        'Basic Salary': payroll.basicSalary || 0,
+        'Total Allowances': payroll.allowances?.total || 0,
+        'Gross Salary': payroll.grossSalary || 0,
+        'Taxable Income': payroll.taxableIncome || 0,
+        'Total Deductions': payroll.deductions?.total || 0,
+        'Net Salary': payroll.netSalary || 0,
+        'Status': payroll.status || 'pending',
+        'Processed Date': payroll.processedDate ? new Date(payroll.processedDate).toLocaleDateString() : 'N/A'
+      };
+
+      // Add individual allowances
+      allowances.forEach((allowance, index) => {
+        row[`Allowance ${index + 1} - ${allowance.name}`] = allowance.amount || 0;
+      });
+
+      // Add individual deductions
+      deductions.forEach((deduction, index) => {
+        row[`Deduction ${index + 1} - ${deduction.name}`] = deduction.amount || 0;
+      });
+
+      return row;
+    });
+
+    // Create workbook and worksheet
+    const workbook = xlsx.utils.book_new();
+    const worksheet = xlsx.utils.json_to_sheet(excelData);
+
+    // Set column widths
+    const columnWidths = [
+      { wch: 8 }, // Year
+      { wch: 8 }, // Month
+      { wch: 12 }, // Employee ID
+      { wch: 15 }, // First Name
+      { wch: 15 }, // Last Name
+      { wch: 20 }, // Position
+      { wch: 20 }, // Department
+      { wch: 15 }, // Basic Salary
+      { wch: 18 }, // Total Allowances
+      { wch: 15 }, // Gross Salary
+      { wch: 18 }, // Taxable Income
+      { wch: 18 }, // Total Deductions
+      { wch: 15 }, // Net Salary
+      { wch: 12 }, // Status
+      { wch: 15 }, // Processed Date
+    ];
+
+    // Add more columns for allowances and deductions
+    const maxAllowances = Math.max(...payrollData.map(p => (p.allowances?.items || []).length));
+    const maxDeductions = Math.max(...payrollData.map(p => (p.deductions?.items || []).length));
+
+    for (let i = 0; i < maxAllowances; i++) {
+      columnWidths.push({ wch: 20 });
+    }
+    for (let i = 0; i < maxDeductions; i++) {
+      columnWidths.push({ wch: 20 });
+    }
+
+    worksheet['!cols'] = columnWidths;
+
+    // Add worksheet to workbook
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Payroll');
+
+    // Generate Excel file
+    const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="payroll-ALL-${business.businessName}.xlsx"`);
+    res.setHeader('Content-Length', excelBuffer.length);
+
+    // Send the Excel file
+    res.send(excelBuffer);
+
+  } catch (error) {
+    console.error('Error downloading all payroll Excel:', error);
+    res.status(500).json({ 
+      error: 'Failed to download all payroll Excel file',
+      details: error.message 
+    });
   }
 });
 
