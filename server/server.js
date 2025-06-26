@@ -664,7 +664,7 @@ app.put('/api/employees/:id/status', authenticateBusiness, async (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-// app.use('/api/employees', employeeRoutes); // Commented out due to duplicate endpoints
+app.use('/api/employees', employeeRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/performance-reviews', performanceReviewsRouter);
