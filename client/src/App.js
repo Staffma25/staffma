@@ -32,6 +32,17 @@ import StaffmaDashboard from './components/StaffmaDashboard';
 import StaffmaLayout from './components/StaffmaLayout';
 import StaffmaProtectedRoute from './components/StaffmaProtectedRoute';
 import StaffmaUserManagement from './components/StaffmaUserManagement';
+import StaffmaActivityLogs from './components/StaffmaActivityLogs';
+import StaffmaBusinesses from './components/StaffmaBusinesses';
+import StaffmaAlerts from './components/StaffmaAlerts';
+import StaffmaReports from './components/StaffmaReports';
+import StaffmaInsights from './components/StaffmaInsights';
+import StaffmaPerformance from './components/StaffmaPerformance';
+import StaffmaBackups from './components/StaffmaBackups';
+import StaffmaLogs from './components/StaffmaLogs';
+import StaffmaMaintenance from './components/StaffmaMaintenance';
+import StaffmaBusinessManagement from './components/StaffmaBusinessManagement';
+import StaffmaSystemSettings from './components/StaffmaSystemSettings';
 
 const DashboardLayout = ({ children }) => {
   const [expandedSections, setExpandedSections] = useState({
@@ -446,7 +457,107 @@ function App() {
               element={
                 <StaffmaProtectedRoute>
                   <StaffmaLayout>
-                    <StaffmaDashboard />
+                    <StaffmaActivityLogs />
+                  </StaffmaLayout>
+                </StaffmaProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/staffma/businesses" 
+              element={
+                <StaffmaProtectedRoute>
+                  <StaffmaLayout>
+                    <StaffmaBusinesses />
+                  </StaffmaLayout>
+                </StaffmaProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/staffma/alerts" 
+              element={
+                <StaffmaProtectedRoute>
+                  <StaffmaLayout>
+                    <StaffmaAlerts />
+                  </StaffmaLayout>
+                </StaffmaProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/staffma/reports" 
+              element={
+                <StaffmaProtectedRoute>
+                  <StaffmaLayout>
+                    <StaffmaReports />
+                  </StaffmaLayout>
+                </StaffmaProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/staffma/insights" 
+              element={
+                <StaffmaProtectedRoute>
+                  <StaffmaLayout>
+                    <StaffmaInsights />
+                  </StaffmaLayout>
+                </StaffmaProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/staffma/performance" 
+              element={
+                <StaffmaProtectedRoute>
+                  <StaffmaLayout>
+                    <StaffmaPerformance />
+                  </StaffmaLayout>
+                </StaffmaProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/staffma/backups" 
+              element={
+                <StaffmaProtectedRoute>
+                  <StaffmaLayout>
+                    <StaffmaBackups />
+                  </StaffmaLayout>
+                </StaffmaProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/staffma/logs" 
+              element={
+                <StaffmaProtectedRoute>
+                  <StaffmaLayout>
+                    <StaffmaLogs />
+                  </StaffmaLayout>
+                </StaffmaProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/staffma/maintenance" 
+              element={
+                <StaffmaProtectedRoute>
+                  <StaffmaLayout>
+                    <StaffmaMaintenance />
+                  </StaffmaLayout>
+                </StaffmaProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/staffma/businesses/manage" 
+              element={
+                <StaffmaProtectedRoute>
+                  <StaffmaLayout>
+                    <StaffmaBusinessManagement />
+                  </StaffmaLayout>
+                </StaffmaProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/staffma/system-settings" 
+              element={
+                <StaffmaProtectedRoute>
+                  <StaffmaLayout>
+                    <StaffmaSystemSettings />
                   </StaffmaLayout>
                 </StaffmaProtectedRoute>
               } 

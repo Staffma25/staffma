@@ -579,75 +579,45 @@ function Dashboard() {
             <h2 style={styles.sectionTitle}>
               <span style={styles.icon}>💰</span>
               Payroll Summary
-              <div style={styles.payrollPeriodSelector}>
-                <select 
-                  value={selectedPayrollMonth}
-                  onChange={(e) => setSelectedPayrollMonth(Number(e.target.value))}
-                  style={styles.periodSelect}
-                >
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                      {new Date(2000, i).toLocaleString('default', { month: 'long' })}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={selectedPayrollYear}
-                  onChange={(e) => setSelectedPayrollYear(Number(e.target.value))}
-                  style={styles.periodSelect}
-                >
-                  {Array.from({ length: 5 }, (_, i) => {
-                    const year = new Date().getFullYear() - i;
-                    return (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
             </h2>
             <div style={styles.payrollSummaryGrid}>
               <div style={styles.payrollSummaryCard}>
                 <div style={styles.payrollCardIcon}>👥</div>
-                <span style={styles.payrollCardLabel}>Total Employees</span>
+                <span style={styles.payrollCardLabel}>Employees</span>
                 <span style={styles.payrollCardValue}>{payrollSummary.totalEmployees}</span>
               </div>
               <div style={styles.payrollSummaryCard}>
                 <div style={styles.payrollCardIcon}>💰</div>
-                <span style={styles.payrollCardLabel}>Total Gross Salary</span>
-                <span style={styles.payrollCardValue}>KES {payrollSummary.totalGrossSalary?.toLocaleString()}</span>
+                <span style={styles.payrollCardLabel}>Gross Salary</span>
+                <span style={styles.payrollCardValue}>
+                  <span style={styles.currencyText}>KES</span>
+                  <span style={styles.numberValue}>{payrollSummary.totalGrossSalary?.toLocaleString()}</span>
+                </span>
               </div>
               <div style={styles.payrollSummaryCard}>
                 <div style={styles.payrollCardIcon}>💵</div>
-                <span style={styles.payrollCardLabel}>Total Net Salary</span>
-                <span style={styles.payrollCardValue}>KES {payrollSummary.totalNetSalary?.toLocaleString()}</span>
+                <span style={styles.payrollCardLabel}>Net Salary</span>
+                <span style={styles.payrollCardValue}>
+                  <span style={styles.currencyText}>KES</span>
+                  <span style={styles.numberValue}>{payrollSummary.totalNetSalary?.toLocaleString()}</span>
+                </span>
               </div>
               <div style={styles.payrollSummaryCard}>
                 <div style={styles.payrollCardIcon}>➕</div>
-                <span style={styles.payrollCardLabel}>Total Allowances</span>
-                <span style={styles.payrollCardValue}>KES {payrollSummary.totalAllowances?.toLocaleString()}</span>
+                <span style={styles.payrollCardLabel}>Allowances</span>
+                <span style={styles.payrollCardValue}>
+                  <span style={styles.currencyText}>KES</span>
+                  <span style={styles.numberValue}>{payrollSummary.totalAllowances?.toLocaleString()}</span>
+                </span>
               </div>
               <div style={styles.payrollSummaryCard}>
                 <div style={styles.payrollCardIcon}>➖</div>
-                <span style={styles.payrollCardLabel}>Total Deductions</span>
-                <span style={styles.payrollCardValue}>KES {payrollSummary.totalDeductions?.toLocaleString()}</span>
+                <span style={styles.payrollCardLabel}>Deductions</span>
+                <span style={styles.payrollCardValue}>
+                  <span style={styles.currencyText}>KES</span>
+                  <span style={styles.numberValue}>{payrollSummary.totalDeductions?.toLocaleString()}</span>
+                </span>
               </div>
-              <div style={styles.payrollSummaryCard}>
-                <div style={styles.payrollCardIcon}>💳</div>
-                <span style={styles.payrollCardLabel}>Individual Deductions</span>
-                <span style={styles.payrollCardValue}>KES {payrollSummary.totalIndividualDeductions?.toLocaleString()}</span>
-              </div>
-              {/* Dynamically render configured deductions */}
-              {getConfiguredDeductions().map(deduction => (
-                <div key={deduction} style={styles.payrollSummaryCard}>
-                  <div style={styles.payrollCardIcon}>📊</div>
-                  <span style={styles.payrollCardLabel}>Total {deduction}</span>
-                  <span style={styles.payrollCardValue}>
-                    KES {payrollSummary.deductionTotals[deduction]?.toLocaleString() || '0'}
-                  </span>
-                </div>
-              ))}
             </div>
           </div>
         )}
@@ -680,46 +650,6 @@ function Dashboard() {
             </div>
           </div>
         )}
-
-        {/* Quick Actions Section */}
-        <div style={styles.quickActionsSection}>
-          <h2 style={styles.sectionTitle}>
-            <span style={styles.icon}>⚡</span>
-            Quick Actions
-          </h2>
-          <div style={styles.actionsGrid}>
-            <div style={styles.actionCard} onClick={() => setShowAddEmployee(true)}>
-              <div style={styles.actionCardIcon}>👥</div>
-              <h3 style={styles.actionCardTitle}>Add Employee</h3>
-              <p style={styles.actionCardText}>Add a new employee to your workforce</p>
-            </div>
-            <div style={styles.actionCard} onClick={() => navigate('/employees')}>
-              <div style={styles.actionCardIcon}>📋</div>
-              <h3 style={styles.actionCardTitle}>Manage Employees</h3>
-              <p style={styles.actionCardText}>View and manage your employee list</p>
-            </div>
-            <div style={styles.actionCard} onClick={() => navigate('/payroll/process')}>
-              <div style={styles.actionCardIcon}>💰</div>
-              <h3 style={styles.actionCardTitle}>Process Payroll</h3>
-              <p style={styles.actionCardText}>Generate and process employee payroll</p>
-            </div>
-            <div style={styles.actionCard} onClick={() => navigate('/leave-management')}>
-              <div style={styles.actionCardIcon}>📅</div>
-              <h3 style={styles.actionCardTitle}>Leave Management</h3>
-              <p style={styles.actionCardText}>Manage employee leave requests</p>
-            </div>
-            <div style={styles.actionCard} onClick={() => setShowAddUser(true)}>
-              <div style={styles.actionCardIcon}>👤</div>
-              <h3 style={styles.actionCardTitle}>Add User</h3>
-              <p style={styles.actionCardText}>Create new system user accounts</p>
-            </div>
-            <div style={styles.actionCard} onClick={() => navigate('/settings')}>
-              <div style={styles.actionCardIcon}>⚙️</div>
-              <h3 style={styles.actionCardTitle}>Settings</h3>
-              <p style={styles.actionCardText}>Configure your business settings</p>
-            </div>
-          </div>
-        </div>
 
         {/* Recent Employees Section */}
         {dashboardData?.metrics?.employeeCount?.total > 0 && (
@@ -789,127 +719,132 @@ function Dashboard() {
 
       {/* Add Employee Modal */}
       {showAddEmployee && (
-        <form onSubmit={handleAddEmployee} style={styles.form}>
-          <div style={styles.formGrid}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>First Name</label>
-              <input
-                style={styles.input}
-                type="text"
-                value={newEmployee.firstName}
-                onChange={(e) => setNewEmployee({...newEmployee, firstName: e.target.value})}
-                required
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Last Name</label>
-              <input
-                style={styles.input}
-                type="text"
-                value={newEmployee.lastName}
-                onChange={(e) => setNewEmployee({...newEmployee, lastName: e.target.value})}
-                required
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Email</label>
-              <input
-                style={styles.input}
-                type="email"
-                value={newEmployee.email}
-                onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
-                required
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Start Date</label>
-              <input
-                style={styles.input}
-                type="date"
-                value={newEmployee.startDate}
-                onChange={(e) => setNewEmployee({...newEmployee, startDate: e.target.value})}
-                required
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Department</label>
-              <input
-                style={styles.input}
-                type="text"
-                value={newEmployee.department}
-                onChange={(e) => setNewEmployee({...newEmployee, department: e.target.value})}
-                required
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Position</label>
-              <input
-                style={styles.input}
-                type="text"
-                value={newEmployee.position}
-                onChange={(e) => setNewEmployee({...newEmployee, position: e.target.value})}
-                required
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Basic Salary</label>
-              <input
-                style={styles.input}
-                type="number"
-                value={newEmployee.salary}
-                onChange={(e) => setNewEmployee({...newEmployee, salary: e.target.value})}
-                required
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Joining Date</label>
-              <input
-                style={styles.input}
-                type="date"
-                value={newEmployee.joiningDate}
-                onChange={(e) => setNewEmployee({...newEmployee, joiningDate: e.target.value})}
-                required
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Offer Letter</label>
-              <input
-                style={styles.input}
-                type="file"
-                accept=".pdf,.doc,.docx"
-                onChange={(e) => setNewEmployee({
-                  ...newEmployee, 
-                  offerLetter: e.target.files[0]
-                })}
-              />
-            </div>
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <h2 style={styles.modalTitle}>Add New Employee</h2>
+            <form onSubmit={handleAddEmployee} style={styles.form}>
+              <div style={styles.formGrid}>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>First Name</label>
+                  <input
+                    style={styles.input}
+                    type="text"
+                    value={newEmployee.firstName}
+                    onChange={(e) => setNewEmployee({...newEmployee, firstName: e.target.value})}
+                    required
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Last Name</label>
+                  <input
+                    style={styles.input}
+                    type="text"
+                    value={newEmployee.lastName}
+                    onChange={(e) => setNewEmployee({...newEmployee, lastName: e.target.value})}
+                    required
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Email</label>
+                  <input
+                    style={styles.input}
+                    type="email"
+                    value={newEmployee.email}
+                    onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
+                    required
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Start Date</label>
+                  <input
+                    style={styles.input}
+                    type="date"
+                    value={newEmployee.startDate}
+                    onChange={(e) => setNewEmployee({...newEmployee, startDate: e.target.value})}
+                    required
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Department</label>
+                  <input
+                    style={styles.input}
+                    type="text"
+                    value={newEmployee.department}
+                    onChange={(e) => setNewEmployee({...newEmployee, department: e.target.value})}
+                    required
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Position</label>
+                  <input
+                    style={styles.input}
+                    type="text"
+                    value={newEmployee.position}
+                    onChange={(e) => setNewEmployee({...newEmployee, position: e.target.value})}
+                    required
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Basic Salary</label>
+                  <input
+                    style={styles.input}
+                    type="number"
+                    value={newEmployee.salary}
+                    onChange={(e) => setNewEmployee({...newEmployee, salary: e.target.value})}
+                    required
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Joining Date</label>
+                  <input
+                    style={styles.input}
+                    type="date"
+                    value={newEmployee.joiningDate}
+                    onChange={(e) => setNewEmployee({...newEmployee, joiningDate: e.target.value})}
+                    required
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Offer Letter</label>
+                  <input
+                    style={styles.input}
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => setNewEmployee({
+                      ...newEmployee, 
+                      offerLetter: e.target.files[0]
+                    })}
+                  />
+                </div>
+              </div>
+              <div style={styles.formButtons}>
+                <button type="submit" style={styles.submitBtn}>
+                  Add Employee
+                </button>
+                <button 
+                  type="button" 
+                  style={styles.cancelBtn}
+                  onClick={() => {
+                    setShowAddEmployee(false);
+                    setNewEmployee({
+                      firstName: '',
+                      lastName: '',
+                      email: '',
+                      department: '',
+                      position: '',
+                      salary: '',
+                      joiningDate: '',
+                      startDate: '',
+                      offerLetter: null
+                    });
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
-          <div style={styles.formButtons}>
-            <button type="submit" style={styles.submitBtn}>
-              Add Employee
-            </button>
-            <button 
-              type="button" 
-              style={styles.cancelBtn}
-              onClick={() => {
-                setShowAddEmployee(false);
-                setNewEmployee({
-                  firstName: '',
-                  lastName: '',
-                  email: '',
-                  department: '',
-                  position: '',
-                  salary: '',
-                  joiningDate: '',
-                  startDate: '',
-                  offerLetter: null
-                });
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+        </div>
       )}
 
       {/* Add User Modal */}
@@ -1168,14 +1103,14 @@ const styles = {
     borderBottom: '1px solid #e9ecef',
   },
   title: {
-    fontSize: '1.75rem',
+    fontSize: '1.5rem',
     color: '#2c3e50',
     marginBottom: '4px',
     fontWeight: '600',
   },
   subtitle: {
     color: '#6c757d',
-    fontSize: '0.875rem',
+    fontSize: '0.8rem',
   },
   logoutBtn: {
     padding: '8px 16px',
@@ -1184,7 +1119,7 @@ const styles = {
     border: 'none',
     borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '0.875rem',
+    fontSize: '0.8rem',
     transition: 'all 0.2s ease',
     '&:hover': {
       backgroundColor: '#c0392b',
@@ -1216,7 +1151,7 @@ const styles = {
     },
   },
   statValue: {
-    fontSize: '1.5rem',
+    fontSize: '1.25rem',
     fontWeight: '600',
     color: '#0f172a',
     marginTop: '4px',
@@ -1224,13 +1159,13 @@ const styles = {
     flexDirection: 'column',
   },
   statLabel: {
-    fontSize: '0.75rem',
+    fontSize: '0.7rem',
     color: '#64748b',
     fontWeight: '400',
     marginTop: '2px',
   },
   sectionTitle: {
-    fontSize: '1.125rem',
+    fontSize: '1rem',
     color: '#2c3e50',
     marginBottom: '15px',
     display: 'flex',
@@ -1238,7 +1173,7 @@ const styles = {
     gap: '8px',
   },
   icon: {
-    fontSize: '1.125rem',
+    fontSize: '1rem',
   },
   loading: {
     textAlign: 'center',
@@ -1278,7 +1213,7 @@ const styles = {
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '0.875rem',
+    fontSize: '0.8rem',
     '&:hover': {
       backgroundColor: '#219a52',
     },
@@ -1290,7 +1225,7 @@ const styles = {
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '0.875rem',
+    fontSize: '0.8rem',
     '&:hover': {
       backgroundColor: '#c0392b',
     },
@@ -1316,7 +1251,7 @@ const styles = {
     overflowY: 'auto',
   },
   modalTitle: {
-    fontSize: '1.25rem',
+    fontSize: '1.125rem',
     color: '#2c3e50',
     marginBottom: '15px',
     fontWeight: '600',
@@ -1328,7 +1263,7 @@ const styles = {
     borderRadius: '6px',
   },
   permissionsTitle: {
-    fontSize: '1rem',
+    fontSize: '0.9rem',
     color: '#2c3e50',
     marginBottom: '10px',
     fontWeight: '600',
@@ -1337,7 +1272,7 @@ const styles = {
     marginBottom: '15px',
   },
   permissionGroupTitle: {
-    fontSize: '0.875rem',
+    fontSize: '0.8rem',
     color: '#2c3e50',
     marginBottom: '4px',
     fontWeight: '600',
@@ -1351,7 +1286,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '4px',
-    fontSize: '0.875rem',
+    fontSize: '0.8rem',
     color: '#2c3e50',
     cursor: 'pointer',
   },
@@ -1369,18 +1304,18 @@ const styles = {
     margin: '0 auto'
   },
   welcomeIcon: {
-    fontSize: '2.5rem',
+    fontSize: '2rem',
     marginBottom: '12px',
     filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))'
   },
   welcomeTitle: {
-    fontSize: '1.5rem',
+    fontSize: '1.25rem',
     fontWeight: '700',
     color: '#1e293b',
     marginBottom: '10px'
   },
   welcomeText: {
-    fontSize: '0.875rem',
+    fontSize: '0.8rem',
     color: '#64748b',
     lineHeight: '1.5',
     marginBottom: '20px'
@@ -1398,7 +1333,7 @@ const styles = {
     border: 'none',
     borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '0.875rem',
+    fontSize: '0.8rem',
     fontWeight: '600',
     transition: 'all 0.3s ease',
     display: 'flex',
@@ -1418,7 +1353,7 @@ const styles = {
     border: '1px solid #e2e8f0',
     borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '0.875rem',
+    fontSize: '0.8rem',
     fontWeight: '600',
     transition: 'all 0.3s ease',
     display: 'flex',
@@ -1431,50 +1366,7 @@ const styles = {
     }
   },
   actionIcon: {
-    fontSize: '1rem'
-  },
-  quickActionsSection: {
-    backgroundColor: 'white',
-    padding: '20px',
-    borderRadius: '8px',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-    border: '1px solid #e2e8f0',
-    marginBottom: '20px'
-  },
-  actionsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: '15px'
-  },
-  actionCard: {
-    backgroundColor: '#f8fafc',
-    borderRadius: '6px',
-    padding: '15px',
-    border: '1px solid #e2e8f0',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    textAlign: 'center',
-    '&:hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-      borderColor: '#3b82f6'
-    }
-  },
-  actionCardIcon: {
-    fontSize: '1.75rem',
-    marginBottom: '10px',
-    filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))'
-  },
-  actionCardTitle: {
-    fontSize: '1rem',
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: '6px'
-  },
-  actionCardText: {
-    color: '#64748b',
-    fontSize: '0.75rem',
-    lineHeight: '1.4'
+    fontSize: '0.9rem'
   },
   recentEmployeesSection: {
     backgroundColor: 'white',
@@ -1505,19 +1397,19 @@ const styles = {
     marginBottom: '10px'
   },
   employeeName: {
-    fontSize: '1rem',
+    fontSize: '0.9rem',
     fontWeight: '600',
     color: '#1e293b',
     marginBottom: '4px'
   },
   employeePosition: {
     color: '#64748b',
-    fontSize: '0.75rem',
+    fontSize: '0.7rem',
     marginBottom: '2px'
   },
   employeeDepartment: {
     color: '#94a3b8',
-    fontSize: '0.75rem',
+    fontSize: '0.7rem',
     fontStyle: 'italic'
   },
   viewEmployeeBtn: {
@@ -1527,7 +1419,7 @@ const styles = {
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '0.75rem',
+    fontSize: '0.7rem',
     fontWeight: '500',
     transition: 'all 0.2s ease',
     '&:hover': {
@@ -1556,11 +1448,11 @@ const styles = {
     border: '1px solid #e2e8f0'
   },
   activityIcon: {
-    fontSize: '1.125rem'
+    fontSize: '1rem'
   },
   activityText: {
     color: '#475569',
-    fontSize: '0.75rem'
+    fontSize: '0.7rem'
   },
   emptyState: {
     display: 'flex',
@@ -1574,20 +1466,20 @@ const styles = {
     border: '1px dashed #e2e8f0'
   },
   emptyStateIcon: {
-    fontSize: '2rem',
+    fontSize: '1.75rem',
     color: '#94a3b8',
     marginBottom: '10px',
     opacity: '0.7'
   },
   emptyStateTitle: {
-    fontSize: '1rem',
+    fontSize: '0.9rem',
     fontWeight: '600',
     color: '#475569',
     marginBottom: '6px'
   },
   emptyStateText: {
     color: '#64748b',
-    fontSize: '0.75rem',
+    fontSize: '0.7rem',
     lineHeight: '1.4',
     marginBottom: '15px',
     maxWidth: '250px'
@@ -1599,7 +1491,7 @@ const styles = {
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '0.875rem',
+    fontSize: '0.8rem',
     fontWeight: '500',
     transition: 'all 0.2s ease',
     '&:hover': {
@@ -1607,7 +1499,7 @@ const styles = {
     }
   },
   businessInfo: {
-    fontSize: '0.75rem',
+    fontSize: '0.7rem',
     color: '#64748b',
     marginTop: '4px',
     display: 'flex',
@@ -1627,16 +1519,6 @@ const styles = {
     border: '1px solid #e2e8f0',
     marginBottom: '20px'
   },
-  payrollPeriodSelector: {
-    display: 'flex',
-    gap: '10px',
-    marginTop: '10px'
-  },
-  periodSelect: {
-    padding: '8px',
-    border: '1px solid #e2e8f0',
-    borderRadius: '4px'
-  },
   payrollSummaryGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -1651,16 +1533,30 @@ const styles = {
     textAlign: 'center'
   },
   payrollCardIcon: {
-    fontSize: '1.75rem',
+    fontSize: '1.5rem',
     marginBottom: '10px'
   },
   payrollCardLabel: {
-    fontSize: '0.875rem',
+    fontSize: '0.8rem',
     color: '#64748b',
     fontWeight: '600'
   },
   payrollCardValue: {
-    fontSize: '1.5rem',
+    fontSize: '1.25rem',
+    fontWeight: '600',
+    color: '#0f172a',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '2px'
+  },
+  currencyText: {
+    fontSize: '0.6rem',
+    color: '#64748b',
+    fontWeight: '400'
+  },
+  numberValue: {
+    fontSize: '1.25rem',
     fontWeight: '600',
     color: '#0f172a'
   }

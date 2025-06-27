@@ -634,17 +634,51 @@ router.post('/settings/deductions', auth, async (req, res) => {
     // Find existing settings or create new ones
     let settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
     if (!settings) {
-      settings = new PayrollSettings({ businessId: req.user.businessId });
+      settings = new PayrollSettings({ 
+        businessId: req.user.businessId,
+        taxRates: {
+          allowances: [],
+          customDeductions: [],
+          taxBrackets: {
+            region: '',
+            businessType: '',
+            source: '',
+            brackets: [],
+            lastUpdated: new Date()
+          }
+        }
+      });
     }
 
     // Initialize taxRates if it doesn't exist
     if (!settings.taxRates) {
-      settings.taxRates = {};
+      settings.taxRates = {
+        allowances: [],
+        customDeductions: [],
+        taxBrackets: {
+          region: '',
+          businessType: '',
+          source: '',
+          brackets: [],
+          lastUpdated: new Date()
+        }
+      };
     }
 
     // Initialize customDeductions array if it doesn't exist
     if (!settings.taxRates.customDeductions) {
       settings.taxRates.customDeductions = [];
+    }
+
+    // Initialize taxBrackets if it doesn't exist
+    if (!settings.taxRates.taxBrackets) {
+      settings.taxRates.taxBrackets = {
+        region: '',
+        businessType: '',
+        source: '',
+        brackets: [],
+        lastUpdated: new Date()
+      };
     }
 
     // Add new deduction
@@ -666,7 +700,11 @@ router.post('/settings/deductions', auth, async (req, res) => {
     res.json(settings);
   } catch (error) {
     console.error('Error adding custom deduction:', error);
-    res.status(500).json({ message: 'Error adding custom deduction' });
+    res.status(500).json({ 
+      message: 'Error adding custom deduction',
+      error: error.message,
+      details: error.stack
+    });
   }
 });
 
@@ -706,17 +744,51 @@ router.post('/settings/allowances', auth, async (req, res) => {
     // Find existing settings or create new ones
     let settings = await PayrollSettings.findOne({ businessId: req.user.businessId });
     if (!settings) {
-      settings = new PayrollSettings({ businessId: req.user.businessId });
+      settings = new PayrollSettings({ 
+        businessId: req.user.businessId,
+        taxRates: {
+          allowances: [],
+          customDeductions: [],
+          taxBrackets: {
+            region: '',
+            businessType: '',
+            source: '',
+            brackets: [],
+            lastUpdated: new Date()
+          }
+        }
+      });
     }
 
     // Initialize taxRates if it doesn't exist
     if (!settings.taxRates) {
-      settings.taxRates = {};
+      settings.taxRates = {
+        allowances: [],
+        customDeductions: [],
+        taxBrackets: {
+          region: '',
+          businessType: '',
+          source: '',
+          brackets: [],
+          lastUpdated: new Date()
+        }
+      };
     }
 
     // Initialize allowances array if it doesn't exist
     if (!settings.taxRates.allowances) {
       settings.taxRates.allowances = [];
+    }
+
+    // Initialize taxBrackets if it doesn't exist
+    if (!settings.taxRates.taxBrackets) {
+      settings.taxRates.taxBrackets = {
+        region: '',
+        businessType: '',
+        source: '',
+        brackets: [],
+        lastUpdated: new Date()
+      };
     }
 
     // Add new allowance
@@ -738,7 +810,11 @@ router.post('/settings/allowances', auth, async (req, res) => {
     res.json(settings);
   } catch (error) {
     console.error('Error adding custom allowance:', error);
-    res.status(500).json({ message: 'Error adding custom allowance' });
+    res.status(500).json({ 
+      message: 'Error adding custom allowance',
+      error: error.message,
+      details: error.stack
+    });
   }
 });
 

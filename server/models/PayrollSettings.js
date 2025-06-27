@@ -50,18 +50,21 @@ const payrollSettingsSchema = new mongoose.Schema({
     taxBrackets: {
       region: {
         type: String,
-        required: true,
-        trim: true
+        required: false,
+        trim: true,
+        default: ''
       },
       businessType: {
         type: String,
-        required: true,
-        trim: true
+        required: false,
+        trim: true,
+        default: ''
       },
       source: {
         type: String,
         enum: ['upload', 'template', 'manual'],
-        required: true
+        required: false,
+        default: ''
       },
       lastUpdated: {
         type: Date,
@@ -134,7 +137,8 @@ payrollSettingsSchema.statics.findOrCreate = async function(businessId) {
             region: '',
             businessType: '',
             source: '',
-            brackets: []
+            brackets: [],
+            lastUpdated: new Date()
           }
         }
       });

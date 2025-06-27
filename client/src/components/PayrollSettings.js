@@ -182,7 +182,7 @@ const PayrollSettings = () => {
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add custom deduction');
+        throw new Error(errorData.message || errorData.error || 'Failed to add custom deduction');
       }
       
       setNewDeduction({ name: '', type: 'percentage', value: 0 });
@@ -209,7 +209,7 @@ const PayrollSettings = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to remove deduction');
+        throw new Error(errorData.message || errorData.error || 'Failed to remove custom deduction');
       }
 
       const data = await response.json();
@@ -263,7 +263,7 @@ const PayrollSettings = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add custom allowance');
+        throw new Error(errorData.message || errorData.error || 'Failed to add custom allowance');
       }
 
       const data = await response.json();
@@ -301,7 +301,7 @@ const PayrollSettings = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to remove custom allowance');
+        throw new Error(errorData.message || errorData.error || 'Failed to remove custom allowance');
       }
 
       const data = await response.json();

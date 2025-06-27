@@ -13,7 +13,6 @@ function EmployeeDetails() {
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showBlockModal, setShowBlockModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [customDeductions, setCustomDeductions] = useState([]);
   const [newDeduction, setNewDeduction] = useState({
@@ -151,34 +150,6 @@ function EmployeeDetails() {
     } finally {
       setActionLoading(false);
       setShowDeleteModal(false);
-    }
-  };
-
-  const handleToggleEmployeeStatus = async () => {
-    try {
-      setActionLoading(true);
-      const newStatus = employee.status === 'active' ? 'inactive' : 'active';
-      
-      const response = await fetchWithAuth(`http://localhost:5001/api/employees/${id}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update employee status');
-      }
-
-      await fetchEmployeeDetails();
-      alert(`Employee ${newStatus === 'active' ? 'activated' : 'blocked'} successfully`);
-    } catch (error) {
-      console.error('Error updating employee status:', error);
-      alert('Failed to update employee status: ' + error.message);
-    } finally {
-      setActionLoading(false);
-      setShowBlockModal(false);
     }
   };
 
@@ -527,16 +498,6 @@ function EmployeeDetails() {
           </h1>
         </div>
         <div style={styles.actionButtons}>
-          <button
-            onClick={() => setShowBlockModal(true)}
-            style={{
-              ...styles.actionButton,
-              backgroundColor: employee.status === 'active' ? '#e74c3c' : '#2ecc71'
-            }}
-            disabled={actionLoading}
-          >
-            {employee.status === 'active' ? 'Block Employee' : 'Activate Employee'}
-          </button>
           <button
             onClick={() => setShowDeleteModal(true)}
             style={{
@@ -1204,42 +1165,6 @@ function EmployeeDetails() {
                 disabled={actionLoading}
               >
                 {actionLoading ? 'Deleting...' : 'Delete Employee'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showBlockModal && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modal}>
-            <h3 style={styles.modalTitle}>
-              {employee.status === 'active' ? 'Block Employee' : 'Activate Employee'}
-            </h3>
-            <p style={styles.modalText}>
-              {employee.status === 'active'
-                ? 'Are you sure you want to block this employee? They will not be able to access the system.'
-                : 'Are you sure you want to activate this employee? They will regain access to the system.'}
-            </p>
-            <div style={styles.modalButtons}>
-              <button
-                onClick={() => setShowBlockModal(false)}
-                style={styles.cancelButton}
-                disabled={actionLoading}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleToggleEmployeeStatus}
-                style={{
-                  ...styles.confirmButton,
-                  backgroundColor: employee.status === 'active' ? '#e74c3c' : '#2ecc71'
-                }}
-                disabled={actionLoading}
-              >
-                {actionLoading
-                  ? (employee.status === 'active' ? 'Blocking...' : 'Activating...')
-                  : (employee.status === 'active' ? 'Block Employee' : 'Activate Employee')}
               </button>
             </div>
           </div>
