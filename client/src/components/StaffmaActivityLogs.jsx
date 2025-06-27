@@ -46,7 +46,7 @@ function StaffmaActivityLogs() {
   const fetchBusinesses = useCallback(async (abortController) => {
     try {
       const token = getToken('staffma');
-      const response = await fetch(`${API_BASE_URL}/staffma/businesses`, {
+      const response = await fetch(`${API_BASE_URL}/activities/businesses`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

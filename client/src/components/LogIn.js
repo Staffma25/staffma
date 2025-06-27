@@ -12,6 +12,13 @@ function LogIn() {
   const { login, isAuthenticated, getCurrentUser } = useAuth();
 
   useEffect(() => {
+    // Check for error messages from navigation state
+    if (location.state?.error) {
+      setError(location.state.error);
+      // Clear the error from navigation state
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+
     // If already logged in as business user, redirect to business dashboard
     if (isAuthenticated('business')) {
       console.log('LogIn: User is already authenticated as business user');
@@ -29,7 +36,42 @@ function LogIn() {
       const result = await login(email, password);
 
       if (result.success) {
-        console.log('LogIn: Login successful, redirecting to business dashboard');
+        console.log('LogIn: Login successful, checking payment status...');
+        
+        // Check if payment is required
+        if (result.paymentRequired) {
+          console.log('LogIn: Payment required, redirecting to subscription page');
+          navigate('/subscription', { 
+            state: { 
+              businessData: result.businessData,
+              fromLogin: true 
+            },
+            replace: true 
+          });
+          return;
+        }
+
+        // Check if account is suspended
+        if (result.suspended) {
+          setError('Your account has been suspended. Please contact support.');
+          return;
+        }
+
+        // Check if subscription is inactive
+        if (result.subscriptionInactive) {
+          console.log('LogIn: Subscription inactive, redirecting to subscription page');
+          navigate('/subscription', { 
+            state: { 
+              businessData: result.businessData,
+              subscriptionInactive: true 
+            },
+            replace: true 
+          });
+          return;
+        }
+
+        // All checks passed, proceed to dashboard
+        console.log('LogIn: All checks passed, redirecting to business dashboard');
         const from = location.state?.from?.pathname || '/dashboard';
         navigate(from, { replace: true });
       } else {

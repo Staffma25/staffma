@@ -84,6 +84,15 @@ router.post('/login', async (req, res) => {
       const isMatch = await bcrypt.compare(password, business.password);
       if (isMatch) {
         console.log('Business password matched');
+        
+        // Check if business is suspended
+        if (business.isSuspended) {
+          return res.status(403).json({ 
+            message: 'Account is suspended. Please contact support.',
+            suspended: true 
+          });
+        }
+
         // Create JWT token
         const token = jwt.sign(
           { 
@@ -104,7 +113,7 @@ router.post('/login', async (req, res) => {
           { expiresIn: '7d' }
         );
 
-        // Return token and business data
+        // Return token and business data with payment status
         return res.json({
           token,
           refreshToken,
@@ -112,7 +121,10 @@ router.post('/login', async (req, res) => {
             id: business._id,
             businessName: business.businessName,
             email: business.email,
-            type: 'business'
+            type: 'business',
+            paymentStatus: business.payment.status,
+            subscription: business.subscription,
+            payment: business.payment
           }
         });
       }

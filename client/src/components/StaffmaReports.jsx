@@ -1,10 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { getActivitySummary, getBusinessActivities } from '../utils/api';
 
 function StaffmaReports() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [summary, setSummary] = useState({
+    totalActivities: 0,
+    activitiesByCategory: {},
+    activitiesBySeverity: {},
+    uniqueBusinesses: 0,
+    uniqueUsers: 0
+  });
+  const [businessStats, setBusinessStats] = useState({
+    totalBusinesses: 0,
+    activeBusinesses: 0,
+    totalActivities: 0,
+    totalCriticalActivities: 0
+  });
   const { getToken } = useAuth();
 
   useEffect(() => {
@@ -17,19 +31,136 @@ function StaffmaReports() {
           return;
         }
 
-        // Simulate API call - replace with actual API
-        setTimeout(() => {
-          setReports([]);
-          setLoading(false);
-        }, 1000);
+        // Fetch real data from APIs
+        const [summaryResponse, businessResponse] = await Promise.all([
+          getActivitySummary(),
+          getBusinessActivities()
+        ]);
+
+        setSummary(summaryResponse || {
+          totalActivities: 0,
+          activitiesByCategory: {},
+          activitiesBySeverity: {},
+          uniqueBusinesses: 0,
+          uniqueUsers: 0
+        });
+
+        setBusinessStats(businessResponse?.statistics || {
+          totalBusinesses: 0,
+          activeBusinesses: 0,
+          totalActivities: 0,
+          totalCriticalActivities: 0
+        });
+
+        // Generate reports from the data
+        const generatedReports = [
+          {
+            id: 1,
+            title: 'Activity Summary Report',
+            type: 'summary',
+            data: summaryResponse,
+            lastUpdated: new Date().toISOString()
+          },
+          {
+            id: 2,
+            title: 'Business Activity Report',
+            type: 'business',
+            data: businessResponse,
+            lastUpdated: new Date().toISOString()
+          },
+          {
+            id: 3,
+            title: 'System Health Report',
+            type: 'health',
+            data: {
+              totalBusinesses: businessResponse?.statistics?.totalBusinesses || 0,
+              activeBusinesses: businessResponse?.statistics?.activeBusinesses || 0,
+              criticalActivities: businessResponse?.statistics?.totalCriticalActivities || 0
+            },
+            lastUpdated: new Date().toISOString()
+          }
+        ];
+
+        setReports(generatedReports);
+        setLoading(false);
       } catch (error) {
-        setError('Failed to fetch reports');
+        console.error('Error fetching reports:', error);
+        setError('Failed to fetch reports: ' + error.message);
         setLoading(false);
       }
     };
 
     fetchReports();
   }, [getToken]);
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleString();
+  };
+
+  const generateReportData = (report) => {
+    switch (report.type) {
+      case 'summary':
+        return (
+          <div style={styles.reportData}>
+            <div style={styles.dataItem}>
+              <span style={styles.dataLabel}>Total Activities:</span>
+              <span style={styles.dataValue}>{report.data.totalActivities}</span>
+            </div>
+            <div style={styles.dataItem}>
+              <span style={styles.dataLabel}>Unique Businesses:</span>
+              <span style={styles.dataValue}>{report.data.uniqueBusinesses}</span>
+            </div>
+            <div style={styles.dataItem}>
+              <span style={styles.dataLabel}>Unique Users:</span>
+              <span style={styles.dataValue}>{report.data.uniqueUsers}</span>
+            </div>
+          </div>
+        );
+      case 'business':
+        return (
+          <div style={styles.reportData}>
+            <div style={styles.dataItem}>
+              <span style={styles.dataLabel}>Total Businesses:</span>
+              <span style={styles.dataValue}>{report.data.statistics?.totalBusinesses}</span>
+            </div>
+            <div style={styles.dataItem}>
+              <span style={styles.dataLabel}>Active Businesses:</span>
+              <span style={styles.dataValue}>{report.data.statistics?.activeBusinesses}</span>
+            </div>
+            <div style={styles.dataItem}>
+              <span style={styles.dataLabel}>Total Activities:</span>
+              <span style={styles.dataValue}>{report.data.statistics?.totalActivities}</span>
+            </div>
+            <div style={styles.dataItem}>
+              <span style={styles.dataLabel}>Critical Activities:</span>
+              <span style={styles.dataValue}>{report.data.statistics?.totalCriticalActivities}</span>
+            </div>
+          </div>
+        );
+      case 'health':
+        return (
+          <div style={styles.reportData}>
+            <div style={styles.dataItem}>
+              <span style={styles.dataLabel}>System Status:</span>
+              <span style={styles.dataValue}>
+                {report.data.criticalActivities > 0 ? '⚠️ Attention Needed' : '✅ Healthy'}
+              </span>
+            </div>
+            <div style={styles.dataItem}>
+              <span style={styles.dataLabel}>Active Rate:</span>
+              <span style={styles.dataValue}>
+                {report.data.totalBusinesses > 0 
+                  ? `${Math.round((report.data.activeBusinesses / report.data.totalBusinesses) * 100)}%`
+                  : '0%'
+                }
+              </span>
+            </div>
+          </div>
+        );
+      default:
+        return <div>No data available</div>;
+    }
+  };
 
   if (loading) {
     return (
@@ -50,8 +181,8 @@ function StaffmaReports() {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h1 style={styles.title}>Reports</h1>
-        <p style={styles.subtitle}>Generate and view system reports</p>
+        <h1 style={styles.title}>System Reports</h1>
+        <p style={styles.subtitle}>Comprehensive system analytics and reports</p>
       </div>
 
       <div style={styles.content}>
@@ -59,8 +190,18 @@ function StaffmaReports() {
           <div style={styles.reportsGrid}>
             {reports.map((report) => (
               <div key={report.id} style={styles.reportCard}>
-                <h3>{report.title}</h3>
-                <p>{report.description}</p>
+                <div style={styles.reportHeader}>
+                  <h3 style={styles.reportTitle}>{report.title}</h3>
+                  <span style={styles.reportType}>{report.type}</span>
+                </div>
+                
+                {generateReportData(report)}
+                
+                <div style={styles.reportFooter}>
+                  <span style={styles.reportDate}>
+                    Last updated: {formatDate(report.lastUpdated)}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
@@ -144,6 +285,44 @@ const styles = {
     padding: '40px',
     color: '#e74c3c',
     fontSize: '1rem',
+  },
+  reportHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '10px',
+  },
+  reportTitle: {
+    fontSize: '1.25rem',
+    color: '#2c3e50',
+    margin: 0,
+  },
+  reportType: {
+    fontSize: '0.875rem',
+    color: '#7f8c8d',
+    margin: 0,
+  },
+  reportData: {
+    marginBottom: '10px',
+  },
+  dataItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '5px',
+  },
+  dataLabel: {
+    fontWeight: 'bold',
+  },
+  dataValue: {
+    marginLeft: '10px',
+  },
+  reportFooter: {
+    textAlign: 'right',
+  },
+  reportDate: {
+    fontSize: '0.875rem',
+    color: '#7f8c8d',
   },
 };
 

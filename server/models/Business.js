@@ -9,8 +9,9 @@ const businessSchema = new mongoose.Schema({
     applicantRole: { type: String, required: false },
     businessAddress: { type: String, required: false },
     contactNumber: { type: String, required: false },
-    maxEmployees: { type: Number, default: 100 },
+    maxEmployees: { type: Number, default: 10 },
     departments: [String],
+    isSuspended: { type: Boolean, default: false },
     kycDocuments: {
         companyPin: { type: String, required: false },
         cr12: { type: String, required: false },
@@ -21,6 +22,15 @@ const businessSchema = new mongoose.Schema({
         type: { type: String, enum: ['monthly', 'yearly'], default: 'monthly' },
         status: { type: String, enum: ['active', 'inactive'], default: 'active' },
         expiryDate: Date
+    },
+    payment: {
+        status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
+        plan: { type: String, enum: ['small', 'medium', 'large'], default: 'small' },
+        amount: { type: Number, default: 0 },
+        transactionId: { type: String, default: null },
+        paymentMethod: { type: String, enum: ['card', 'mpesa'], default: null },
+        firstPaymentDate: { type: Date, default: null },
+        lastPaymentDate: { type: Date, default: null }
     },
     createdAt: { type: Date, default: Date.now }
 });

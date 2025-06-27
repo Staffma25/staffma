@@ -10,22 +10,8 @@ function Register() {
     email: '',
     password: '',
     confirmPassword: '',
-    businessType: '',
     applicantName: '',
-    applicantRole: '',
-    businessAddress: '',
-    contactNumber: '',
-    kycDocuments: {
-      companyPin: null,
-      cr12: null,
-      businessCertificate: null
-    }
-  });
-
-  const [fileNames, setFileNames] = useState({
-    companyPin: '',
-    cr12: '',
-    businessCertificate: ''
+    contactNumber: ''
   });
 
   const [loading, setLoading] = useState(false);
@@ -38,13 +24,14 @@ function Register() {
 
     try {
       // Validation
-      if (!formData.businessName || !formData.email || !formData.password) {
+      if (!formData.businessName || !formData.email || !formData.password || !formData.applicantName) {
         console.log('Missing required fields:', {
           businessName: !formData.businessName,
           email: !formData.email,
-          password: !formData.password
+          password: !formData.password,
+          applicantName: !formData.applicantName
         });
-        setError('Business name, email and password are required');
+        setError('Business name, applicant name, email and password are required');
         return;
       }
 
@@ -63,11 +50,11 @@ function Register() {
         businessName: formData.businessName.trim(),
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
-        businessType: formData.businessType || 'sole',
-        applicantName: formData.applicantName ? formData.applicantName.trim() : '',
-        applicantRole: formData.applicantRole ? formData.applicantRole.trim() : '',
-        businessAddress: formData.businessAddress ? formData.businessAddress.trim() : '',
-        contactNumber: formData.contactNumber ? formData.contactNumber.trim() : ''
+        applicantName: formData.applicantName.trim(),
+        contactNumber: formData.contactNumber ? formData.contactNumber.trim() : '',
+        businessType: 'sole', // Default to sole proprietorship
+        applicantRole: '', // Empty since we removed this field
+        businessAddress: '' // Empty since we removed this field
       };
 
       console.log('Attempting registration with data:', {
@@ -91,55 +78,30 @@ function Register() {
         throw new Error(data.error || data.details || 'Registration failed');
       }
 
-      // Registration successful - now automatically log in the user
-      console.log('Registration successful, attempting auto-login...');
+      // Registration successful - navigate to subscription selection
+      console.log('Registration successful, navigating to subscription selection...');
       
-      if (data.token && data.user) {
-        // Store the token and user data directly
-        localStorage.setItem('businessToken', data.token);
-        if (data.refreshToken) {
-          localStorage.setItem('businessRefreshToken', data.refreshToken);
-        }
-        
-        // Set the user in the auth context
-        setBusinessUser(data.user);
-        
-        console.log('Auto-login successful, redirecting to dashboard');
-        navigate('/dashboard', { replace: true });
-      } else {
-        // Fallback to regular login
-        const loginResult = await login(formData.email, formData.password);
-        
-        if (loginResult.success) {
-          console.log('Auto-login successful, redirecting to dashboard');
-          navigate('/dashboard', { replace: true });
-        } else {
-          console.log('Auto-login failed, redirecting to login page');
-          alert('Registration successful! Please log in with your credentials.');
-          navigate('/login');
-        }
-      }
+      // Navigate to subscription page with business data
+      navigate('/subscription', { 
+        state: { 
+          businessData: {
+            businessName: formData.businessName,
+            email: formData.email,
+            businessType: 'sole',
+            applicantName: formData.applicantName,
+            applicantRole: '',
+            businessAddress: '',
+            contactNumber: formData.contactNumber
+          }
+        },
+        replace: true 
+      });
     } catch (err) {
       console.error('Registration error:', err);
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleFileChange = (e, documentType) => {
-    const file = e.target.files[0];
-    setFormData(prev => ({
-      ...prev,
-      kycDocuments: {
-        ...prev.kycDocuments,
-        [documentType]: file
-      }
-    }));
-    setFileNames(prev => ({
-      ...prev,
-      [documentType]: file ? file.name : ''
-    }));
   };
 
   return (
@@ -152,43 +114,19 @@ function Register() {
           <input
             style={styles.input}
             type="text"
-            placeholder="Business Name"
+            placeholder="Business Name *"
             value={formData.businessName}
             onChange={(e) => setFormData({...formData, businessName: e.target.value})}
+            required
           />
-          
-          <select
-            style={styles.select}
-            value={formData.businessType}
-            onChange={(e) => setFormData({...formData, businessType: e.target.value})}
-          >
-            <option value="">Select Business Type</option>
-            <option value="limited">Limited Company</option>
-            <option value="sole">Sole Proprietorship</option>
-          </select>
 
           <input
             style={styles.input}
             type="text"
-            placeholder="Applicant Name"
+            placeholder="Applicant Name *"
             value={formData.applicantName}
             onChange={(e) => setFormData({...formData, applicantName: e.target.value})}
-          />
-
-          <input
-            style={styles.input}
-            type="text"
-            placeholder="Role in Business"
-            value={formData.applicantRole}
-            onChange={(e) => setFormData({...formData, applicantRole: e.target.value})}
-          />
-
-          <input
-            style={styles.input}
-            type="text"
-            placeholder="Business Physical Address"
-            value={formData.businessAddress}
-            onChange={(e) => setFormData({...formData, businessAddress: e.target.value})}
+            required
           />
 
           <input
@@ -202,134 +140,29 @@ function Register() {
           <input
             style={styles.input}
             type="email"
-            placeholder="Email"
+            placeholder="Email *"
             value={formData.email}
             onChange={(e) => setFormData({...formData, email: e.target.value})}
+            required
           />
           
           <input
             style={styles.input}
             type="password"
-            placeholder="Password"
+            placeholder="Password *"
             value={formData.password}
             onChange={(e) => setFormData({...formData, password: e.target.value})}
+            required
           />
           
           <input
             style={styles.input}
             type="password"
-            placeholder="Confirm Password"
+            placeholder="Confirm Password *"
             value={formData.confirmPassword}
             onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+            required
           />
-
-          {/* KYC Documents Section */}
-          <div style={styles.kycSection}>
-            <h3 style={styles.kycTitle}>KYC Documents</h3>
-            
-            <div style={styles.fileInputGroup}>
-              <div style={styles.fileRow}>
-                <span style={styles.documentLabel}>Company PIN Certificate</span>
-                <label style={styles.uploadBtn}>
-                  Upload
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={(e) => handleFileChange(e, 'companyPin')}
-                    style={styles.fileInput}
-                  />
-                </label>
-              </div>
-              {fileNames.companyPin && (
-                <div style={styles.fileInfo}>
-                  <span style={styles.fileName}>{fileNames.companyPin}</span>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setFormData(prev => ({
-                        ...prev,
-                        kycDocuments: { ...prev.kycDocuments, companyPin: null }
-                      }));
-                      setFileNames(prev => ({ ...prev, companyPin: '' }));
-                    }}
-                    style={styles.removeBtn}
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {formData.businessType === 'limited' && (
-              <div style={styles.fileInputGroup}>
-                <div style={styles.fileRow}>
-                  <span style={styles.documentLabel}>CR12 Certificate</span>
-                  <label style={styles.uploadBtn}>
-                    Upload
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => handleFileChange(e, 'cr12')}
-                      style={styles.fileInput}
-                    />
-                  </label>
-                </div>
-                {fileNames.cr12 && (
-                  <div style={styles.fileInfo}>
-                    <span style={styles.fileName}>{fileNames.cr12}</span>
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        setFormData(prev => ({
-                          ...prev,
-                          kycDocuments: { ...prev.kycDocuments, cr12: null }
-                        }));
-                        setFileNames(prev => ({ ...prev, cr12: '' }));
-                      }}
-                      style={styles.removeBtn}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {formData.businessType === 'sole' && (
-              <div style={styles.fileInputGroup}>
-                <div style={styles.fileRow}>
-                  <span style={styles.documentLabel}>Business Registration Certificate</span>
-                  <label style={styles.uploadBtn}>
-                    Upload
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => handleFileChange(e, 'businessCertificate')}
-                      style={styles.fileInput}
-                    />
-                  </label>
-                </div>
-                {fileNames.businessCertificate && (
-                  <div style={styles.fileInfo}>
-                    <span style={styles.fileName}>{fileNames.businessCertificate}</span>
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        setFormData(prev => ({
-                          ...prev,
-                          kycDocuments: { ...prev.kycDocuments, businessCertificate: null }
-                        }));
-                        setFileNames(prev => ({ ...prev, businessCertificate: '' }));
-                      }}
-                      style={styles.removeBtn}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
 
           <button 
             type="submit" 
@@ -377,7 +210,7 @@ const styles = {
     borderRadius: '12px',
     boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)',
     width: '100%',
-    maxWidth: '1200px',
+    maxWidth: '500px',
     margin: '20px',
   },
   title: {
@@ -388,8 +221,8 @@ const styles = {
     textAlign: 'center',
   },
   form: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
+    display: 'flex',
+    flexDirection: 'column',
     gap: '1.2rem',
   },
   input: {
@@ -406,21 +239,6 @@ const styles = {
       boxShadow: '0 0 0 3px rgba(66, 153, 225, 0.15)',
     },
   },
-  select: {
-    padding: '0.8rem',
-    borderRadius: '8px',
-    border: '1px solid #e2e8f0',
-    fontSize: '0.95rem',
-    backgroundColor: '#f8fafc',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    width: '100%',
-    '&:focus': {
-      outline: 'none',
-      borderColor: '#4299e1',
-      boxShadow: '0 0 0 3px rgba(66, 153, 225, 0.15)',
-  },
-  },
   submitBtn: {
     padding: '0.8rem',
     backgroundColor: '#4299e1',
@@ -432,7 +250,6 @@ const styles = {
     cursor: 'pointer',
     marginTop: '1.5rem',
     transition: 'all 0.3s ease',
-    gridColumn: '1 / -1',
     '&:hover': {
       backgroundColor: '#3182ce',
       transform: 'translateY(-1px)',
@@ -440,86 +257,6 @@ const styles = {
     '&:disabled': {
       backgroundColor: '#a0aec0',
       cursor: 'not-allowed',
-    },
-  },
-  kycSection: {
-    marginTop: '1.5rem',
-    backgroundColor: '#f8fafc',
-    borderRadius: '12px',
-    padding: '1.5rem',
-    border: '1px solid #e2e8f0',
-    gridColumn: '1 / -1',
-  },
-  kycTitle: {
-    marginBottom: '1.5rem',
-    color: '#2d3748',
-    fontSize: '1.2rem',
-    fontWeight: '600',
-  },
-  fileInputGroup: {
-    marginBottom: '1.5rem',
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '1.2rem',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-    border: '1px solid #e2e8f0',
-  },
-  fileRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '0.8rem',
-  },
-  documentLabel: {
-    color: '#4a5568',
-    fontSize: '0.95rem',
-    fontWeight: '500',
-  },
-  uploadBtn: {
-    display: 'inline-block',
-    padding: '0.5rem 1.2rem',
-    backgroundColor: '#4299e1',
-    color: 'white',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '0.9rem',
-    fontWeight: '500',
-    transition: 'all 0.3s ease',
-    '&:hover': {
-      backgroundColor: '#3182ce',
-    },
-  },
-  fileInput: {
-    display: 'none',
-  },
-  fileInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: '0.8rem',
-    padding: '0.8rem',
-    backgroundColor: '#f8fafc',
-    borderRadius: '6px',
-    border: '1px solid #e2e8f0',
-  },
-  fileName: {
-    fontSize: '0.9rem',
-    color: '#4a5568',
-    wordBreak: 'break-all',
-  },
-  removeBtn: {
-    padding: '0.4rem 0.8rem',
-    backgroundColor: '#fc8181',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '0.9rem',
-    fontWeight: '500',
-    marginLeft: '0.8rem',
-    transition: 'all 0.3s ease',
-    '&:hover': {
-      backgroundColor: '#f56565',
     },
   },
   error: {
@@ -530,7 +267,6 @@ const styles = {
     borderRadius: '8px',
     fontSize: '0.9rem',
     border: '1px solid #feb2b2',
-    gridColumn: '1 / -1',
   },
   footer: {
     marginTop: '2rem',
@@ -538,7 +274,6 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     gap: '1rem',
-    gridColumn: '1 / -1',
   },
   backButton: {
     backgroundColor: 'transparent',

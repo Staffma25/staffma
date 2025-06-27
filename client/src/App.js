@@ -5,6 +5,9 @@ import LogIn from './components/LogIn';
 import StaffmaLogin from './components/StaffmaLogin';
 import StaffmaRegister from './components/StaffmaRegister';
 import Register from './components/Register';
+import SubscriptionSelection from './components/SubscriptionSelection';
+import PaymentPage from './components/PaymentPage';
+import RegistrationSuccess from './components/RegistrationSuccess';
 import EmployeesList from './components/EmployeesList';
 import EmployeeDetails from './components/EmployeeDetails';
 import PayrollManagement from './components/PayrollManagement';
@@ -15,6 +18,7 @@ import PayrollWorkflow from './components/PayrollWorkflow';
 import PerformanceReviews from './components/PerformanceReviews';
 import ReviewForm from './components/ReviewForm';
 import ProtectedRoute from './components/ProtectedRoute';
+import PaymentProtectedRoute from './components/PaymentProtectedRoute';
 import LandingPage from './components/LandingPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import UserManagement from './components/UserManagement';
@@ -246,6 +250,9 @@ function App() {
             <Route path="/staffma/register" element={<StaffmaRegister />} />
             <Route path="//staffma/login" element={<Navigate to="/staffma/login" replace />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/subscription" element={<SubscriptionSelection />} />
+            <Route path="/payment" element={<PaymentPage />} />
+            <Route path="/registration-success" element={<RegistrationSuccess />} />
             <Route path="/verify-email/:token" element={<EmailVerification />} />
             <Route path="/reset-password/:token" element={<ResetPassword />} />
 
@@ -254,9 +261,11 @@ function App() {
               path="/dashboard" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <Dashboard />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <Dashboard />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -264,9 +273,11 @@ function App() {
               path="/employees" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <EmployeesList />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <EmployeesList />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -274,9 +285,11 @@ function App() {
               path="/employee/:id" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <EmployeeDetails />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <EmployeeDetails />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -284,9 +297,11 @@ function App() {
               path="/payroll/process" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <PayrollManagement />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <PayrollManagement />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -294,9 +309,11 @@ function App() {
               path="/payroll/settings" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <PayrollSettings />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <PayrollSettings />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -304,9 +321,11 @@ function App() {
               path="/payroll/workflow/:month/:year" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <PayrollWorkflow />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <PayrollWorkflow />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -314,9 +333,11 @@ function App() {
               path="/payroll/review/:month/:year" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <PayrollReview />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <PayrollReview />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -324,9 +345,11 @@ function App() {
               path="/payroll/payments/:month/:year" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <PaymentProcessing />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <PaymentProcessing />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -334,9 +357,11 @@ function App() {
               path="/performance-reviews" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <PerformanceReviews />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <PerformanceReviews />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -344,9 +369,11 @@ function App() {
               path="/performance-reviews/create" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <ReviewForm />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <ReviewForm />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -354,9 +381,11 @@ function App() {
               path="/user-management/*" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <UserManagement />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <UserManagement />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -364,9 +393,11 @@ function App() {
               path="/user-management/add" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <AddUser />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <AddUser />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -374,9 +405,11 @@ function App() {
               path="/leave-management/*" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <LeaveManagement />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <LeaveManagement />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -384,9 +417,11 @@ function App() {
               path="/leave-request" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <LeaveRequest />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <LeaveRequest />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -394,9 +429,11 @@ function App() {
               path="/leave-requests" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <LeaveRequests />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <LeaveRequests />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -404,9 +441,11 @@ function App() {
               path="/employees/add" 
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <AddEmployee />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <AddEmployee />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
             />
@@ -414,9 +453,11 @@ function App() {
               path="/settings"
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <Settings />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <Settings />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               }
             />
@@ -424,9 +465,11 @@ function App() {
               path="/leave-details/:id"
               element={
                 <ProtectedRoute>
-                  <DashboardLayout>
-                    <LeaveRequestDetails />
-                  </DashboardLayout>
+                  <PaymentProtectedRoute>
+                    <DashboardLayout>
+                      <LeaveRequestDetails />
+                    </DashboardLayout>
+                  </PaymentProtectedRoute>
                 </ProtectedRoute>
               }
             />

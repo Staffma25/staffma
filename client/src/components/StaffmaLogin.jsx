@@ -98,6 +98,17 @@ function StaffmaLogin() {
             ← Back to Home
           </button>
           
+          <div style={styles.divider}>
+            <span style={styles.dividerText}>or</span>
+          </div>
+          
+          <button 
+            onClick={() => navigate('/staffma/register')} 
+            style={styles.registerButton}
+          >
+            Register Staffma Account
+          </button>
+          
           <p style={styles.footerText}>
             Need help? Contact{' '}
             <span style={styles.footerLink}>
@@ -225,6 +236,31 @@ const styles = {
     cursor: 'pointer',
     textDecoration: 'underline',
     fontWeight: '500'
+  },
+  divider: {
+    display: 'flex',
+    alignItems: 'center',
+    margin: '20px 0',
+    position: 'relative'
+  },
+  dividerText: {
+    backgroundColor: 'white',
+    padding: '0 15px',
+    color: '#7f8c8d',
+    fontSize: '14px',
+    fontWeight: '500'
+  },
+  registerButton: {
+    padding: '12px 24px',
+    backgroundColor: '#667eea',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    transition: 'background-color 0.2s ease',
+    marginBottom: '20px'
   }
 };
 

@@ -119,6 +119,46 @@ export const AuthProvider = ({ children }) => {
         user.type = 'business';
       }
 
+      // Check for payment status in the response
+      if (user.paymentStatus === 'pending') {
+        return {
+          success: true,
+          paymentRequired: true,
+          businessData: {
+            businessName: user.businessName,
+            email: user.email,
+            businessType: user.businessType,
+            applicantName: user.applicantName,
+            applicantRole: user.applicantRole,
+            businessAddress: user.businessAddress,
+            contactNumber: user.contactNumber
+          }
+        };
+      }
+
+      // Check for suspended account
+      if (user.suspended) {
+        return {
+          success: false,
+          suspended: true,
+          error: 'Your account has been suspended. Please contact support.'
+        };
+      }
+
+      // Check for inactive subscription
+      if (user.subscription && user.subscription.status === 'inactive') {
+        return {
+          success: true,
+          subscriptionInactive: true,
+          businessData: {
+            businessName: user.businessName,
+            email: user.email,
+            payment: user.payment,
+            subscription: user.subscription
+          }
+        };
+      }
+
       console.log('Setting business user:', user);
       localStorage.setItem('businessToken', token);
       if (refreshToken) {
@@ -130,6 +170,34 @@ export const AuthProvider = ({ children }) => {
 
     } catch (error) {
       console.error('Business login error:', error);
+      
+      // Handle specific error responses
+      if (error.response?.status === 402) {
+        const errorData = error.response.data;
+        if (errorData.paymentRequired) {
+          return {
+            success: true,
+            paymentRequired: true,
+            businessData: errorData.businessData
+          };
+        }
+        if (errorData.subscriptionInactive) {
+          return {
+            success: true,
+            subscriptionInactive: true,
+            businessData: errorData.businessData
+          };
+        }
+      }
+      
+      if (error.response?.status === 403 && error.response.data?.suspended) {
+        return {
+          success: false,
+          suspended: true,
+          error: error.response.data.message
+        };
+      }
+
       return {
         success: false,
         error: error.response?.data?.message || 'Login failed. Please check your credentials and try again.'

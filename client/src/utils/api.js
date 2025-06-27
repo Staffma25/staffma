@@ -92,6 +92,97 @@ export const resetPassword = async (token, password, signal) => {
   }
 }; 
 
+// Business Management API calls (for Staffma)
+export const getAllBusinesses = async (signal) => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/business/all`, { signal }, 'staffma');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch businesses');
+    }
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Businesses fetch aborted');
+      throw error;
+    }
+    throw new Error('Failed to fetch businesses: ' + error.message);
+  }
+};
+
+export const updateBusinessDetails = async (businessId, data, signal) => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/business/${businessId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data),
+      signal
+    }, 'staffma');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update business');
+    }
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Business update aborted');
+      throw error;
+    }
+    throw new Error('Failed to update business: ' + error.message);
+  }
+};
+
+export const suspendBusiness = async (businessId, signal) => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/business/${businessId}/suspend`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      signal
+    }, 'staffma');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to suspend business');
+    }
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Business suspend aborted');
+      throw error;
+    }
+    throw new Error('Failed to suspend business: ' + error.message);
+  }
+};
+
+export const reactivateBusiness = async (businessId, signal) => {
+  try {
+    const response = await fetchWithAuth(`${API_BASE_URL}/business/${businessId}/reactivate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      signal
+    }, 'staffma');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to reactivate business');
+    }
+    return response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Business reactivate aborted');
+      throw error;
+    }
+    throw new Error('Failed to reactivate business: ' + error.message);
+  }
+};
+
 // Activities API calls
 export const getActivities = async (filters = {}, signal) => {
   try {

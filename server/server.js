@@ -26,6 +26,8 @@ const employeeRoutes = require('./routes/employees');
 const leaveRoutes = require('./routes/leaves');
 const activitiesRoutes = require('./routes/activities');
 const staffmaRoutes = require('./routes/staffma');
+const businessRoutes = require('./routes/business');
+const paymentRoutes = require('./routes/payment');
 
 // Initialize express app
 const app = express();
@@ -193,7 +195,7 @@ app.get('/api/dashboard', authenticateBusiness, async (req, res) => {
 
     // Calculate employee metrics
     const totalEmployees = business.employees.length;
-    const maxEmployees = 100; // You can adjust this based on your business rules
+    const maxEmployees = business.maxEmployees || 10; // Default to small business limit
     const remainingSlots = maxEmployees - totalEmployees;
 
     // Get current month and year for payroll summary
@@ -329,11 +331,18 @@ app.get('/api/employees', authenticateBusiness, async (req, res) => {
 
 app.get('/api/employees/count', authenticateBusiness, async (req, res) => {
   try {
+    const business = await Business.findById(req.businessId);
+    if (!business) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
     const count = await Employee.countDocuments({ businessId: req.businessId });
+    const maxEmployees = business.maxEmployees || 10;
+    
     res.json({
       total: count,
-      limit: 100,
-      remaining: 100 - count
+      limit: maxEmployees,
+      remaining: maxEmployees - count
     });
   } catch (error) {
     console.error('Error counting employees:', error);
@@ -380,6 +389,17 @@ app.post('/api/employees', authenticateBusiness, async (req, res) => {
       return res.status(400).json({ 
         error: 'Business name is required',
         details: 'Please update your business profile with a valid business name'
+      });
+    }
+
+    // Check employee limit
+    const currentEmployeeCount = await Employee.countDocuments({ businessId: req.businessId });
+    const maxEmployees = business.maxEmployees || 10;
+    
+    if (currentEmployeeCount >= maxEmployees) {
+      return res.status(400).json({ 
+        error: 'Employee limit reached',
+        details: `You have reached your plan limit of ${maxEmployees} employees. Please upgrade your plan to add more employees.`
       });
     }
 
@@ -671,6 +691,8 @@ app.use('/api/performance-reviews', performanceReviewsRouter);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/activities', activitiesRoutes);
 app.use('/api/staffma', staffmaRoutes);
+app.use('/api/business', businessRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // Add health check endpoint
 app.get('/api/health', (req, res) => {
