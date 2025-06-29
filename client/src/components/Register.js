@@ -78,8 +78,26 @@ function Register() {
         throw new Error(data.error || data.details || 'Registration failed');
       }
 
-      // Registration successful - navigate to subscription selection
-      console.log('Registration successful, navigating to subscription selection...');
+      // Registration successful - store token and navigate to subscription selection
+      console.log('Registration successful, storing token and navigating to subscription selection...');
+      
+      // Store the token in localStorage for authentication
+      if (data.token) {
+        localStorage.setItem('businessToken', data.token);
+        if (data.refreshToken) {
+          localStorage.setItem('businessRefreshToken', data.refreshToken);
+        }
+        console.log('Token stored in localStorage');
+        console.log('Token value (first 20 chars):', data.token.substring(0, 20) + '...');
+        console.log('Refresh token stored:', !!data.refreshToken);
+      } else {
+        console.error('No token received from server');
+        throw new Error('Registration successful but no authentication token received');
+      }
+      
+      // Debug: Verify token was stored
+      const storedToken = localStorage.getItem('businessToken');
+      console.log('Stored token verification:', !!storedToken);
       
       // Navigate to subscription page with business data
       navigate('/subscription', { 
@@ -92,7 +110,7 @@ function Register() {
             applicantRole: '',
             businessAddress: '',
             contactNumber: formData.contactNumber
-          }
+        }
         },
         replace: true 
       });
@@ -237,7 +255,7 @@ const styles = {
       outline: 'none',
       borderColor: '#4299e1',
       boxShadow: '0 0 0 3px rgba(66, 153, 225, 0.15)',
-    },
+  },
   },
   submitBtn: {
     padding: '0.8rem',

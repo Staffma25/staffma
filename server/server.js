@@ -183,102 +183,103 @@ const authenticateBusiness = async (req, res, next) => {
 };
 
 // Add this dashboard data endpoint
-app.get('/api/dashboard', authenticateBusiness, async (req, res) => {
-  try {
-    const business = await Business.findById(req.businessId)
-      .populate('employees')
-      .select('-password');
+// COMMENTED OUT - This conflicts with the dashboard routes
+// app.get('/api/dashboard', authenticateBusiness, async (req, res) => {
+//   try {
+//     const business = await Business.findById(req.businessId)
+//       .populate('employees')
+//       .select('-password');
 
-    if (!business) {
-      return res.status(404).json({ error: 'Business not found' });
-    }
+//     if (!business) {
+//       return res.status(404).json({ error: 'Business not found' });
+//     }
 
-    // Calculate employee metrics
-    const totalEmployees = business.employees.length;
-    const maxEmployees = business.maxEmployees || 10; // Default to small business limit
-    const remainingSlots = maxEmployees - totalEmployees;
+//     // Calculate employee metrics
+//     const totalEmployees = business.employees.length;
+//     const maxEmployees = business.maxEmployees || 10; // Default to small business limit
+//     const remainingSlots = maxEmployees - totalEmployees;
 
-    // Get current month and year for payroll summary
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
+//     // Get current month and year for payroll summary
+//     const currentDate = new Date();
+//     const currentMonth = currentDate.getMonth() + 1;
+//     const currentYear = currentDate.getFullYear();
 
-    // Calculate payroll summary
-    const payrollSummary = await Payroll.aggregate([
-      {
-        $match: {
-          businessId: new mongoose.Types.ObjectId(req.businessId),
-          month: currentMonth,
-          year: currentYear
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalGrossSalary: { $sum: '$grossSalary' },
-          totalNetSalary: { $sum: '$netSalary' }
-        }
-      }
-    ]);
+//     // Calculate payroll summary
+//     const payrollSummary = await Payroll.aggregate([
+//       {
+//         $match: {
+//           businessId: new mongoose.Types.ObjectId(req.businessId),
+//           month: currentMonth,
+//           year: currentYear
+//         }
+//       },
+//       {
+//         $group: {
+//           _id: null,
+//           totalGrossSalary: { $sum: '$grossSalary' },
+//           totalNetSalary: { $sum: '$netSalary' }
+//         }
+//       }
+//     ]);
 
-    // Get performance review stats
-    const performanceReviewsStats = await PerformanceReview.aggregate([
-      {
-        $match: {
-          businessId: new mongoose.Types.ObjectId(req.businessId)
-        }
-      },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
+//     // Get performance review stats
+//     const performanceReviewsStats = await PerformanceReview.aggregate([
+//       {
+//         $match: {
+//           businessId: new mongoose.Types.ObjectId(req.businessId)
+//         }
+//       },
+//       {
+//         $group: {
+//           _id: '$status',
+//           count: { $sum: 1 }
+//         }
+//       }
+//     ]);
 
-    // Convert performance review stats to the expected format
-    const reviewStats = {
-      pendingReviews: 0,
-      completedReviews: 0
-    };
+//     // Convert performance review stats to the expected format
+//     const reviewStats = {
+//       pendingReviews: 0,
+//       completedReviews: 0
+//     };
 
-    performanceReviewsStats.forEach(stat => {
-      if (stat._id === 'draft') {
-        reviewStats.pendingReviews = stat.count;
-      } else if (stat._id === 'submitted' || stat._id === 'acknowledged') {
-        reviewStats.completedReviews += stat.count;
-      }
-    });
+//     performanceReviewsStats.forEach(stat => {
+//       if (stat._id === 'draft') {
+//         reviewStats.pendingReviews = stat.count;
+//       } else if (stat._id === 'submitted' || stat._id === 'acknowledged') {
+//         reviewStats.completedReviews += stat.count;
+//       }
+//     });
 
-    res.json({
-      business: {
-        id: business._id,
-        businessName: business.businessName,
-        applicantName: business.applicantName,
-        email: business.email,
-        businessType: business.businessType,
-        contactNumber: business.contactNumber,
-        businessAddress: business.businessAddress,
-        departments: business.departments
-      },
-      metrics: {
-        employeeCount: {
-          total: totalEmployees,
-          remaining: remainingSlots
-        }
-      },
-      payrollSummary: payrollSummary[0] || {
-        totalGrossSalary: 0,
-        totalNetSalary: 0
-      },
-      performanceReviewsStats: reviewStats,
-      employees: business.employees
-    });
-  } catch (error) {
-    console.error('Dashboard error:', error);
-    res.status(500).json({ error: 'Failed to load dashboard data' });
-  }
-});
+//     res.json({
+//       business: {
+//         id: business._id,
+//         businessName: business.businessName,
+//         applicantName: business.applicantName,
+//         email: business.email,
+//         businessType: business.businessType,
+//         contactNumber: business.contactNumber,
+//         businessAddress: business.businessAddress,
+//         departments: business.departments
+//       },
+//       metrics: {
+//         employeeCount: {
+//           total: totalEmployees,
+//           remaining: remainingSlots
+//         }
+//       },
+//       payrollSummary: payrollSummary[0] || {
+//         totalGrossSalary: 0,
+//         totalNetSalary: 0
+//       },
+//       performanceReviewsStats: reviewStats,
+//       employees: business.employees
+//     });
+//   } catch (error) {
+//     console.error('Dashboard error:', error);
+//     res.status(500).json({ error: 'Failed to load dashboard data' });
+//   }
+// });
 
 // Add these endpoints for dashboard data
 app.get('/api/business', authenticateBusiness, async (req, res) => {
@@ -1526,10 +1527,25 @@ app.post('/api/register', async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    // Create refresh token
+    const refreshToken = jwt.sign(
+      { 
+        businessId: business._id,
+        type: 'business'
+      },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    console.log('Registration: Token generated successfully');
+    console.log('Registration: Business ID:', business._id);
+    console.log('Registration: JWT_SECRET exists:', !!process.env.JWT_SECRET);
+
     // Return token and business data for automatic login
-    res.status(201).json({ 
+    const responseData = { 
       message: 'Registration successful',
       token,
+      refreshToken,
       user: {
         id: business._id,
         businessName: business.businessName,
@@ -1537,7 +1553,10 @@ app.post('/api/register', async (req, res) => {
         applicantName: business.applicantName,
         type: 'business'
       }
-    });
+    };
+
+    console.log('Registration: Sending response with token:', !!responseData.token);
+    res.status(201).json(responseData);
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Registration failed. Please try again.' });

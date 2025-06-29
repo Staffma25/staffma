@@ -69,13 +69,17 @@ router.get('/', auth, async (req, res) => {
       
       acc.totalGrossSalary += basic + allowances;
       acc.totalNetSalary += basic + allowances - deductions;
+      acc.totalAllowances += allowances;
+      acc.totalDeductions += deductions;
       return acc;
-    }, { totalGrossSalary: 0, totalNetSalary: 0 });
+    }, { totalGrossSalary: 0, totalNetSalary: 0, totalAllowances: 0, totalDeductions: 0 });
 
     console.log('Payroll summary for business:', {
       businessId: req.user.businessId,
       totalGrossSalary: payrollSummary.totalGrossSalary,
-      totalNetSalary: payrollSummary.totalNetSalary
+      totalNetSalary: payrollSummary.totalNetSalary,
+      totalAllowances: payrollSummary.totalAllowances,
+      totalDeductions: payrollSummary.totalDeductions
     });
 
     // Get performance review stats

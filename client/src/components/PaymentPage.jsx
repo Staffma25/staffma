@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import axios from 'axios';
 
 function PaymentPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { getToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [formData, setFormData] = useState({
@@ -16,6 +19,94 @@ function PaymentPage() {
 
   // Get data from previous steps
   const { businessData, subscriptionData } = location.state || {};
+
+  // Create axios instance with base URL
+  const api = axios.create({
+    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5001/api'
+  });
+
+  // Add response interceptor for automatic token refresh
+  useEffect(() => {
+    const responseInterceptor = api.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+
+          // Try to refresh the token
+          const refreshToken = localStorage.getItem('businessRefreshToken');
+          if (refreshToken) {
+            try {
+              const refreshResponse = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/auth/refresh-token`, {
+                refreshToken
+              });
+
+              const { token: newToken } = refreshResponse.data;
+              if (newToken) {
+                localStorage.setItem('businessToken', newToken);
+                originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                return api(originalRequest);
+              }
+            } catch (refreshError) {
+              console.error('Token refresh failed:', refreshError);
+            }
+          }
+        }
+
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      api.interceptors.response.eject(responseInterceptor);
+    };
+  }, []);
+
+  // Debug: Check token on component mount
+  useEffect(() => {
+    console.log('PaymentPage: Component mounted');
+    console.log('PaymentPage: Location state:', location.state);
+    console.log('PaymentPage: businessData:', businessData);
+    console.log('PaymentPage: subscriptionData:', subscriptionData);
+    
+    const token = getToken('business');
+    console.log('PaymentPage: Token on mount:', !!token);
+    if (token) {
+      console.log('PaymentPage: Token preview:', token.substring(0, 20) + '...');
+    } else {
+      console.error('PaymentPage: NO TOKEN FOUND ON MOUNT');
+      console.log('PaymentPage: All localStorage keys:', Object.keys(localStorage));
+      console.log('PaymentPage: businessToken value:', localStorage.getItem('businessToken'));
+      console.log('PaymentPage: staffmaToken value:', localStorage.getItem('staffmaToken'));
+      console.log('PaymentPage: businessRefreshToken value:', localStorage.getItem('businessRefreshToken'));
+      
+      // Check for fallback token keys
+      const fallbackToken = localStorage.getItem('token');
+      console.log('PaymentPage: Fallback token value:', !!fallbackToken);
+      if (fallbackToken) {
+        console.log('PaymentPage: Fallback token preview:', fallbackToken.substring(0, 20) + '...');
+      }
+      
+      if (fallbackToken) {
+        console.log('PaymentPage: Using fallback token');
+        // Use the fallback token and store it as businessToken for consistency
+        localStorage.setItem('businessToken', fallbackToken);
+      } else {
+        // If no token found, redirect to login with a message
+        console.log('PaymentPage: Redirecting to login due to missing token');
+        navigate('/login', { 
+          state: { 
+            error: 'Please log in to complete your payment.',
+            returnTo: '/payment',
+            businessData,
+            subscriptionData
+          }
+        });
+      }
+    }
+  }, [location.state, businessData, subscriptionData, navigate, getToken]);
 
   if (!businessData || !subscriptionData) {
     navigate('/register');
@@ -38,12 +129,13 @@ function PaymentPage() {
       // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Call payment completion API
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
-      const token = localStorage.getItem('businessToken');
+      // Get token from AuthContext
+      const token = getToken('business');
+      console.log('PaymentPage: Using token from AuthContext:', !!token);
       
       if (!token) {
-        throw new Error('No authentication token found');
+        console.error('PaymentPage: No token available from AuthContext');
+        throw new Error('No authentication token found. Please try logging in again.');
       }
 
       const paymentData = {
@@ -54,22 +146,16 @@ function PaymentPage() {
         paymentMethod: paymentMethod
       };
 
-      const response = await fetch(`${API_BASE_URL}/payment/complete`, {
-        method: 'POST',
+      console.log('PaymentPage: Making payment request with token:', token.substring(0, 20) + '...');
+
+      const response = await api.post('/payment/complete', paymentData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(paymentData)
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Payment completion failed');
-      }
-
-      const result = await response.json();
-      console.log('Payment completed successfully:', result);
+      console.log('Payment completed successfully:', response.data);
       
       // Navigate to success page with all the data
       navigate('/registration-success', {
@@ -85,7 +171,21 @@ function PaymentPage() {
       });
     } catch (error) {
       console.error('Payment error:', error);
-      alert(`Payment failed: ${error.message}. Please try again.`);
+      
+      // Handle specific error cases
+      if (error.response?.status === 401) {
+        alert('Authentication failed. Please log in again to complete your payment.');
+        navigate('/login', { 
+          state: { 
+            error: 'Please log in to complete your payment.',
+            returnTo: '/payment',
+            businessData,
+            subscriptionData
+          }
+        });
+      } else {
+        alert(`Payment failed: ${error.response?.data?.message || error.message}. Please try again.`);
+      }
     } finally {
       setLoading(false);
     }

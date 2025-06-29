@@ -3,6 +3,11 @@ import axios from 'axios';
 
 const AuthContext = createContext();
 
+// Create axios instance with interceptors
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5001/api'
+});
+
 export const AuthProvider = ({ children }) => {
   const [businessUser, setBusinessUser] = useState(null);
   const [staffmaUser, setStaffmaUser] = useState(null);
@@ -50,16 +55,15 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUserData = async (token, userType) => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
-      let endpoint = `${API_BASE_URL}/auth/me`; // Default for business users
+      let endpoint = '/auth/me'; // Default for business users
       if (userType === 'staffma') {
-        endpoint = `${API_BASE_URL}/staffma/profile`;
+        endpoint = '/staffma/profile';
         console.log('Refreshing Staffma user session...');
       } else {
         console.log('Refreshing Business user session...');
       }
 
-      const response = await axios.get(endpoint, {
+      const response = await api.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
@@ -75,15 +79,26 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Error fetching user data on refresh:', error);
       
-      // Check if token is expired
+      // Check if token is expired and try to refresh
       if (error.response?.status === 401) {
-        console.log(`${userType} token expired, clearing session`);
-        if (userType === 'staffma') {
-          localStorage.removeItem('staffmaToken');
-          setStaffmaUser(null);
+        console.log(`${userType} token expired, attempting to refresh...`);
+        
+        const refreshResult = await refreshToken(userType);
+        if (refreshResult.success) {
+          // Retry the user data fetch with the new token
+          console.log(`${userType} token refreshed successfully, retrying user data fetch`);
+          return await fetchUserData(refreshResult.token, userType);
         } else {
-          localStorage.removeItem('businessToken');
-          setBusinessUser(null);
+          console.log(`${userType} token refresh failed, clearing session`);
+          if (userType === 'staffma') {
+            localStorage.removeItem('staffmaToken');
+            localStorage.removeItem('staffmaRefreshToken');
+            setStaffmaUser(null);
+          } else {
+            localStorage.removeItem('businessToken');
+            localStorage.removeItem('businessRefreshToken');
+            setBusinessUser(null);
+          }
         }
       } else {
         // For other errors, keep the token but clear the user state
@@ -96,12 +111,98 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshToken = async (userType) => {
+    try {
+      const refreshTokenKey = userType === 'staffma' ? 'staffmaRefreshToken' : 'businessRefreshToken';
+      const refreshToken = localStorage.getItem(refreshTokenKey);
+      
+      if (!refreshToken) {
+        console.log(`No refresh token found for ${userType}`);
+        return { success: false, error: 'No refresh token available' };
+      }
+
+      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/auth/refresh-token`, {
+        refreshToken
+      });
+
+      const { token: newToken } = response.data;
+      
+      if (newToken) {
+        // Store the new token
+        const tokenKey = userType === 'staffma' ? 'staffmaToken' : 'businessToken';
+        localStorage.setItem(tokenKey, newToken);
+        console.log(`${userType} token refreshed successfully`);
+        return { success: true, token: newToken };
+      } else {
+        console.log(`No new token received for ${userType}`);
+        return { success: false, error: 'No new token received' };
+      }
+    } catch (error) {
+      console.error(`Error refreshing ${userType} token:`, error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Add response interceptor for automatic token refresh
+  useEffect(() => {
+    const responseInterceptor = api.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+
+          // Determine user type from the request
+          const businessToken = localStorage.getItem('businessToken');
+          const staffmaToken = localStorage.getItem('staffmaToken');
+          
+          let userType = null;
+          if (originalRequest.headers.Authorization?.includes(businessToken)) {
+            userType = 'business';
+          } else if (originalRequest.headers.Authorization?.includes(staffmaToken)) {
+            userType = 'staffma';
+          }
+
+          if (userType) {
+            const refreshResult = await refreshToken(userType);
+            if (refreshResult.success) {
+              // Update the authorization header with the new token
+              const tokenKey = userType === 'staffma' ? 'staffmaToken' : 'businessToken';
+              const newToken = localStorage.getItem(tokenKey);
+              originalRequest.headers.Authorization = `Bearer ${newToken}`;
+              
+              // Retry the original request
+              return api(originalRequest);
+            } else {
+              // Token refresh failed, clear session
+              if (userType === 'staffma') {
+                localStorage.removeItem('staffmaToken');
+                localStorage.removeItem('staffmaRefreshToken');
+                setStaffmaUser(null);
+              } else {
+                localStorage.removeItem('businessToken');
+                localStorage.removeItem('businessRefreshToken');
+                setBusinessUser(null);
+              }
+            }
+          }
+        }
+
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      api.interceptors.response.eject(responseInterceptor);
+    };
+  }, []);
+
   const login = async (email, password) => {
     try {
       console.log('Attempting business login with:', { email });
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
       
-      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
+      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/auth/login`, {
         email,
         password
       });
@@ -208,9 +309,8 @@ export const AuthProvider = ({ children }) => {
   const staffmaLogin = async (email, password) => {
     try {
       console.log('Attempting Staffma login with:', { email });
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
       
-      const response = await axios.post(`${API_BASE_URL}/staffma/login`, {
+      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/staffma/login`, {
         email,
         password
       });
@@ -241,8 +341,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
-      const response = await axios.post(`${API_BASE_URL}/auth/register`, userData);
+      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/auth/register`, userData);
       const { token, refreshToken, user } = response.data;
       localStorage.setItem('businessToken', token);
       if (refreshToken) {
@@ -260,8 +359,7 @@ export const AuthProvider = ({ children }) => {
 
   const staffmaRegister = async (userData) => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
-      const response = await axios.post(`${API_BASE_URL}/staffma/register`, userData);
+      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/staffma/register`, userData);
       return { success: true, message: response.data.message };
     } catch (error) {
       return {

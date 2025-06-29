@@ -118,19 +118,6 @@ function Dashboard() {
   const currentYear = new Date().getFullYear();
   const [reviewStats, setReviewStats] = useState({ pendingReviews: 0, completedReviews: 0 });
 
-  const [payrollSummary, setPayrollSummary] = useState({
-    totalEmployees: 0,
-    totalGrossSalary: 0,
-    totalNetSalary: 0,
-    totalAllowances: 0,
-    totalDeductions: 0,
-    totalIndividualDeductions: 0,
-    deductionTotals: {}
-  });
-  const [selectedPayrollMonth, setSelectedPayrollMonth] = useState(new Date().getMonth() + 1);
-  const [selectedPayrollYear, setSelectedPayrollYear] = useState(new Date().getFullYear());
-  const [payrollSettings, setPayrollSettings] = useState(null);
-
   const fetchDashboardData = useCallback(async (abortController) => {
     try {
       const token = getToken();
@@ -183,110 +170,6 @@ function Dashboard() {
     }
   }, [navigate, getToken, logout, businessUser]);
 
-  const fetchPayrollHistory = async () => {
-    try {
-      const token = getToken();
-      if (!token) {
-        console.error('No authentication token found');
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/payroll/history?month=${selectedPayrollMonth}&year=${selectedPayrollYear}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch payroll history');
-      }
-
-      const data = await response.json();
-      
-      // Calculate summary from payroll data
-      const summary = {
-        totalEmployees: data.length,
-        totalGrossSalary: data.reduce((sum, record) => sum + (record.grossSalary || 0), 0),
-        totalNetSalary: data.reduce((sum, record) => sum + (record.netSalary || 0), 0),
-        totalAllowances: data.reduce((sum, record) => sum + (record.allowances?.total || 0), 0),
-        totalDeductions: data.reduce((sum, record) => sum + (record.deductions?.total || 0), 0),
-        totalIndividualDeductions: data.reduce((sum, record) => {
-          const individualDeductions = record.deductions?.items?.filter(item => item.type) || [];
-          return sum + individualDeductions.reduce((itemSum, item) => itemSum + (item.amount || 0), 0);
-        }, 0),
-        deductionTotals: data.reduce((totals, record) => {
-          if (record.deductions?.items) {
-            record.deductions.items.forEach(item => {
-              totals[item.name] = (totals[item.name] || 0) + (item.amount || 0);
-            });
-          }
-          return totals;
-        }, {})
-      };
-
-      setPayrollSummary(summary);
-    } catch (error) {
-      console.error('Error fetching payroll history:', error);
-    }
-  };
-
-  const fetchPayrollSettings = async () => {
-    try {
-      const token = getToken();
-      if (!token) {
-        console.error('No authentication token found');
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/payroll/settings`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch payroll settings');
-      }
-
-      const data = await response.json();
-      setPayrollSettings(data);
-    } catch (error) {
-      console.error('Error fetching payroll settings:', error);
-    }
-  };
-
-  const getConfiguredDeductions = () => {
-    if (!payrollSettings?.taxRates) return [];
-    
-    const deductions = [];
-    if (payrollSettings.taxRates.paye?.enabled) deductions.push('PAYE');
-    if (payrollSettings.taxRates.nhif?.enabled) deductions.push('NHIF');
-    if (payrollSettings.taxRates.nssf?.enabled) deductions.push('NSSF');
-    
-    // Add custom deductions
-    if (payrollSettings.taxRates.customDeductions) {
-      payrollSettings.taxRates.customDeductions
-        .filter(d => d.enabled)
-        .forEach(d => deductions.push(d.name));
-    }
-    
-    return deductions;
-  };
-
-  const getConfiguredAllowances = () => {
-    if (!payrollSettings?.taxRates?.allowances) return [];
-    
-    return payrollSettings.taxRates.allowances
-      .filter(a => a.enabled)
-      .map(a => a.name);
-  };
-
   useEffect(() => {
     const abortController = new AbortController();
     fetchDashboardData(abortController);
@@ -294,16 +177,6 @@ function Dashboard() {
       abortController.abort();
     };
   }, [fetchDashboardData]);
-
-  useEffect(() => {
-    fetchPayrollSettings();
-  }, []);
-
-  useEffect(() => {
-    if (payrollSettings) {
-      fetchPayrollHistory();
-    }
-  }, [selectedPayrollMonth, selectedPayrollYear, payrollSettings]);
 
   const handleAddEmployee = async (e) => {
     e.preventDefault();
@@ -584,14 +457,14 @@ function Dashboard() {
               <div style={styles.payrollSummaryCard}>
                 <div style={styles.payrollCardIcon}>👥</div>
                 <span style={styles.payrollCardLabel}>Employees</span>
-                <span style={styles.payrollCardValue}>{payrollSummary.totalEmployees}</span>
+                <span style={styles.payrollCardValue}>{dashboardData?.metrics?.employeeCount?.total || 0}</span>
               </div>
               <div style={styles.payrollSummaryCard}>
                 <div style={styles.payrollCardIcon}>💰</div>
                 <span style={styles.payrollCardLabel}>Gross Salary</span>
                 <span style={styles.payrollCardValue}>
                   <span style={styles.currencyText}>KES</span>
-                  <span style={styles.numberValue}>{payrollSummary.totalGrossSalary?.toLocaleString()}</span>
+                  <span style={styles.numberValue}>{dashboardData?.payrollSummary?.totalGrossSalary?.toLocaleString() || 0}</span>
                 </span>
               </div>
               <div style={styles.payrollSummaryCard}>
@@ -599,7 +472,7 @@ function Dashboard() {
                 <span style={styles.payrollCardLabel}>Net Salary</span>
                 <span style={styles.payrollCardValue}>
                   <span style={styles.currencyText}>KES</span>
-                  <span style={styles.numberValue}>{payrollSummary.totalNetSalary?.toLocaleString()}</span>
+                  <span style={styles.numberValue}>{dashboardData?.payrollSummary?.totalNetSalary?.toLocaleString() || 0}</span>
                 </span>
               </div>
               <div style={styles.payrollSummaryCard}>
@@ -607,17 +480,17 @@ function Dashboard() {
                 <span style={styles.payrollCardLabel}>Allowances</span>
                 <span style={styles.payrollCardValue}>
                   <span style={styles.currencyText}>KES</span>
-                  <span style={styles.numberValue}>{payrollSummary.totalAllowances?.toLocaleString()}</span>
+                  <span style={styles.numberValue}>{dashboardData?.payrollSummary?.totalAllowances?.toLocaleString() || 0}</span>
                 </span>
               </div>
               <div style={styles.payrollSummaryCard}>
                 <div style={styles.payrollCardIcon}>➖</div>
                 <span style={styles.payrollCardLabel}>Deductions</span>
-                <span style={styles.payrollCardValue}>
+                  <span style={styles.payrollCardValue}>
                   <span style={styles.currencyText}>KES</span>
-                  <span style={styles.numberValue}>{payrollSummary.totalDeductions?.toLocaleString()}</span>
-                </span>
-              </div>
+                  <span style={styles.numberValue}>{dashboardData?.payrollSummary?.totalDeductions?.toLocaleString() || 0}</span>
+                  </span>
+                </div>
             </div>
           </div>
         )}
@@ -722,127 +595,127 @@ function Dashboard() {
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
             <h2 style={styles.modalTitle}>Add New Employee</h2>
-            <form onSubmit={handleAddEmployee} style={styles.form}>
-              <div style={styles.formGrid}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>First Name</label>
-                  <input
-                    style={styles.input}
-                    type="text"
-                    value={newEmployee.firstName}
-                    onChange={(e) => setNewEmployee({...newEmployee, firstName: e.target.value})}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Last Name</label>
-                  <input
-                    style={styles.input}
-                    type="text"
-                    value={newEmployee.lastName}
-                    onChange={(e) => setNewEmployee({...newEmployee, lastName: e.target.value})}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Email</label>
-                  <input
-                    style={styles.input}
-                    type="email"
-                    value={newEmployee.email}
-                    onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Start Date</label>
-                  <input
-                    style={styles.input}
-                    type="date"
-                    value={newEmployee.startDate}
-                    onChange={(e) => setNewEmployee({...newEmployee, startDate: e.target.value})}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Department</label>
-                  <input
-                    style={styles.input}
-                    type="text"
-                    value={newEmployee.department}
-                    onChange={(e) => setNewEmployee({...newEmployee, department: e.target.value})}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Position</label>
-                  <input
-                    style={styles.input}
-                    type="text"
-                    value={newEmployee.position}
-                    onChange={(e) => setNewEmployee({...newEmployee, position: e.target.value})}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Basic Salary</label>
-                  <input
-                    style={styles.input}
-                    type="number"
-                    value={newEmployee.salary}
-                    onChange={(e) => setNewEmployee({...newEmployee, salary: e.target.value})}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Joining Date</label>
-                  <input
-                    style={styles.input}
-                    type="date"
-                    value={newEmployee.joiningDate}
-                    onChange={(e) => setNewEmployee({...newEmployee, joiningDate: e.target.value})}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Offer Letter</label>
-                  <input
-                    style={styles.input}
-                    type="file"
-                    accept=".pdf,.doc,.docx"
-                    onChange={(e) => setNewEmployee({
-                      ...newEmployee, 
-                      offerLetter: e.target.files[0]
-                    })}
-                  />
-                </div>
-              </div>
-              <div style={styles.formButtons}>
-                <button type="submit" style={styles.submitBtn}>
-                  Add Employee
-                </button>
-                <button 
-                  type="button" 
-                  style={styles.cancelBtn}
-                  onClick={() => {
-                    setShowAddEmployee(false);
-                    setNewEmployee({
-                      firstName: '',
-                      lastName: '',
-                      email: '',
-                      department: '',
-                      position: '',
-                      salary: '',
-                      joiningDate: '',
-                      startDate: '',
-                      offerLetter: null
-                    });
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+        <form onSubmit={handleAddEmployee} style={styles.form}>
+          <div style={styles.formGrid}>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>First Name</label>
+              <input
+                style={styles.input}
+                type="text"
+                value={newEmployee.firstName}
+                onChange={(e) => setNewEmployee({...newEmployee, firstName: e.target.value})}
+                required
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Last Name</label>
+              <input
+                style={styles.input}
+                type="text"
+                value={newEmployee.lastName}
+                onChange={(e) => setNewEmployee({...newEmployee, lastName: e.target.value})}
+                required
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Email</label>
+              <input
+                style={styles.input}
+                type="email"
+                value={newEmployee.email}
+                onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
+                required
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Start Date</label>
+              <input
+                style={styles.input}
+                type="date"
+                value={newEmployee.startDate}
+                onChange={(e) => setNewEmployee({...newEmployee, startDate: e.target.value})}
+                required
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Department</label>
+              <input
+                style={styles.input}
+                type="text"
+                value={newEmployee.department}
+                onChange={(e) => setNewEmployee({...newEmployee, department: e.target.value})}
+                required
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Position</label>
+              <input
+                style={styles.input}
+                type="text"
+                value={newEmployee.position}
+                onChange={(e) => setNewEmployee({...newEmployee, position: e.target.value})}
+                required
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Basic Salary</label>
+              <input
+                style={styles.input}
+                type="number"
+                value={newEmployee.salary}
+                onChange={(e) => setNewEmployee({...newEmployee, salary: e.target.value})}
+                required
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Joining Date</label>
+              <input
+                style={styles.input}
+                type="date"
+                value={newEmployee.joiningDate}
+                onChange={(e) => setNewEmployee({...newEmployee, joiningDate: e.target.value})}
+                required
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Offer Letter</label>
+              <input
+                style={styles.input}
+                type="file"
+                accept=".pdf,.doc,.docx"
+                onChange={(e) => setNewEmployee({
+                  ...newEmployee, 
+                  offerLetter: e.target.files[0]
+                })}
+              />
+            </div>
+          </div>
+          <div style={styles.formButtons}>
+            <button type="submit" style={styles.submitBtn}>
+              Add Employee
+            </button>
+            <button 
+              type="button" 
+              style={styles.cancelBtn}
+              onClick={() => {
+                setShowAddEmployee(false);
+                setNewEmployee({
+                  firstName: '',
+                  lastName: '',
+                  email: '',
+                  department: '',
+                  position: '',
+                  salary: '',
+                  joiningDate: '',
+                  startDate: '',
+                  offerLetter: null
+                });
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
           </div>
         </div>
       )}

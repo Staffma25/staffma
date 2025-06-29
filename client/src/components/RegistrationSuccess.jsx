@@ -14,9 +14,9 @@ function RegistrationSuccess() {
   }
 
   const handleGoToDashboard = () => {
-    // Here you would typically log the user in automatically
-    // For now, we'll redirect to login
-    navigate('/login');
+    // User should already be authenticated after successful payment
+    // Redirect directly to dashboard
+    navigate('/dashboard');
   };
 
   const handleDownloadInvoice = () => {

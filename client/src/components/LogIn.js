@@ -72,8 +72,24 @@ function LogIn() {
 
         // All checks passed, proceed to dashboard
         console.log('LogIn: All checks passed, redirecting to business dashboard');
-        const from = location.state?.from?.pathname || '/dashboard';
-        navigate(from, { replace: true });
+        
+        // Check if we need to return to a specific page (like payment)
+        const returnTo = location.state?.returnTo;
+        const from = location.state?.from?.pathname;
+        
+        if (returnTo === '/payment' && location.state?.businessData && location.state?.subscriptionData) {
+          console.log('LogIn: Returning to payment page with data');
+          navigate('/payment', { 
+            state: { 
+              businessData: location.state.businessData,
+              subscriptionData: location.state.subscriptionData
+            },
+            replace: true 
+          });
+        } else {
+          const targetPath = from || '/dashboard';
+          navigate(targetPath, { replace: true });
+        }
       } else {
         setError(result.error || 'Failed to login. Please try again.');
       }

@@ -208,10 +208,10 @@ function LandingPage() {
             <p style={styles.featureText}>
               Built specifically for Kenyan businesses with local tax laws and regulations.
             </p>
+            </div>
           </div>
         </div>
-      </div>
-
+        
       {/* Footer Section */}
       <div style={styles.footer}>
         <div style={styles.footerBottom}>
@@ -298,7 +298,7 @@ const styles = {
     transition: 'all 0.3s ease',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
-  },
+    },
   pricing: {
     padding: '100px 20px',
     background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',

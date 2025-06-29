@@ -74,6 +74,10 @@ function SubscriptionSelection() {
   const savings = billingCycle === 'yearly' ? Math.round((selectedPlanData.monthlyPrice * 12 - selectedPlanData.yearlyPrice) / 100) * 100 : 0;
 
   const handleContinue = () => {
+    // Debug: Check if token is still available
+    const token = localStorage.getItem('businessToken');
+    console.log('SubscriptionSelection: Token available before payment navigation:', !!token);
+    
     navigate('/payment', {
       state: {
         businessData,

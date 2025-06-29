@@ -262,9 +262,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <Dashboard />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <Dashboard />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -274,9 +274,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <EmployeesList />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <EmployeesList />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -286,9 +286,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <EmployeeDetails />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <EmployeeDetails />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -298,9 +298,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <PayrollManagement />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <PayrollManagement />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -310,9 +310,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <PayrollSettings />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <PayrollSettings />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -322,9 +322,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <PayrollWorkflow />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <PayrollWorkflow />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -334,9 +334,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <PayrollReview />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <PayrollReview />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -346,9 +346,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <PaymentProcessing />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <PaymentProcessing />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -358,9 +358,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <PerformanceReviews />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <PerformanceReviews />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -370,9 +370,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <ReviewForm />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <ReviewForm />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -382,9 +382,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <UserManagement />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <UserManagement />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -394,9 +394,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <AddUser />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <AddUser />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -406,9 +406,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <LeaveManagement />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <LeaveManagement />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -418,9 +418,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <LeaveRequest />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <LeaveRequest />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -430,9 +430,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <LeaveRequests />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <LeaveRequests />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -442,9 +442,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <AddEmployee />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <AddEmployee />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               } 
@@ -454,9 +454,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <Settings />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <Settings />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               }
@@ -466,9 +466,9 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentProtectedRoute>
-                    <DashboardLayout>
-                      <LeaveRequestDetails />
-                    </DashboardLayout>
+                  <DashboardLayout>
+                    <LeaveRequestDetails />
+                  </DashboardLayout>
                   </PaymentProtectedRoute>
                 </ProtectedRoute>
               }
