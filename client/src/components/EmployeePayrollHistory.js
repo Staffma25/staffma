@@ -1,16 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { fetchWithAuth } from '../utils/auth';
+import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 
 function EmployeePayrollHistory({ employeeId }) {
   const [payrollHistory, setPayrollHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [payrollSettings, setPayrollSettings] = useState(null);
+  const [businessCurrency, setBusinessCurrency] = useState('KES');
 
   useEffect(() => {
-    fetchEmployeePayrollHistory();
+    fetchPayrollHistory();
     fetchPayrollSettings();
+    fetchBusinessCurrency();
   }, [employeeId]);
+
+  const fetchBusinessCurrency = async () => {
+    try {
+      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setBusinessCurrency(data.currency || 'KES');
+      }
+    } catch (error) {
+      console.error('Error fetching business currency:', error);
+    }
+  };
 
   const fetchPayrollSettings = async () => {
     try {
@@ -113,14 +134,14 @@ function EmployeePayrollHistory({ employeeId }) {
         <div style={styles.detailsRow}>
           <span style={styles.detailsLabel}>Total:</span>
           <span style={styles.detailsValue}>
-            KES {record.allowances.total?.toLocaleString()}
+            {formatCurrency(record.allowances.total, businessCurrency)}
           </span>
         </div>
         {filteredItems.map((item, index) => (
           <div key={index} style={styles.detailsRow}>
             <span style={styles.detailsLabel}>{item.name}:</span>
             <span style={styles.detailsValue}>
-              KES {item.amount?.toLocaleString()}
+              {formatCurrency(item.amount, businessCurrency)}
             </span>
           </div>
         ))}
@@ -149,7 +170,7 @@ function EmployeePayrollHistory({ employeeId }) {
         <div style={styles.detailsRow}>
           <span style={styles.detailsLabel}>Total:</span>
           <span style={styles.detailsValue}>
-            KES {record.deductions.total?.toLocaleString()}
+            {formatCurrency(record.deductions.total, businessCurrency)}
           </span>
         </div>
         
@@ -158,7 +179,7 @@ function EmployeePayrollHistory({ employeeId }) {
           <div key={`standard-${index}`} style={styles.detailsRow}>
             <span style={styles.detailsLabel}>{item.name}:</span>
             <span style={styles.detailsValue}>
-              KES {item.amount?.toLocaleString()}
+              {formatCurrency(item.amount, businessCurrency)}
             </span>
           </div>
         ))}
@@ -176,7 +197,7 @@ function EmployeePayrollHistory({ employeeId }) {
                   {item.name} ({item.type?.replace('_', ' ').toUpperCase()}):
                 </span>
                 <span style={styles.detailsValue}>
-                  KES {item.amount?.toLocaleString()}
+                  {formatCurrency(item.amount, businessCurrency)}
                 </span>
               </div>
             ))}
@@ -223,19 +244,19 @@ function EmployeePayrollHistory({ employeeId }) {
                     {`${new Date(2000, record.month - 1).toLocaleString('default', { month: 'long' })} ${record.year}`}
                   </td>
                   <td style={styles.tableCell}>
-                    KES {record.basicSalary?.toLocaleString()}
+                    {formatCurrency(record.basicSalary, businessCurrency)}
                   </td>
                   <td style={styles.tableCell}>
                     {renderAllowances(record)}
                   </td>
                   <td style={styles.tableCell}>
-                    KES {record.grossSalary?.toLocaleString()}
+                    {formatCurrency(record.grossSalary, businessCurrency)}
                   </td>
                   <td style={styles.tableCell}>
                     {renderDeductions(record)}
                   </td>
                   <td style={styles.tableCell}>
-                    KES {record.netSalary?.toLocaleString()}
+                    {formatCurrency(record.netSalary, businessCurrency)}
                   </td>
                   <td style={styles.tableCell}>
                     <button 

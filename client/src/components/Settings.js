@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { CURRENCIES } from '../utils/currency';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
@@ -17,7 +18,8 @@ function Settings() {
     businessRegistrationNumber: '',
     taxNumber: '',
     industry: '',
-    website: ''
+    website: '',
+    currency: 'KES'
   });
 
   useEffect(() => {
@@ -43,7 +45,10 @@ function Settings() {
       }
 
       const data = await response.json();
-      setBusinessInfo(data);
+      setBusinessInfo({
+        ...data,
+        currency: data.currency || 'KES'
+      });
     } catch (error) {
       console.error('Error fetching business info:', error);
       setError(error.message);
@@ -62,11 +67,11 @@ function Settings() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
-
     try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+
       const token = getToken();
       if (!token) {
         throw new Error('No authentication token found');
@@ -75,19 +80,19 @@ function Settings() {
       const response = await fetch(`${API_BASE_URL}/business`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify(businessInfo)
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update business information');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update business information');
       }
 
-      setSuccess('Business information updated successfully');
+      setSuccess('Business information updated successfully!');
       setIsEditing(false);
-      setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
       console.error('Error updating business info:', error);
       setError(error.message);
@@ -96,8 +101,17 @@ function Settings() {
     }
   };
 
-  if (loading && !businessInfo.businessName) {
-    return <div style={styles.loading}>Loading...</div>;
+  const handleCancel = () => {
+    setIsEditing(false);
+    fetchBusinessInfo(); // Reset to original values
+  };
+
+  if (loading) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.loading}>Loading business information...</div>
+      </div>
+    );
   }
 
   return (
@@ -218,23 +232,38 @@ function Settings() {
               style={styles.input}
             />
           </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Currency</label>
+            <select
+              name="currency"
+              value={businessInfo.currency}
+              onChange={handleInputChange}
+              disabled={!isEditing}
+              style={styles.select}
+              required
+            >
+              {Object.entries(CURRENCIES).map(([code, info]) => (
+                <option key={code} value={code}>
+                  {code} - {info.name}
+                </option>
+              ))}
+            </select>
+            {!isEditing && (
+              <p style={styles.helpText}>
+                Current currency: {businessInfo.currency} ({CURRENCIES[businessInfo.currency]?.name})
+              </p>
+            )}
+          </div>
         </div>
 
         {isEditing && (
-          <div style={styles.formActions}>
+          <div style={styles.buttonGroup}>
+            <button type="button" onClick={handleCancel} style={styles.cancelButton}>
+              Cancel
+            </button>
             <button type="submit" style={styles.saveButton} disabled={loading}>
               {loading ? 'Saving...' : 'Save Changes'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsEditing(false);
-                fetchBusinessInfo(); // Reset to original data
-              }}
-              style={styles.cancelButton}
-              disabled={loading}
-            >
-              Cancel
             </button>
           </div>
         )}
@@ -359,6 +388,29 @@ const styles = {
     borderRadius: '4px',
     marginBottom: '15px',
     fontSize: '0.875rem',
+  },
+  buttonGroup: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '10px',
+    marginTop: '20px',
+  },
+  select: {
+    padding: '8px 12px',
+    border: '1px solid #d1d5db',
+    borderRadius: '4px',
+    fontSize: '0.875rem',
+    width: '100%',
+    backgroundColor: 'white',
+    '&:disabled': {
+      backgroundColor: '#f3f4f6',
+      cursor: 'not-allowed',
+    },
+  },
+  helpText: {
+    fontSize: '0.75rem',
+    color: '#4b5563',
+    marginTop: '4px',
   },
 };
 

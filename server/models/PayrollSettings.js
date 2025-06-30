@@ -6,6 +6,11 @@ const payrollSettingsSchema = new mongoose.Schema({
     ref: 'Business',
     required: true
   },
+  currency: {
+    type: String,
+    enum: ['KES', 'USD', 'EUR', 'GBP', 'INR', 'UGX', 'TZS', 'RWF'],
+    default: 'KES'
+  },
   taxRates: {
     customDeductions: [{
       name: {

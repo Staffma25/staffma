@@ -93,7 +93,7 @@ router.get('/:id', auth, async (req, res) => {
 // PUT /api/business/:id - Update business
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { businessName, email, contactNumber, businessAddress } = req.body;
+    const { businessName, email, contactNumber, businessAddress, currency } = req.body;
     
     const business = await Business.findById(req.params.id);
     if (!business) {
@@ -105,6 +105,7 @@ router.put('/:id', auth, async (req, res) => {
     if (email) business.email = email;
     if (contactNumber) business.contactNumber = contactNumber;
     if (businessAddress) business.businessAddress = businessAddress;
+    if (currency) business.currency = currency;
 
     await business.save();
 
@@ -117,6 +118,7 @@ router.put('/:id', auth, async (req, res) => {
         email: business.email,
         contactNumber: business.contactNumber,
         businessAddress: business.businessAddress,
+        currency: business.currency,
         isSuspended: business.isSuspended
       }
     });

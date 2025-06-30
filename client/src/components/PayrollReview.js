@@ -1,19 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchWithAuth } from '../utils/auth';
+import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 
 function PayrollReview() {
   const { month, year } = useParams();
   const navigate = useNavigate();
   const [payrollData, setPayrollData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [processing, setProcessing] = useState(false);
+  const [businessCurrency, setBusinessCurrency] = useState('KES');
 
   useEffect(() => {
     fetchPayrollData();
+    fetchBusinessCurrency();
   }, [month, year]);
+
+  const fetchBusinessCurrency = async () => {
+    try {
+      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setBusinessCurrency(data.currency || 'KES');
+      }
+    } catch (error) {
+      console.error('Error fetching business currency:', error);
+    }
+  };
 
   const fetchPayrollData = async () => {
     try {
@@ -71,7 +93,7 @@ function PayrollReview() {
       <div style={styles.summary}>
         <h3>Summary</h3>
         <p>Total Employees: {payrollData.length}</p>
-        <p>Total Net Salary: KES {payrollData.reduce((sum, r) => sum + (r.netSalary || 0), 0).toLocaleString()}</p>
+        <p>Total Net Salary: {formatCurrency(payrollData.reduce((sum, r) => sum + (r.netSalary || 0), 0), businessCurrency)}</p>
       </div>
 
       <div style={styles.tableContainer}>
@@ -101,7 +123,7 @@ function PayrollReview() {
                   />
                 </td>
                 <td>{record.employeeId?.firstName} {record.employeeId?.lastName}</td>
-                <td>KES {record.netSalary?.toLocaleString()}</td>
+                <td>{formatCurrency(record.netSalary, businessCurrency)}</td>
                 <td>
                   {record.employeeId?.staffpesaWallet?.walletId ? 'Staffpesa Wallet' :
                    record.employeeId?.bankAccounts?.length > 0 ? 'Bank Account' : 'No Method'}

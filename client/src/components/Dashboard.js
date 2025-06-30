@@ -4,6 +4,8 @@ import EmployeeDetails from './EmployeeDetails';
 import PayrollCard from './PayrollCard';
 import { getDashboardData } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { fetchWithAuth } from '../utils/auth';
+import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
@@ -28,7 +30,14 @@ function Dashboard() {
       rejectedLeaves: 0
     },
     employees: [],
-    users: []
+    users: [],
+    recentActivities: [],
+    payrollSummary: {
+      totalGrossSalary: 0,
+      totalNetSalary: 0,
+      totalAllowances: 0,
+      totalDeductions: 0
+    }
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -42,6 +51,7 @@ function Dashboard() {
     totalUsers: 0,
     activeUsers: 0
   });
+  const [businessCurrency, setBusinessCurrency] = useState('KES');
 
   const [newEmployee, setNewEmployee] = useState({
     firstName: '',
@@ -170,13 +180,32 @@ function Dashboard() {
     }
   }, [navigate, getToken, logout, businessUser]);
 
+  const fetchBusinessCurrency = async () => {
+    try {
+      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setBusinessCurrency(data.currency || 'KES');
+      }
+    } catch (error) {
+      console.error('Error fetching business currency:', error);
+    }
+  };
+
   useEffect(() => {
     const abortController = new AbortController();
     fetchDashboardData(abortController);
+    fetchBusinessCurrency();
     return () => {
       abortController.abort();
     };
-  }, [fetchDashboardData]);
+  }, [fetchDashboardData, fetchBusinessCurrency]);
 
   const handleAddEmployee = async (e) => {
     e.preventDefault();
@@ -425,8 +454,7 @@ function Dashboard() {
             <div style={styles.statCard}>
               <h3>Monthly Payroll</h3>
               <p style={styles.statValue}>
-                R{(dashboardData?.payrollSummary?.totalGrossSalary || 0).toLocaleString()}
-                <span style={styles.statLabel}>Gross Total</span>
+                {getCurrencySymbol(businessCurrency)} {formatCurrency(dashboardData?.payrollSummary?.totalGrossSalary || 0)}
               </p>
             </div>
             <div style={styles.statCard}>
@@ -463,32 +491,32 @@ function Dashboard() {
                 <div style={styles.payrollCardIcon}>💰</div>
                 <span style={styles.payrollCardLabel}>Gross Salary</span>
                 <span style={styles.payrollCardValue}>
-                  <span style={styles.currencyText}>KES</span>
-                  <span style={styles.numberValue}>{dashboardData?.payrollSummary?.totalGrossSalary?.toLocaleString() || 0}</span>
+                  <span style={styles.currencyText}>{getCurrencySymbol(businessCurrency)}</span>
+                  <span style={styles.numberValue}>{formatCurrency(dashboardData?.payrollSummary?.totalGrossSalary || 0)}</span>
                 </span>
               </div>
               <div style={styles.payrollSummaryCard}>
                 <div style={styles.payrollCardIcon}>💵</div>
                 <span style={styles.payrollCardLabel}>Net Salary</span>
                 <span style={styles.payrollCardValue}>
-                  <span style={styles.currencyText}>KES</span>
-                  <span style={styles.numberValue}>{dashboardData?.payrollSummary?.totalNetSalary?.toLocaleString() || 0}</span>
+                  <span style={styles.currencyText}>{getCurrencySymbol(businessCurrency)}</span>
+                  <span style={styles.numberValue}>{formatCurrency(dashboardData?.payrollSummary?.totalNetSalary || 0)}</span>
                 </span>
               </div>
               <div style={styles.payrollSummaryCard}>
                 <div style={styles.payrollCardIcon}>➕</div>
                 <span style={styles.payrollCardLabel}>Allowances</span>
                 <span style={styles.payrollCardValue}>
-                  <span style={styles.currencyText}>KES</span>
-                  <span style={styles.numberValue}>{dashboardData?.payrollSummary?.totalAllowances?.toLocaleString() || 0}</span>
+                  <span style={styles.currencyText}>{getCurrencySymbol(businessCurrency)}</span>
+                  <span style={styles.numberValue}>{formatCurrency(dashboardData?.payrollSummary?.totalAllowances || 0)}</span>
                 </span>
               </div>
               <div style={styles.payrollSummaryCard}>
                 <div style={styles.payrollCardIcon}>➖</div>
                 <span style={styles.payrollCardLabel}>Deductions</span>
                   <span style={styles.payrollCardValue}>
-                  <span style={styles.currencyText}>KES</span>
-                  <span style={styles.numberValue}>{dashboardData?.payrollSummary?.totalDeductions?.toLocaleString() || 0}</span>
+                  <span style={styles.currencyText}>{getCurrencySymbol(businessCurrency)}</span>
+                  <span style={styles.numberValue}>{formatCurrency(dashboardData?.payrollSummary?.totalDeductions || 0)}</span>
                   </span>
                 </div>
             </div>

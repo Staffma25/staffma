@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getActivities, getActivitySummary, getBusinessActivities, getBusinessDetails } from '../utils/api';
+import { formatCurrencyForStaffma } from '../utils/currency';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
@@ -240,10 +241,7 @@ function StaffmaDashboard() {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount || 0);
+    return formatCurrencyForStaffma(amount);
   };
 
   const getMonthName = (month) => {
@@ -376,28 +374,28 @@ function StaffmaDashboard() {
                   <div style={styles.payrollOverviewCard}>
                     <div style={styles.payrollOverviewIcon}>💵</div>
                     <div style={styles.payrollOverviewContent}>
-                      <span style={styles.payrollOverviewValue}>${totalNetPaid.toLocaleString()}</span>
+                      <span style={styles.payrollOverviewValue}>KSH {totalNetPaid.toLocaleString()}</span>
                       <span style={styles.payrollOverviewLabel}>Net Paid</span>
                     </div>
                   </div>
                   <div style={styles.payrollOverviewCard}>
                     <div style={styles.payrollOverviewIcon}>📈</div>
                     <div style={styles.payrollOverviewContent}>
-                      <span style={styles.payrollOverviewValue}>${totalGrossAmount.toLocaleString()}</span>
+                      <span style={styles.payrollOverviewValue}>KSH {totalGrossAmount.toLocaleString()}</span>
                       <span style={styles.payrollOverviewLabel}>Gross Amount</span>
                     </div>
                   </div>
                   <div style={styles.payrollOverviewCard}>
                     <div style={styles.payrollOverviewIcon}>➕</div>
                     <div style={styles.payrollOverviewContent}>
-                      <span style={styles.payrollOverviewValue}>${totalAllowances.toLocaleString()}</span>
+                      <span style={styles.payrollOverviewValue}>KSH {totalAllowances.toLocaleString()}</span>
                       <span style={styles.payrollOverviewLabel}>Allowances</span>
                     </div>
                   </div>
                   <div style={styles.payrollOverviewCard}>
                     <div style={styles.payrollOverviewIcon}>➖</div>
                     <div style={styles.payrollOverviewContent}>
-                      <span style={styles.payrollOverviewValue}>${totalDeductions.toLocaleString()}</span>
+                      <span style={styles.payrollOverviewValue}>KSH {totalDeductions.toLocaleString()}</span>
                       <span style={styles.payrollOverviewLabel}>Deductions</span>
                     </div>
                   </div>
@@ -437,12 +435,12 @@ function StaffmaDashboard() {
                         </td>
                         <td style={styles.payrollHistoryTableValue}>
                           <span style={styles.payrollHistoryValue}>
-                            ${record.totalNetSalary.toLocaleString()}
+                            KSH {record.totalNetSalary.toLocaleString()}
                           </span>
                         </td>
                         <td style={styles.payrollHistoryTableValue}>
                           <span style={styles.payrollHistoryValue}>
-                            ${record.totalGrossSalary.toLocaleString()}
+                            KSH {record.totalGrossSalary.toLocaleString()}
                           </span>
                         </td>
                         <td style={styles.payrollHistoryTableValue}>
@@ -452,7 +450,7 @@ function StaffmaDashboard() {
                         </td>
                         <td style={styles.payrollHistoryTableValue}>
                           <span style={styles.payrollHistoryValue}>
-                            ${record.averageSalary.toLocaleString()}
+                            KSH {record.averageSalary.toLocaleString()}
                           </span>
                         </td>
                       </tr>
@@ -788,7 +786,7 @@ function StaffmaDashboard() {
                     <div style={styles.modalSummaryIcon}>💰</div>
                     <div style={styles.modalSummaryContent}>
                       <span style={styles.modalSummaryValue}>
-                        {formatCurrency(selectedPayrollData.payrollDetails.reduce((sum, record) => sum + (record.grossSalary || 0), 0))}
+                        KSH {selectedPayrollData.payrollDetails.reduce((sum, record) => sum + (record.grossSalary || 0), 0).toLocaleString()}
                       </span>
                       <span style={styles.modalSummaryLabel}>Total Gross Salary</span>
                     </div>
@@ -797,7 +795,7 @@ function StaffmaDashboard() {
                     <div style={styles.modalSummaryIcon}>💵</div>
                     <div style={styles.modalSummaryContent}>
                       <span style={styles.modalSummaryValue}>
-                        {formatCurrency(selectedPayrollData.payrollDetails.reduce((sum, record) => sum + (record.netSalary || 0), 0))}
+                        KSH {selectedPayrollData.payrollDetails.reduce((sum, record) => sum + (record.netSalary || 0), 0).toLocaleString()}
                       </span>
                       <span style={styles.modalSummaryLabel}>Total Net Salary</span>
                     </div>
@@ -806,7 +804,7 @@ function StaffmaDashboard() {
                     <div style={styles.modalSummaryIcon}>➕</div>
                     <div style={styles.modalSummaryContent}>
                       <span style={styles.modalSummaryValue}>
-                        {formatCurrency(selectedPayrollData.payrollDetails.reduce((sum, record) => sum + (record.allowances?.total || 0), 0))}
+                        KSH {selectedPayrollData.payrollDetails.reduce((sum, record) => sum + (record.allowances?.total || 0), 0).toLocaleString()}
                       </span>
                       <span style={styles.modalSummaryLabel}>Total Allowances</span>
                     </div>
@@ -815,7 +813,7 @@ function StaffmaDashboard() {
                     <div style={styles.modalSummaryIcon}>➖</div>
                     <div style={styles.modalSummaryContent}>
                       <span style={styles.modalSummaryValue}>
-                        {formatCurrency(selectedPayrollData.payrollDetails.reduce((sum, record) => sum + (record.deductions?.total || 0), 0))}
+                        KSH {selectedPayrollData.payrollDetails.reduce((sum, record) => sum + (record.deductions?.total || 0), 0).toLocaleString()}
                       </span>
                       <span style={styles.modalSummaryLabel}>Total Deductions</span>
                     </div>
@@ -875,27 +873,27 @@ function StaffmaDashboard() {
                               </td>
                               <td style={styles.modalTableCell}>
                                 <span style={styles.modalSalaryValue}>
-                                  {formatCurrency(record.basicSalary)}
+                                  KSH {record.basicSalary?.toLocaleString() || '0'}
                                 </span>
                               </td>
                               <td style={styles.modalTableCell}>
                                 <span style={styles.modalSalaryValue}>
-                                  {formatCurrency(record.allowances?.total)}
+                                  KSH {record.allowances?.total?.toLocaleString() || '0'}
                                 </span>
                               </td>
                               <td style={styles.modalTableCell}>
                                 <span style={styles.modalSalaryValue}>
-                                  {formatCurrency(record.grossSalary)}
+                                  KSH {record.grossSalary?.toLocaleString() || '0'}
                                 </span>
                               </td>
                               <td style={styles.modalTableCell}>
                                 <span style={styles.modalSalaryValue}>
-                                  {formatCurrency(record.deductions?.total)}
+                                  KSH {record.deductions?.total?.toLocaleString() || '0'}
                                 </span>
                               </td>
                               <td style={styles.modalTableCell}>
                                 <span style={styles.modalNetSalaryValue}>
-                                  {formatCurrency(record.netSalary)}
+                                  KSH {record.netSalary?.toLocaleString() || '0'}
                                 </span>
                               </td>
                             </tr>

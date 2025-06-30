@@ -1,8 +1,33 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { fetchWithAuth } from '../utils/auth';
+import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 
 function PayrollCard({ payrollSummary }) {
   const navigate = useNavigate();
+  const [businessCurrency, setBusinessCurrency] = useState('KES');
+
+  useEffect(() => {
+    fetchBusinessCurrency();
+  }, []);
+
+  const fetchBusinessCurrency = async () => {
+    try {
+      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setBusinessCurrency(data.currency || 'KES');
+      }
+    } catch (error) {
+      console.error('Error fetching business currency:', error);
+    }
+  };
 
   return (
     <div style={styles.card}>
@@ -14,11 +39,11 @@ function PayrollCard({ payrollSummary }) {
         </div>
         <div style={styles.stat}>
           <span>Total Gross Salary</span>
-          <h4>KES {payrollSummary?.totalGrossSalary?.toLocaleString() || 0}</h4>
+          <h4>{formatCurrency(payrollSummary?.totalGrossSalary || 0, businessCurrency)}</h4>
         </div>
         <div style={styles.stat}>
           <span>Total Net Salary</span>
-          <h4>KES {payrollSummary?.totalNetSalary?.toLocaleString() || 0}</h4>
+          <h4>{formatCurrency(payrollSummary?.totalNetSalary || 0, businessCurrency)}</h4>
         </div>
       </div>
       <button 

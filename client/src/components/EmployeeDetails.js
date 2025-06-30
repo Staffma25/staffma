@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import DocumentUpload from './DocumentUpload';
 import InsuranceDocumentUpload from './InsuranceDocumentUpload';
 import { fetchWithAuth } from '../utils/auth';
+import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 
 function EmployeeDetails() {
   const { id } = useParams();
@@ -37,6 +38,7 @@ function EmployeeDetails() {
     isActive: false
   });
   const [activePaymentMethod, setActivePaymentMethod] = useState('bank'); // 'bank' or 'wallet'
+  const [businessCurrency, setBusinessCurrency] = useState('KES');
 
   useEffect(() => {
     if (!id) {
@@ -45,6 +47,7 @@ function EmployeeDetails() {
       return;
     }
     fetchEmployeeDetails();
+    fetchBusinessCurrency();
   }, [id]);
 
   const fetchEmployeeDetails = async () => {
@@ -74,6 +77,24 @@ function EmployeeDetails() {
       setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBusinessCurrency = async () => {
+    try {
+      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setBusinessCurrency(data.currency || 'KES');
+      }
+    } catch (error) {
+      console.error('Error fetching business currency:', error);
     }
   };
 
@@ -782,9 +803,9 @@ function EmployeeDetails() {
                   {employee.payrollHistory.map(payroll => (
                     <tr key={payroll._id} style={styles.tableRow}>
                       <td style={styles.tableCell}>{`${payroll.month}/${payroll.year}`}</td>
-                      <td style={styles.tableCell}>KES {payroll.basicSalary?.toLocaleString()}</td>
-                      <td style={styles.tableCell}>KES {payroll.grossSalary?.toLocaleString()}</td>
-                      <td style={styles.tableCell}>KES {payroll.netSalary?.toLocaleString()}</td>
+                      <td style={styles.tableCell}>{formatCurrency(payroll.basicSalary, businessCurrency)}</td>
+                      <td style={styles.tableCell}>{formatCurrency(payroll.grossSalary, businessCurrency)}</td>
+                      <td style={styles.tableCell}>{formatCurrency(payroll.netSalary, businessCurrency)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -914,9 +935,9 @@ function EmployeeDetails() {
                               {deduction.type.replace('_', ' ').toUpperCase()}
                             </span>
                           </td>
-                          <td style={styles.tableCell}>KES {parseFloat(deduction.amount).toLocaleString()}</td>
-                          <td style={styles.tableCell}>KES {parseFloat(deduction.monthlyAmount).toLocaleString()}</td>
-                          <td style={styles.tableCell}>KES {parseFloat(deduction.remainingAmount || deduction.amount).toLocaleString()}</td>
+                          <td style={styles.tableCell}>{formatCurrency(deduction.amount, businessCurrency)}</td>
+                          <td style={styles.tableCell}>{formatCurrency(deduction.monthlyAmount, businessCurrency)}</td>
+                          <td style={styles.tableCell}>{formatCurrency(deduction.remainingAmount || deduction.amount, businessCurrency)}</td>
                           <td style={styles.tableCell}>
                             <span style={getStatusStyle(deduction.status)}>
                               {deduction.status}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { fetchWithAuth } from '../utils/auth';
+import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 
 function PayrollManagement() {
   const [employees, setEmployees] = useState([]);
@@ -19,6 +20,7 @@ function PayrollManagement() {
   const [paymentStatus, setPaymentStatus] = useState({});
   const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [businessCurrency, setBusinessCurrency] = useState('KES');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,6 +28,7 @@ function PayrollManagement() {
     fetchPayrollHistory();
     fetchBusinessDetails();
     fetchPayrollSettings();
+    fetchBusinessCurrency();
   }, [selectedMonth, selectedYear]);
 
   const fetchEmployees = async () => {
@@ -150,6 +153,24 @@ function PayrollManagement() {
     } catch (error) {
       console.error('Error fetching payroll settings:', error);
       setError(error.message);
+    }
+  };
+
+  const fetchBusinessCurrency = async () => {
+    try {
+      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setBusinessCurrency(data.currency || 'KES');
+      }
+    } catch (error) {
+      console.error('Error fetching business currency:', error);
     }
   };
 
@@ -661,7 +682,7 @@ function PayrollManagement() {
             <div style={styles.actionInfo}>
               <p>Selected: {selectedEmployees.length} employees</p>
               <p>
-                Total Amount: KES {
+                Total Amount: {getCurrencySymbol(businessCurrency)} {
                   filteredPayrollHistory
                     .filter(r => selectedEmployees.includes(r._id))
                     .reduce((sum, r) => sum + (r.netSalary || 0), 0)
@@ -698,7 +719,7 @@ function PayrollManagement() {
             <div style={styles.actionInfo}>
               <p>Selected: {selectedEmployees.length} payments</p>
               <p>
-                Total Amount: KES {
+                Total Amount: {getCurrencySymbol(businessCurrency)} {
                   filteredPayrollHistory
                     .filter(r => selectedEmployees.includes(r._id))
                     .reduce((sum, r) => sum + (r.netSalary || 0), 0)
@@ -806,7 +827,7 @@ function PayrollManagement() {
                     </>
                   )}
                   <td style={styles.tableCell}>
-                    KES {record.basicSalary?.toLocaleString()}
+                    {getCurrencySymbol(businessCurrency)} {record.basicSalary?.toLocaleString()}
                   </td>
                   {configuredAllowances.map(allowance => {
                     const allowanceItem = record.allowances?.items?.find(item => 
@@ -814,30 +835,30 @@ function PayrollManagement() {
                     );
                     return (
                       <td key={allowance} style={styles.tableCell}>
-                        KES {allowanceItem?.amount?.toLocaleString() || '0'}
+                        {getCurrencySymbol(businessCurrency)} {allowanceItem?.amount?.toLocaleString() || '0'}
                       </td>
                     );
                   })}
                   <td style={styles.tableCell}>
-                    KES {record.allowances?.total?.toLocaleString()}
+                    {getCurrencySymbol(businessCurrency)} {record.allowances?.total?.toLocaleString()}
                   </td>
                   <td style={styles.tableCell}>
-                    KES {record.grossSalary?.toLocaleString()}
+                    {getCurrencySymbol(businessCurrency)} {record.grossSalary?.toLocaleString()}
                   </td>
                   <td style={styles.tableCell}>
-                    KES {record.deductions?.items?.find(item => item.name === 'SHIF')?.amount?.toLocaleString() || '0'}
+                    {getCurrencySymbol(businessCurrency)} {record.deductions?.items?.find(item => item.name === 'SHIF')?.amount?.toLocaleString() || '0'}
                   </td>
                   <td style={styles.tableCell}>
-                    KES {record.deductions?.items?.find(item => item.name === 'NSSF')?.amount?.toLocaleString() || '0'}
+                    {getCurrencySymbol(businessCurrency)} {record.deductions?.items?.find(item => item.name === 'NSSF')?.amount?.toLocaleString() || '0'}
                   </td>
                   <td style={styles.tableCell}>
-                    KES {record.deductions?.items?.find(item => item.name === 'Housing Levy')?.amount?.toLocaleString() || '0'}
+                    {getCurrencySymbol(businessCurrency)} {record.deductions?.items?.find(item => item.name === 'Housing Levy')?.amount?.toLocaleString() || '0'}
                   </td>
                   <td style={styles.tableCell}>
-                    KES {record.taxableIncome?.toLocaleString()}
+                    {getCurrencySymbol(businessCurrency)} {record.taxableIncome?.toLocaleString()}
                   </td>
                   <td style={styles.tableCell}>
-                    KES {record.deductions?.items?.find(item => item.name === 'PAYE')?.amount?.toLocaleString() || '0'}
+                    {getCurrencySymbol(businessCurrency)} {record.deductions?.items?.find(item => item.name === 'PAYE')?.amount?.toLocaleString() || '0'}
                   </td>
                   {configuredDeductions.map(deduction => {
                     const deductionItem = record.deductions?.items?.find(item => 
@@ -845,12 +866,12 @@ function PayrollManagement() {
                     );
                     return (
                       <td key={deduction} style={styles.tableCell}>
-                        KES {deductionItem?.amount?.toLocaleString() || '0'}
+                        {getCurrencySymbol(businessCurrency)} {deductionItem?.amount?.toLocaleString() || '0'}
                       </td>
                     );
                   })}
                   <td style={styles.tableCell}>
-                    KES {(() => {
+                    {getCurrencySymbol(businessCurrency)} {(() => {
                       const allDeductions = record.deductions?.items || [];
                       
                       // Debug: Show all deductions for this employee
@@ -913,10 +934,10 @@ function PayrollManagement() {
                     })()}
                   </td>
                   <td style={styles.tableCell}>
-                    KES {record.deductions?.total?.toLocaleString()}
+                    {getCurrencySymbol(businessCurrency)} {record.deductions?.total?.toLocaleString()}
                   </td>
                   <td style={styles.tableCell}>
-                    KES {record.netSalary?.toLocaleString()}
+                    {getCurrencySymbol(businessCurrency)} {record.netSalary?.toLocaleString()}
                   </td>
                   {(activeStep === 'review' || activeStep === 'payments') && (
                     <td style={styles.tableCell}>

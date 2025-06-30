@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchWithAuth } from '../utils/auth';
 import { useAuth } from '../contexts/AuthContext';
+import { CURRENCIES } from '../utils/currency';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
@@ -29,6 +30,7 @@ const PayrollSettings = () => {
   
   // Initialize all state with default values
   const [settings, setSettings] = useState({
+    currency: 'KES',
     taxRates: {
       allowances: [],
       customDeductions: [],
@@ -100,6 +102,7 @@ const PayrollSettings = () => {
 
       // Ensure all required fields exist with default values
       const settingsData = {
+        currency: responseData.currency || 'KES',
         taxRates: {
           allowances: Array.isArray(responseData.taxRates?.allowances) 
             ? responseData.taxRates.allowances 
@@ -135,38 +138,32 @@ const PayrollSettings = () => {
   const handleSave = async () => {
     try {
       setLoading(true);
-
-      if (!settings) {
-        throw new Error('No settings to save');
-      }
+      setError(null);
+      setSuccess(null);
 
       const response = await fetchWithAuth(`${API_BASE_URL}/payroll/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(settings)
+        body: JSON.stringify({
+          currency: settings.currency,
+          taxRates: settings.taxRates
+        })
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save settings');
+        throw new Error(errorData.error || 'Failed to save payroll settings');
       }
 
-      const data = await response.json();
-      if (!data) {
-        throw new Error('No response data received');
-      }
-
-      setSettings(data);
-      setSuccess('Settings saved successfully');
-      setError(null);
+      setSuccess('Payroll settings saved successfully!');
+      setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
       console.error('Error saving settings:', error);
-      setError(error.message || 'Failed to save settings');
+      setError(error.message || 'Failed to save payroll settings');
     } finally {
       setLoading(false);
-      setTimeout(() => setSuccess(null), 3000);
     }
   };
 

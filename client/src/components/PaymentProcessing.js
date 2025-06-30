@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchWithAuth } from '../utils/auth';
+import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 
 function PaymentProcessing() {
   const { month, year } = useParams();
@@ -12,9 +13,11 @@ function PaymentProcessing() {
   const [success, setSuccess] = useState('');
   const [selectedPayments, setSelectedPayments] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState({});
+  const [businessCurrency, setBusinessCurrency] = useState('KES');
 
   useEffect(() => {
     fetchApprovedPayroll();
+    fetchBusinessCurrency();
   }, [month, year]);
 
   const fetchApprovedPayroll = async () => {
@@ -33,6 +36,24 @@ function PaymentProcessing() {
       setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBusinessCurrency = async () => {
+    try {
+      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setBusinessCurrency(data.currency || 'KES');
+      }
+    } catch (error) {
+      console.error('Error fetching business currency:', error);
     }
   };
 
@@ -133,7 +154,7 @@ function PaymentProcessing() {
           <div style={styles.summaryCard}>
             <span style={styles.cardLabel}>Total Amount</span>
             <span style={styles.cardValue}>
-              KES {payrollData.reduce((sum, r) => sum + (r.netSalary || 0), 0).toLocaleString()}
+              {formatCurrency(payrollData.reduce((sum, r) => sum + (r.netSalary || 0), 0), businessCurrency)}
             </span>
           </div>
           <div style={styles.summaryCard}>
@@ -210,7 +231,7 @@ function PaymentProcessing() {
                     </small>
                   </td>
                   <td style={styles.tableCell}>
-                    KES {record.netSalary?.toLocaleString()}
+                    {formatCurrency(record.netSalary, businessCurrency)}
                   </td>
                   <td style={styles.tableCell}>
                     <div style={styles.paymentMethod}>
@@ -244,12 +265,12 @@ function PaymentProcessing() {
         <div style={styles.actionInfo}>
           <p>Selected: {selectedPayments.length} payments</p>
           <p>
-            Total Amount: KES {
+            Total Amount: {formatCurrency(
               payrollData
                 .filter(r => selectedPayments.includes(r._id))
-                .reduce((sum, r) => sum + (r.netSalary || 0), 0)
-                .toLocaleString()
-            }
+                .reduce((sum, r) => sum + (r.netSalary || 0), 0),
+              businessCurrency
+            )}
           </p>
         </div>
         <button

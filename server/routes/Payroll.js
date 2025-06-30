@@ -606,6 +606,10 @@ router.put('/settings', auth, async (req, res) => {
     if (req.body.taxRates) {
       settings.taxRates = req.body.taxRates;
     }
+    
+    if (req.body.currency) {
+      settings.currency = req.body.currency;
+    }
 
     // Save the updated settings
     await settings.save();
@@ -847,43 +851,49 @@ router.get('/download/:payrollId', auth, async (req, res) => {
   let doc;
   try {
     const payroll = await Payroll.findById(req.params.payrollId)
-      .populate('employeeId', 'firstName lastName position department')
-      .populate('businessId', 'name address');
+      .populate('employeeId', 'firstName lastName employeeNumber position department')
+      .populate('businessId', 'businessName currency');
 
     if (!payroll) {
-      return res.status(404).json({ message: 'Payroll record not found' });
+      return res.status(404).json({ error: 'Payroll record not found' });
     }
 
-    // Convert both IDs to strings for comparison
-    const payrollBusinessId = payroll.businessId._id.toString();
-    const userBusinessId = req.user.businessId.toString();
-    if (payrollBusinessId !== userBusinessId) {
-      return res.status(403).json({ message: 'Not authorized to access this payroll record' });
+    // Check if the payroll belongs to the authenticated business
+    if (payroll.businessId._id.toString() !== req.user.businessId.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Fetch business details from the database
-    const business = await Business.findById(payrollBusinessId);
-    if (!business) {
-      return res.status(404).json({ message: 'Business not found' });
-    }
+    const businessCurrency = payroll.businessId.currency || 'KES';
+    const currencySymbol = businessCurrency === 'KES' ? 'KES' : 
+                          businessCurrency === 'USD' ? '$' :
+                          businessCurrency === 'EUR' ? '€' :
+                          businessCurrency === 'GBP' ? '£' :
+                          businessCurrency === 'INR' ? '₹' :
+                          businessCurrency;
 
-    // Fetch payroll settings for tax rates
-    const settings = await PayrollSettings.findOne({ businessId: payrollBusinessId });
-    if (!settings) {
-      return res.status(404).json({ message: 'Payroll settings not found' });
-    }
+    // Create PDF document
+    doc = new PDFDocument({
+      size: 'A4',
+      margin: 50
+    });
 
-    // Create a PDF document
-    doc = new PDFDocument({ margin: 40 });
+    // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="payslip-${payroll.employeeId.firstName}-${payroll.employeeId.lastName}-${payroll.month}-${payroll.year}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename=payslip-${payroll._id}.pdf`);
+
+    // Pipe the PDF to the response
     doc.pipe(res);
 
-    // Payslip header
+    // Add company header
     doc
       .fontSize(20)
-      .fillColor('#4F8EF7')
+      .fillColor('#1a237e')
       .font('Helvetica-Bold')
+      .text(payroll.businessId.businessName, { align: 'center' })
+      .moveDown(0.5)
+      .fontSize(14)
+      .fillColor('#666')
+      .font('Helvetica')
       .text('PAYSLIP', { align: 'center' })
       .moveDown(1);
 
@@ -927,7 +937,7 @@ router.get('/download/:payrollId', auth, async (req, res) => {
       .fontSize(12)
       .fillColor('#333')
       .font('Helvetica')
-      .text(`Basic Salary: KES ${(payroll.basicSalary || 0).toLocaleString()}`)
+      .text(`Basic Salary: ${currencySymbol} ${(payroll.basicSalary || 0).toLocaleString()}`)
       .moveDown(0.2);
 
     // Allowances Section
@@ -944,7 +954,7 @@ router.get('/download/:payrollId', auth, async (req, res) => {
     // Display allowances from payroll record
     if (payroll.allowances?.items) {
       payroll.allowances.items.forEach(allowance => {
-        doc.text(`${allowance.name}: KES ${allowance.amount.toLocaleString()}`);
+        doc.text(`${allowance.name}: ${currencySymbol} ${allowance.amount.toLocaleString()}`);
       });
     }
     
@@ -964,7 +974,7 @@ router.get('/download/:payrollId', auth, async (req, res) => {
     // Display deductions from payroll record
     if (payroll.deductions?.items) {
       payroll.deductions.items.forEach(deduction => {
-        doc.text(`${deduction.name}: KES ${deduction.amount.toLocaleString()}`);
+        doc.text(`${deduction.name}: ${currencySymbol} ${deduction.amount.toLocaleString()}`);
       });
     }
     
@@ -980,11 +990,11 @@ router.get('/download/:payrollId', auth, async (req, res) => {
       .fontSize(12)
       .fillColor('#333')
       .font('Helvetica')
-      .text(`Basic Salary: KES ${(payroll.basicSalary || 0).toLocaleString()}`)
-      .text(`Total Allowances: KES ${(payroll.allowances?.total || 0).toLocaleString()}`)
-      .text(`Gross Salary: KES ${(payroll.grossSalary || 0).toLocaleString()}`)
-      .text(`Total Deductions: KES ${(payroll.deductions?.total || 0).toLocaleString()}`)
-      .text(`Net Salary: KES ${(payroll.netSalary || 0).toLocaleString()}`)
+      .text(`Basic Salary: ${currencySymbol} ${(payroll.basicSalary || 0).toLocaleString()}`)
+      .text(`Total Allowances: ${currencySymbol} ${(payroll.allowances?.total || 0).toLocaleString()}`)
+      .text(`Gross Salary: ${currencySymbol} ${(payroll.grossSalary || 0).toLocaleString()}`)
+      .text(`Total Deductions: ${currencySymbol} ${(payroll.deductions?.total || 0).toLocaleString()}`)
+      .text(`Net Salary: ${currencySymbol} ${(payroll.netSalary || 0).toLocaleString()}`)
       .moveDown(1);
 
     // Footer
@@ -1000,15 +1010,11 @@ router.get('/download/:payrollId', auth, async (req, res) => {
     doc.end();
 
   } catch (error) {
-    console.error('Error downloading payslip:', error);
+    console.error('Error generating payslip:', error);
+    res.status(500).json({ error: 'Failed to generate payslip' });
+  } finally {
     if (doc) {
       doc.end();
-    }
-    if (!res.headersSent) {
-      res.status(500).json({ 
-        message: 'Error downloading payslip',
-        details: error.message 
-      });
     }
   }
 });

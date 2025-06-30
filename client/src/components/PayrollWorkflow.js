@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchWithAuth } from '../utils/auth';
+import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 
 function PayrollWorkflow() {
   const { month, year } = useParams();
@@ -16,10 +17,12 @@ function PayrollWorkflow() {
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [businessCurrency, setBusinessCurrency] = useState('KES');
 
   useEffect(() => {
     fetchPayrollData();
     fetchPayrollSettings();
+    fetchBusinessCurrency();
   }, [month, year]);
 
   const fetchPayrollData = async () => {
@@ -81,6 +84,24 @@ function PayrollWorkflow() {
       }
     } catch (error) {
       console.error('Error fetching payroll settings:', error);
+    }
+  };
+
+  const fetchBusinessCurrency = async () => {
+    try {
+      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setBusinessCurrency(data.currency || 'KES');
+      }
+    } catch (error) {
+      console.error('Error fetching business currency:', error);
     }
   };
 
@@ -427,7 +448,7 @@ function PayrollWorkflow() {
                   <div style={styles.summaryCard}>
                     <span style={styles.cardLabel}>Total Net Salary</span>
                     <span style={styles.cardValue}>
-                      KES {payrollData.reduce((sum, r) => sum + (r.netSalary || 0), 0).toLocaleString()}
+                      {formatCurrency(payrollData.reduce((sum, r) => sum + (r.netSalary || 0), 0), businessCurrency)}
                     </span>
                   </div>
                   <div style={styles.summaryCard}>
@@ -560,7 +581,7 @@ function PayrollWorkflow() {
                             </small>
                           </td>
                           <td style={styles.tableCell}>
-                            KES {record.netSalary?.toLocaleString()}
+                            {formatCurrency(record.netSalary, businessCurrency)}
                           </td>
                           <td style={styles.tableCell}>
                             <div style={styles.paymentMethod}>
@@ -592,12 +613,12 @@ function PayrollWorkflow() {
               <div style={styles.actionInfo}>
                 <p>Selected: {selectedEmployees.length} employees</p>
                 <p>
-                  Total Amount: KES {
+                  Total Amount: {formatCurrency(
                     payrollData
                       .filter(r => selectedEmployees.includes(r._id))
-                      .reduce((sum, r) => sum + (r.netSalary || 0), 0)
-                      .toLocaleString()
-                  }
+                      .reduce((sum, r) => sum + (r.netSalary || 0), 0),
+                    businessCurrency
+                  )}
                 </p>
               </div>
               <button
@@ -628,7 +649,7 @@ function PayrollWorkflow() {
                 <div style={styles.summaryCard}>
                   <span style={styles.cardLabel}>Total Amount</span>
                   <span style={styles.cardValue}>
-                    KES {payrollData.filter(r => r.status === 'approved').reduce((sum, r) => sum + (r.netSalary || 0), 0).toLocaleString()}
+                    {formatCurrency(payrollData.filter(r => r.status === 'approved').reduce((sum, r) => sum + (r.netSalary || 0), 0), businessCurrency)}
                   </span>
                 </div>
                 <div style={styles.summaryCard}>
@@ -720,7 +741,7 @@ function PayrollWorkflow() {
                             </small>
                           </td>
                           <td style={styles.tableCell}>
-                            KES {record.netSalary?.toLocaleString()}
+                            {formatCurrency(record.netSalary, businessCurrency)}
                           </td>
                           <td style={styles.tableCell}>
                             <div style={styles.paymentMethod}>
@@ -752,12 +773,12 @@ function PayrollWorkflow() {
               <div style={styles.actionInfo}>
                 <p>Selected: {selectedEmployees.length} payments</p>
                 <p>
-                  Total Amount: KES {
+                  Total Amount: {formatCurrency(
                     payrollData
                       .filter(r => selectedEmployees.includes(r._id))
-                      .reduce((sum, r) => sum + (r.netSalary || 0), 0)
-                      .toLocaleString()
-                  }
+                      .reduce((sum, r) => sum + (r.netSalary || 0), 0),
+                    businessCurrency
+                  )}
                 </p>
               </div>
               <button

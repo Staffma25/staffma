@@ -12,6 +12,11 @@ const businessSchema = new mongoose.Schema({
     maxEmployees: { type: Number, default: 10 },
     departments: [String],
     isSuspended: { type: Boolean, default: false },
+    currency: { 
+        type: String, 
+        enum: ['KES', 'USD', 'EUR', 'GBP', 'INR', 'UGX', 'TZS', 'RWF'], 
+        default: 'KES' 
+    },
     kycDocuments: {
         companyPin: { type: String, required: false },
         cr12: { type: String, required: false },
