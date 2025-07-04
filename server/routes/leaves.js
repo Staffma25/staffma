@@ -44,11 +44,21 @@ router.post('/', auth, upload.array('attachments'), async (req, res) => {
   try {
     console.log('Received leave request:', req.body);
     console.log('Files:', req.files);
+    console.log('User data:', {
+      id: req.user._id,
+      email: req.user.email,
+      firstName: req.user.firstName,
+      lastName: req.user.lastName,
+      type: req.user.type,
+      businessId: req.user.businessId,
+      department: req.user.department,
+      position: req.user.position
+    });
     
     const { type, startDate, endDate, reason, employeeId } = req.body;
     
     // Get the current user's employee record
-    const currentEmployee = await Employee.findOne({ email: req.user.email });
+    let currentEmployee = await Employee.findOne({ email: req.user.email });
     if (!currentEmployee) {
       // Create a new employee record if it doesn't exist
       const business = await Business.findById(req.user.businessId);
@@ -56,13 +66,46 @@ router.post('/', auth, upload.array('attachments'), async (req, res) => {
         return res.status(404).json({ error: 'Business not found' });
       }
 
+      // Handle different user types for employee creation
+      let firstName, lastName;
+      
+      if (req.user.type === 'business') {
+        // For business users, use applicantName or businessName
+        if (business.applicantName) {
+          const nameParts = business.applicantName.split(' ');
+          firstName = nameParts[0] || 'Business';
+          lastName = nameParts.slice(1).join(' ') || 'Owner';
+        } else {
+          firstName = 'Business';
+          lastName = 'Owner';
+        }
+      } else {
+        // For regular users, use firstName and lastName
+        firstName = req.user.firstName;
+        lastName = req.user.lastName;
+        
+        // Validate that we have the required user information
+        if (!firstName || !lastName) {
+          console.warn('User missing firstName or lastName:', {
+            email: req.user.email,
+            firstName: req.user.firstName,
+            lastName: req.user.lastName,
+            userType: req.user.type
+          });
+          return res.status(400).json({ 
+            error: 'User profile incomplete',
+            details: 'Please ensure your user profile has first name and last name before submitting leave requests'
+          });
+        }
+      }
+
       const employeeNumber = await generateEmployeeNumber(business.businessName);
       const newEmployee = new Employee({
-        firstName: req.user.firstName,
-        lastName: req.user.lastName,
+        firstName,
+        lastName,
         email: req.user.email,
         department: req.user.department || 'General',
-        position: req.user.position || 'Employee',
+        position: req.user.position || (req.user.type === 'business' ? 'Business Owner' : 'Employee'),
         salary: {
           basic: 0,
           allowances: { housing: 0, transport: 0, medical: 0, other: 0 },
@@ -155,6 +198,18 @@ router.post('/', auth, upload.array('attachments'), async (req, res) => {
     res.status(201).json(leave);
   } catch (error) {
     console.error('Error submitting leave request:', error);
+    
+    // Log additional debugging information
+    console.error('Debug info:', {
+      userType: req.user?.type,
+      userEmail: req.user?.email,
+      userFirstName: req.user?.firstName,
+      userLastName: req.user?.lastName,
+      businessId: req.user?.businessId,
+      errorName: error.name,
+      errorMessage: error.message
+    });
+    
     res.status(500).json({ 
       error: 'Failed to submit leave request',
       details: error.message 

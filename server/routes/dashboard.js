@@ -5,6 +5,7 @@ const Employee = require('../models/Employee');
 const User = require('../models/User');
 const Business = require('../models/Business');
 const Leave = require('../models/Leave');
+const Payroll = require('../models/Payroll');
 
 // Get dashboard data
 router.get('/', auth, async (req, res) => {
@@ -54,28 +55,43 @@ router.get('/', auth, async (req, res) => {
       activeUsers
     });
 
-    // Get payroll summary
-    const employees = await Employee.find({ businessId: req.user.businessId });
-    console.log('Found employees for business:', {
-      businessId: req.user.businessId,
-      employeeCount: employees.length,
-      employeeIds: employees.map(emp => emp._id)
-    });
+    // Get payroll summary from actual payroll records (current month)
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
 
-    const payrollSummary = employees.reduce((acc, employee) => {
-      const basic = employee.salary.basic || 0;
-      const allowances = Object.values(employee.salary.allowances || {}).reduce((sum, val) => sum + (val || 0), 0);
-      const deductions = Object.values(employee.salary.deductions || {}).reduce((sum, val) => sum + (val || 0), 0);
-      
-      acc.totalGrossSalary += basic + allowances;
-      acc.totalNetSalary += basic + allowances - deductions;
-      acc.totalAllowances += allowances;
-      acc.totalDeductions += deductions;
-      return acc;
-    }, { totalGrossSalary: 0, totalNetSalary: 0, totalAllowances: 0, totalDeductions: 0 });
+    const payrollStats = await Payroll.aggregate([
+      {
+        $match: {
+          businessId: req.user.businessId,
+          month: currentMonth,
+          year: currentYear
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalEmployees: { $sum: 1 },
+          totalGrossSalary: { $sum: '$grossSalary' },
+          totalNetSalary: { $sum: '$netSalary' },
+          totalAllowances: { $sum: '$allowances.total' },
+          totalDeductions: { $sum: '$deductions.total' }
+        }
+      }
+    ]);
+
+    const payrollSummary = payrollStats[0] || {
+      totalEmployees: 0,
+      totalGrossSalary: 0,
+      totalNetSalary: 0,
+      totalAllowances: 0,
+      totalDeductions: 0
+    };
 
     console.log('Payroll summary for business:', {
       businessId: req.user.businessId,
+      month: currentMonth,
+      year: currentYear,
       totalGrossSalary: payrollSummary.totalGrossSalary,
       totalNetSalary: payrollSummary.totalNetSalary,
       totalAllowances: payrollSummary.totalAllowances,

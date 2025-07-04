@@ -346,12 +346,17 @@ router.post('/process', auth, async (req, res) => {
       // 6. Calculate Net Salary = basic salary - (pre-tax deductions + PAYE + individual deductions)
       const netSalary = basicSalary - (totalPreTaxDeductions + paye + totalIndividualDeductions);
 
-      // 7. Total Deductions (for reporting)
+      // 7. Calculate Gross Salary = basic salary + total allowances
+      const grossSalary = basicSalary + totalAllowances;
+
+      // 8. Total Deductions (for reporting)
       const totalDeductions = totalPreTaxDeductions + paye + totalCustomDeductions + totalIndividualDeductions;
 
       console.log('Final salary calculation:', {
         employeeName: `${employee.firstName} ${employee.lastName}`,
         basicSalary,
+        totalAllowances,
+        grossSalary,
         totalPreTaxDeductions,
         paye,
         totalIndividualDeductions,
@@ -385,7 +390,7 @@ router.post('/process', auth, async (req, res) => {
           $set: {
             employeeNumber: employee.employeeNumber,
             basicSalary,
-            grossSalary: basicSalary, // For reporting, gross = basic (allowances are separate)
+            grossSalary: grossSalary, // Gross salary = basic + allowances
             taxableIncome,
             allowances: {
               items: allowanceItems,
