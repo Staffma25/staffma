@@ -12,9 +12,10 @@ function EmployeesList() {
   const fetchEmployees = async () => {
     try {
       setLoading(true);
-      console.log('Fetching employees...');
       
-      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees`, {
+      const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees`;
+      
+      const response = await fetchWithAuth(apiUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'

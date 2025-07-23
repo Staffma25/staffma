@@ -70,32 +70,7 @@ function PayrollManagement() {
       }
 
       const data = await response.json();
-      console.log('=== PAYROLL DATA DEBUG ===');
-      console.log('Fetched payroll data:', data);
       
-      // Debug individual deductions in each record
-      data.forEach((record, index) => {
-        console.log(`Record ${index + 1} - ${record.employeeId?.firstName} ${record.employeeId?.lastName}:`);
-        console.log('  All deductions:', record.deductions?.items || []);
-        
-        // Show all deduction names
-        const deductionNames = (record.deductions?.items || []).map(item => item.name);
-        console.log('  Deduction names:', deductionNames);
-        
-        const individualDeductions = (record.deductions?.items || []).filter(item => 
-          item.type && ['salary_advance', 'loan', 'other', 'individual'].includes(item.type)
-        );
-        console.log('  Individual deductions (by type):', individualDeductions);
-        
-        // Show any deductions with isIndividual flag
-        const flaggedDeductions = (record.deductions?.items || []).filter(item => item.isIndividual === true);
-        console.log('  Flagged deductions:', flaggedDeductions);
-        
-        const total = individualDeductions.reduce((sum, item) => sum + (item.amount || 0), 0);
-        console.log('  Individual total:', total);
-      });
-      console.log('=== END PAYROLL DATA DEBUG ===');
-
       // Fetch detailed employee information for each payroll record
       const enrichedData = await Promise.all(
         data.map(async (payrollRecord) => {
@@ -190,8 +165,6 @@ function PayrollManagement() {
       }
       
       const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/process`;
-      console.log('DEBUG: API URL being used:', apiUrl);
-      console.log('DEBUG: REACT_APP_API_URL value:', process.env.REACT_APP_API_URL);
       
       const response = await fetchWithAuth(apiUrl, {
         method: 'POST',
@@ -878,11 +851,6 @@ function PayrollManagement() {
                     {getCurrencySymbol(businessCurrency)} {(() => {
                       const allDeductions = record.deductions?.items || [];
                       
-                      // Debug: Show all deductions for this employee
-                      console.log('=== PAYROLL DEDUCTIONS DEBUG ===');
-                      console.log('Employee:', `${record.employeeId?.firstName} ${record.employeeId?.lastName}`);
-                      console.log('All deductions:', JSON.stringify(allDeductions, null, 2));
-                      
                       // Simple approach: Look for deductions that are NOT standard deductions
                       const standardDeductionNames = [
                         'PAYE', 'NHIF', 'NSSF', 'SHIF', 'Housing Levy', 'housing levy'
@@ -913,26 +881,10 @@ function PayrollManagement() {
                         
                         const finalIsIndividual = isIndividual || isIndividualFallback;
                         
-                        console.log('Deduction check:', {
-                          name: item.name,
-                          type: item.type,
-                          amount: item.amount,
-                          isIndividual: item.isIndividual,
-                          isStandardDeduction: isStandardDeduction,
-                          hasType: hasType,
-                          hasIndividualFlag: hasIndividualFlag,
-                          hasIndividualName: hasIndividualName,
-                          isIndividual: finalIsIndividual
-                        });
-                        
                         return finalIsIndividual;
                       });
                       
                       const total = individualDeductions.reduce((sum, item) => sum + (item.amount || 0), 0);
-                      
-                      console.log('Individual deductions found:', individualDeductions);
-                      console.log('Total individual deductions:', total);
-                      console.log('=== END PAYROLL DEDUCTIONS DEBUG ===');
                       
                       return total.toLocaleString();
                     })()}

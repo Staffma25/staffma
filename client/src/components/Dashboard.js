@@ -232,7 +232,9 @@ function Dashboard() {
 
       const abortController = new AbortController();
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees`, {
+      const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees`;
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

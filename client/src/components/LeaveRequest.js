@@ -28,7 +28,9 @@ function LeaveRequest() {
   const fetchEmployees = async () => {
     try {
       const token = getToken();
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees`, {
+      const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees`;
+      
+      const response = await fetch(apiUrl, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -119,17 +121,7 @@ function LeaveRequest() {
         });
       }
 
-      console.log('Submitting leave request with data:', {
-        type: leaveRequest.type,
-        startDate: leaveRequest.startDate,
-        endDate: leaveRequest.endDate,
-        reason: leaveRequest.reason,
-        duration,
-        employeeId: selectedEmployee || 'current user'
-      });
-
       const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/leaves`;
-      console.log('Sending request to:', apiUrl);
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -139,13 +131,9 @@ function LeaveRequest() {
         body: formData
       });
 
-      console.log('Response status:', response.status);
-      const responseText = await response.text();
-      console.log('Response text:', responseText);
-
       let data;
       try {
-        data = JSON.parse(responseText);
+        data = JSON.parse(await response.text());
       } catch (e) {
         console.error('Failed to parse response as JSON:', e);
         throw new Error('Server returned invalid JSON response');

@@ -156,16 +156,6 @@ function PayrollWorkflow() {
         employeeIds: selectedEmployees
       };
 
-      console.log('=== PAYROLL APPROVAL REQUEST DEBUG ===');
-      console.log('Request body:', requestBody);
-      console.log('Selected employees (payroll IDs):', selectedEmployees);
-      console.log('Payroll data statuses:', payrollData.map(p => ({
-        id: p._id,
-        status: p.status,
-        employeeName: `${p.employeeId?.firstName} ${p.employeeId?.lastName}`
-      })));
-      console.log('=== END PAYROLL APPROVAL REQUEST DEBUG ===');
-
       const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -353,28 +343,6 @@ function PayrollWorkflow() {
   };
 
   const paymentStats = getPaymentMethodStats();
-
-  // Debug function to log payment method information
-  const debugPaymentMethods = () => {
-    console.log('=== PAYMENT METHODS DEBUG ===');
-    payrollData.forEach((record, index) => {
-      const paymentMethod = getPaymentMethod(record.employeeId);
-      console.log(`Employee ${index + 1}: ${record.employeeId?.firstName} ${record.employeeId?.lastName}`);
-      console.log('  Payment Method:', paymentMethod);
-      console.log('  Bank Accounts:', record.employeeId?.bankAccounts);
-      console.log('  Staffpesa Wallet:', record.employeeId?.staffpesaWallet);
-      console.log('---');
-    });
-    console.log('Payment Stats:', paymentStats);
-    console.log('=== END PAYMENT METHODS DEBUG ===');
-  };
-
-  // Call debug function when payroll data changes
-  useEffect(() => {
-    if (payrollData.length > 0) {
-      debugPaymentMethods();
-    }
-  }, [payrollData]);
 
   if (loading) return <div style={styles.loading}>Loading payroll data...</div>;
 
