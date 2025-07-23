@@ -189,7 +189,11 @@ function PayrollManagement() {
         throw new Error(`Payroll for ${new Date(2000, selectedMonth - 1).toLocaleString('default', { month: 'long' })} ${selectedYear} has already been processed and paid. Cannot reprocess.`);
       }
       
-      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/process`, {
+      const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/process`;
+      console.log('DEBUG: API URL being used:', apiUrl);
+      console.log('DEBUG: REACT_APP_API_URL value:', process.env.REACT_APP_API_URL);
+      
+      const response = await fetchWithAuth(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
