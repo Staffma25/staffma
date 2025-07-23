@@ -4,8 +4,9 @@ import axios from 'axios';
 const AuthContext = createContext();
 
 // Create axios instance with interceptors
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5001/api'
+  baseURL: API_BASE_URL
 });
 
 export const AuthProvider = ({ children }) => {
@@ -121,7 +122,7 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: 'No refresh token available' };
       }
 
-      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/auth/refresh-token`, {
+      const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
         refreshToken
       });
 
@@ -202,7 +203,7 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('Attempting business login with:', { email });
       
-      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/auth/login`, {
+      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
         email,
         password
       });
@@ -310,7 +311,7 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('Attempting Staffma login with:', { email });
       
-      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/staffma/login`, {
+      const response = await axios.post(`${API_BASE_URL}/staffma/login`, {
         email,
         password
       });
@@ -341,7 +342,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/auth/register`, userData);
+      const response = await axios.post(`${API_BASE_URL}/auth/register`, userData);
       const { token, refreshToken, user } = response.data;
       localStorage.setItem('businessToken', token);
       if (refreshToken) {
@@ -359,7 +360,7 @@ export const AuthProvider = ({ children }) => {
 
   const staffmaRegister = async (userData) => {
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/staffma/register`, userData);
+      const response = await axios.post(`${API_BASE_URL}/staffma/register`, userData);
       return { success: true, message: response.data.message };
     } catch (error) {
       return {
