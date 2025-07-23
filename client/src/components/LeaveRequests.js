@@ -20,7 +20,7 @@ function LeaveRequests() {
   const fetchLeaves = async () => {
     try {
       const token = getToken();
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/leaves`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/leaves`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

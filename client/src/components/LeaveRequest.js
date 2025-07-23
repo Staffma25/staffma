@@ -28,7 +28,7 @@ function LeaveRequest() {
   const fetchEmployees = async () => {
     try {
       const token = getToken();
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/employees`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -128,7 +128,7 @@ function LeaveRequest() {
         employeeId: selectedEmployee || 'current user'
       });
 
-      const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/leaves`;
+      const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/leaves`;
       console.log('Sending request to:', apiUrl);
 
       const response = await fetch(apiUrl, {

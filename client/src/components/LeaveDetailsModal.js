@@ -25,7 +25,7 @@ function LeaveDetailsModal({ leaveId, onClose, onStatusUpdate }) {
     try {
       setLoading(true);
       const token = getToken(businessUser ? 'business' : 'staffma');
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/leaves/${leaveId}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/leaves/${leaveId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -51,7 +51,7 @@ function LeaveDetailsModal({ leaveId, onClose, onStatusUpdate }) {
 
     try {
       const token = getToken(businessUser ? 'business' : 'staffma');
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/leaves/${leaveId}/status`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/leaves/${leaveId}/status`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -97,7 +97,7 @@ function LeaveDetailsModal({ leaveId, onClose, onStatusUpdate }) {
 
     try {
       const token = getToken(businessUser ? 'business' : 'staffma');
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/leaves/${leaveId}/status`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/leaves/${leaveId}/status`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

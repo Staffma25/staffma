@@ -182,7 +182,7 @@ function Dashboard() {
 
   const fetchBusinessCurrency = async () => {
     try {
-      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/business`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -232,7 +232,7 @@ function Dashboard() {
 
       const abortController = new AbortController();
 
-      const response = await fetch('http://localhost:5001/api/employees', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -292,7 +292,7 @@ function Dashboard() {
 
       console.log('Sending user data:', userData);
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/users`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/users`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -21,7 +21,7 @@ function LeaveRequestDetails() {
   const fetchLeaveRequest = async () => {
     try {
       const token = getToken();
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/leaves/${id}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/leaves/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -47,7 +47,7 @@ function LeaveRequestDetails() {
 
     try {
       const token = getToken();
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/leaves/${id}/status`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/leaves/${id}/status`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -88,7 +88,7 @@ function LeaveRequestDetails() {
 
     try {
       const token = getToken();
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/leaves/${id}/status`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/leaves/${id}/status`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

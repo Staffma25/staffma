@@ -35,7 +35,7 @@ function LeaveRequestForm() {
   const fetchEmployees = async () => {
     try {
       const token = getToken();
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/users?type=employee`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/users?type=employee`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -123,7 +123,7 @@ function LeaveRequestForm() {
         formDataToSend.append('attachments', file);
       });
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/leaves`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/leaves`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
