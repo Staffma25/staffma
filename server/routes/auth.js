@@ -369,7 +369,7 @@ router.get('/verify-email/:token', async (req, res) => {
     }
 
     // Update user's verification status
-    user.isVerified = true;
+    user.isEmailVerified = true;
     user.verificationToken = undefined;
     user.verificationTokenExpires = undefined;
     await user.save();
@@ -405,8 +405,8 @@ router.post('/test-email', async (req, res) => {
 // @access  Private
 router.post('/create-user', auth, async (req, res) => {
   try {
-    const { firstName, lastName, email, password, role, permissions } = req.body;
-    console.log('Creating new system user:', { email, role });
+    const { firstName, lastName, email, password, permissions, type } = req.body;
+    console.log('Creating new system user:', { email, type });
 
     // Ensure the creator has admin privileges
     if (req.user.type !== 'user' || !req.user.role.includes('admin')) {
@@ -428,27 +428,27 @@ router.post('/create-user', auth, async (req, res) => {
       return res.status(400).json({ error: 'User already exists' });
     }
 
-    // Create new user
+    // Create new user (no role for employees)
     user = new User({
       firstName,
       lastName,
       email,
       password,
-      role,
+      type: type || 'employee',
       permissions,
       businessId: business._id, // Use the business ID of the admin creating the user
       isActive: true,
-      isVerified: true
+      isEmailVerified: true
     });
 
     await user.save();
     console.log('New system user created successfully:', {
       userId: user._id,
       email: user.email,
-      role: user.role,
+      type: user.type,
       businessId: user.businessId,
       isActive: user.isActive,
-      isVerified: user.isVerified,
+      isEmailVerified: user.isEmailVerified,
       createdAt: user.createdAt,
       createdBy: req.user.userId
     });
@@ -460,13 +460,13 @@ router.post('/create-user', auth, async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        role: user.role,
+        type: user.type,
         permissions: user.permissions
       }
     });
   } catch (error) {
-    console.error('Error creating user:', error);
-    res.status(500).json({ error: 'Server error during user creation' });
+    console.error('Create system user error:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

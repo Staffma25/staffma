@@ -29,8 +29,8 @@ const userSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['admin', 'business', 'hr_manager', 'employee'],
-    default: 'employee'
+    enum: ['admin', 'business', 'hr_manager'],
+    default: 'hr_manager'
   },
   permissions: {
     employeeManagement: {
@@ -176,19 +176,10 @@ userSchema.pre('save', function(next) {
         financialServices: { configureAdvances: false, approveAdvances: true, manageWallet: false, viewTransactions: true, configurePayments: false },
         systemAdministration: { configureSettings: false, manageIntegrations: false, handleBackups: false, viewAuditTrail: true, manageNotifications: false },
         leaveManagement: { applyForLeave: true, approveLeave: true, viewAllLeaves: true, manageLeaveTypes: true, generateLeaveReports: true }
-      },
-      employee: {
-        employeeManagement: { add: false, edit: false, delete: false, view: false, manageOnboarding: false, manageDocuments: false, setStatus: false },
-        payrollManagement: { processPayroll: false, configureSalary: false, manageAllowances: false, manageDeductions: false, generatePayslips: false, bulkPayments: false, viewReports: false },
-        performanceManagement: { createReviews: false, viewAllReviews: false, editTemplates: false, generateReports: false, manageTraining: false, trackDevelopment: false },
-        userManagement: { createUsers: false, assignRoles: false, modifyPermissions: false, manageAccounts: false, resetPasswords: false, manageSecurity: false },
-        financialServices: { configureAdvances: false, approveAdvances: false, manageWallet: false, viewTransactions: false, configurePayments: false },
-        systemAdministration: { configureSettings: false, manageIntegrations: false, handleBackups: false, viewAuditTrail: false, manageNotifications: false },
-        leaveManagement: { applyLeave: true, approveLeave: false, viewAllLeaves: false, manageLeaveTypes: false, generateLeaveReports: false }
       }
     };
 
-    this.permissions = rolePermissions[this.type] || rolePermissions.employee;
+    this.permissions = rolePermissions[this.type] || rolePermissions.hr_manager; // Default to hr_manager permissions if type is not found
     
     // Set session timeout based on role
     this.sessionTimeout = (this.type === 'admin' || this.type === 'business') ? 28800 : 14400; // 8 hours for admin/business, 4 hours for others

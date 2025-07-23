@@ -136,115 +136,128 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 // Create new user
-router.post('/', auth, async (req, res) => {
-  try {
-    // Check if user is admin, business user, or HR manager
-    if (req.user.type !== 'admin' && req.user.type !== 'business' && req.user.type !== 'hr_manager') {
-      return res.status(403).json({ 
-        error: 'Unauthorized',
-        message: 'Only administrators, business users, and HR managers can create users'
-      });
-    }
-
-    // Validate request body
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { firstName, lastName, email, password, type } = req.body;
-
-    // Check if user already exists
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ error: 'User already exists' });
-    }
-
-    // HR managers can only create employee accounts
-    if (req.user.type === 'hr_manager' && type && type !== 'employee') {
-      return res.status(403).json({ 
-        error: 'Unauthorized',
-        message: 'HR managers can only create employee accounts'
-      });
-    }
-
-    // Set default permissions based on user type
-    const defaultPermissions = {
-      admin: {
-        employeeManagement: { add: true, edit: true, delete: true, view: true, manageOnboarding: true, manageDocuments: true, setStatus: true },
-        payrollManagement: { processPayroll: true, configureSalary: true, manageAllowances: true, manageDeductions: true, generatePayslips: true, bulkPayments: true, viewReports: true },
-        performanceManagement: { createReviews: true, viewAllReviews: true, editTemplates: true, generateReports: true, manageTraining: true, trackDevelopment: true },
-        userManagement: { createUsers: true, assignRoles: true, modifyPermissions: true, manageAccounts: true, resetPasswords: true, manageSecurity: true },
-        financialServices: { configureAdvances: true, approveAdvances: true, manageWallet: true, viewTransactions: true, configurePayments: true },
-        systemAdministration: { configureSettings: true, manageIntegrations: true, handleBackups: true, viewAuditTrail: true, manageNotifications: true },
-        leaveManagement: { applyLeave: true, approveLeave: true, viewAllLeaves: true, manageLeaveTypes: true, generateLeaveReports: true }
-      },
-      hr_manager: {
-        employeeManagement: { add: true, edit: true, delete: false, view: true, manageOnboarding: true, manageDocuments: true, setStatus: true },
-        payrollManagement: { processPayroll: true, configureSalary: false, manageAllowances: true, manageDeductions: true, generatePayslips: true, bulkPayments: false, viewReports: true },
-        performanceManagement: { createReviews: true, viewAllReviews: true, editTemplates: true, generateReports: true, manageTraining: true, trackDevelopment: true },
-        userManagement: { createUsers: true, assignRoles: false, modifyPermissions: false, manageAccounts: true, resetPasswords: true, manageSecurity: false },
-        financialServices: { configureAdvances: false, approveAdvances: true, manageWallet: false, viewTransactions: true, configurePayments: false },
-        systemAdministration: { configureSettings: false, manageIntegrations: false, handleBackups: false, viewAuditTrail: true, manageNotifications: false },
-        leaveManagement: { applyLeave: true, approveLeave: true, viewAllLeaves: true, manageLeaveTypes: true, generateLeaveReports: true }
-      },
-      employee: {
-        employeeManagement: { add: false, edit: false, delete: false, view: false, manageOnboarding: false, manageDocuments: false, setStatus: false },
-        payrollManagement: { processPayroll: false, configureSalary: false, manageAllowances: false, manageDeductions: false, generatePayslips: false, bulkPayments: false, viewReports: false },
-        performanceManagement: { createReviews: false, viewAllReviews: false, editTemplates: false, generateReports: false, manageTraining: false, trackDevelopment: false },
-        userManagement: { createUsers: false, assignRoles: false, modifyPermissions: false, manageAccounts: false, resetPasswords: false, manageSecurity: false },
-        financialServices: { configureAdvances: false, approveAdvances: false, manageWallet: true, viewTransactions: true, configurePayments: false },
-        systemAdministration: { configureSettings: false, manageIntegrations: false, handleBackups: false, viewAuditTrail: false, manageNotifications: false },
-        leaveManagement: { applyLeave: true, approveLeave: false, viewAllLeaves: false, manageLeaveTypes: false, generateLeaveReports: false }
+router.post(
+  '/',
+  auth,
+  [
+    body('firstName').notEmpty().withMessage('First name is required'),
+    body('lastName').notEmpty().withMessage('Last name is required'),
+    body('email').isEmail().withMessage('Valid email is required'),
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('type').optional().isIn(['admin', 'business', 'hr_manager'])
+  ],
+  async (req, res) => {
+    try {
+      // Check if user is admin, business user, or HR manager
+      if (req.user.type !== 'admin' && req.user.type !== 'business' && req.user.type !== 'hr_manager') {
+        return res.status(403).json({ 
+          error: 'Unauthorized',
+          message: 'Only administrators, business users, and HR managers can create users'
+        });
       }
-    };
 
-    // Create new user with appropriate permissions
-    user = new User({
-      firstName,
-      lastName,
-      email,
-      password,
-      type: type || 'employee',
-      businessId: req.user.businessId,
-      permissions: defaultPermissions[type || 'employee'],
-      status: 'active',
-      sessionTimeout: type === 'admin' ? 28800 : 14400 // 8 hours for admin, 4 hours for others
-    });
+      // Validate request body
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
 
-    // Generate verification token
-    const verificationToken = user.generateVerificationToken();
-    
-    // Generate password reset token for initial setup
-    const resetToken = user.generatePasswordResetToken();
+      const { firstName, lastName, email, password, type } = req.body;
 
-    // Save user
-    await user.save();
+      // Check if user already exists
+      let user = await User.findOne({ email });
+      if (user) {
+        return res.status(400).json({ error: 'User already exists' });
+      }
 
-    // Send welcome email
-    await sendWelcomeEmail(email, firstName);
+      // HR managers cannot create users of other types
+      if (req.user.type === 'hr_manager' && type && type !== 'hr_manager') {
+        return res.status(403).json({ 
+          error: 'Unauthorized',
+          message: 'HR managers can only create HR manager accounts'
+        });
+      }
 
-    // Send verification email
-    await sendVerificationEmail(email, verificationToken);
+      // Set default permissions based on user type
+      const defaultPermissions = {
+        admin: {
+          employeeManagement: { add: true, edit: true, delete: true, view: true, manageOnboarding: true, manageDocuments: true, setStatus: true },
+          payrollManagement: { processPayroll: true, configureSalary: true, manageAllowances: true, manageDeductions: true, generatePayslips: true, bulkPayments: true, viewReports: true },
+          performanceManagement: { createReviews: true, viewAllReviews: true, editTemplates: true, generateReports: true, manageTraining: true, trackDevelopment: true },
+          userManagement: { createUsers: true, assignRoles: true, modifyPermissions: true, manageAccounts: true, resetPasswords: true, manageSecurity: true },
+          financialServices: { configureAdvances: true, approveAdvances: true, manageWallet: true, viewTransactions: true, configurePayments: true },
+          systemAdministration: { configureSettings: true, manageIntegrations: true, handleBackups: true, viewAuditTrail: true, manageNotifications: true },
+          leaveManagement: { applyLeave: true, approveLeave: true, viewAllLeaves: true, manageLeaveTypes: true, generateLeaveReports: true }
+        },
+        hr_manager: {
+          employeeManagement: { add: true, edit: true, delete: false, view: true, manageOnboarding: true, manageDocuments: true, setStatus: true },
+          payrollManagement: { processPayroll: true, configureSalary: false, manageAllowances: true, manageDeductions: true, generatePayslips: true, bulkPayments: false, viewReports: true },
+          performanceManagement: { createReviews: true, viewAllReviews: true, editTemplates: true, generateReports: true, manageTraining: true, trackDevelopment: true },
+          userManagement: { createUsers: true, assignRoles: false, modifyPermissions: false, manageAccounts: true, resetPasswords: true, manageSecurity: false },
+          financialServices: { configureAdvances: false, approveAdvances: true, manageWallet: false, viewTransactions: true, configurePayments: false },
+          systemAdministration: { configureSettings: false, manageIntegrations: false, handleBackups: false, viewAuditTrail: true, manageNotifications: false },
+          leaveManagement: { applyLeave: true, approveLeave: true, viewAllLeaves: true, manageLeaveTypes: true, generateLeaveReports: true }
+        },
+        business: {
+          employeeManagement: { add: true, edit: true, delete: false, view: true, manageOnboarding: true, manageDocuments: true, setStatus: true },
+          payrollManagement: { processPayroll: true, configureSalary: false, manageAllowances: true, manageDeductions: true, generatePayslips: true, bulkPayments: false, viewReports: true },
+          performanceManagement: { createReviews: true, viewAllReviews: true, editTemplates: true, generateReports: true, manageTraining: true, trackDevelopment: true },
+          userManagement: { createUsers: true, assignRoles: false, modifyPermissions: false, manageAccounts: true, resetPasswords: true, manageSecurity: false },
+          financialServices: { configureAdvances: false, approveAdvances: true, manageWallet: false, viewTransactions: true, configurePayments: false },
+          systemAdministration: { configureSettings: false, manageIntegrations: false, handleBackups: false, viewAuditTrail: true, manageNotifications: false },
+          leaveManagement: { applyLeave: true, approveLeave: true, viewAllLeaves: true, manageLeaveTypes: true, generateLeaveReports: true }
+        }
+      };
 
-    // Send password setup email
-    await sendPasswordResetEmail(email, resetToken);
+      // Create new user with appropriate permissions
+      user = new User({
+        firstName,
+        lastName,
+        email,
+        password,
+        type: type || 'hr_manager',
+        businessId: req.user.businessId,
+        permissions: defaultPermissions[type || 'hr_manager'],
+        status: 'active',
+        sessionTimeout: type === 'admin' ? 28800 : 14400 // 8 hours for admin, 4 hours for others
+      });
 
-    // Return user data (excluding password)
-    const userData = user.toObject();
-    delete userData.password;
+      // Generate verification token
+      const verificationToken = user.generateVerificationToken();
+      
+      // Generate password reset token for initial setup
+      const resetToken = user.generatePasswordResetToken();
 
-    res.status(201).json({
-      message: 'User created successfully',
-      user: userData
-    });
-  } catch (error) {
-    console.error('Error creating user:', error);
-    res.status(500).json({ 
-      error: 'Failed to create user',
-      details: error.message 
-    });
+      // Save user
+      await user.save();
+
+      // Send welcome email
+      await sendWelcomeEmail(email, firstName);
+
+      // Send verification email
+      await sendVerificationEmail(email, verificationToken);
+
+      // Send password setup email
+      await sendPasswordResetEmail(email, resetToken);
+
+      // Return user data (excluding password)
+      const userData = user.toObject();
+      delete userData.password;
+
+      res.status(201).json({
+        message: 'User created successfully',
+        user: userData
+      });
+    } catch (error) {
+      console.error('Error creating user:', error);
+      res.status(500).json({ 
+        error: 'Failed to create user',
+        details: error.message 
+      });
+    }
   }
-});
+);
 
 module.exports = router; 
+
+

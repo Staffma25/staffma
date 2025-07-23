@@ -15,7 +15,7 @@ const AddUser = () => {
     lastName: '',
     email: '',
     password: '',
-    type: 'employee',
+    type: 'hr_manager',
     permissions: {
       employeeManagement: {
         add: false,
@@ -85,14 +85,6 @@ const AddUser = () => {
         userManagement: { createUsers: true, assignRoles: false, modifyPermissions: false, manageAccounts: true, resetPasswords: true, manageSecurity: false },
         financialServices: { configureAdvances: false, approveAdvances: true, manageWallet: false, viewTransactions: true, configurePayments: false },
         systemAdministration: { configureSettings: false, manageIntegrations: false, handleBackups: false, viewAuditTrail: true, manageNotifications: false }
-      },
-      employee: {
-        employeeManagement: { add: false, edit: false, delete: false, view: false, manageOnboarding: false, manageDocuments: false, setStatus: false },
-        payrollManagement: { processPayroll: false, configureSalary: false, manageAllowances: false, manageDeductions: false, generatePayslips: false, bulkPayments: false, viewReports: false },
-        performanceManagement: { createReviews: false, viewAllReviews: false, editTemplates: false, generateReports: false, manageTraining: false, trackDevelopment: false },
-        userManagement: { createUsers: false, assignRoles: false, modifyPermissions: false, manageAccounts: false, resetPasswords: false, manageSecurity: false },
-        financialServices: { configureAdvances: false, approveAdvances: false, manageWallet: false, viewTransactions: false, configurePayments: false },
-        systemAdministration: { configureSettings: false, manageIntegrations: false, handleBackups: false, viewAuditTrail: false, manageNotifications: false }
       }
     };
 
@@ -208,7 +200,6 @@ const AddUser = () => {
             style={styles.select}
             required
           >
-            <option value="employee">Employee</option>
             <option value="hr_manager">HR Manager</option>
             <option value="admin">Admin</option>
           </select>
