@@ -53,7 +53,7 @@ function EmployeeDetails() {
   const fetchEmployeeDetails = async () => {
     try {
       console.log('Fetching details for employee ID:', id);
-      const response = await fetchWithAuth(`http://localhost:5001/api/employees/${id}`);
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${id}`);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -82,7 +82,7 @@ function EmployeeDetails() {
 
   const fetchBusinessCurrency = async () => {
     try {
-      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/business`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -106,7 +106,7 @@ function EmployeeDetails() {
       formData.append('documentType', documentType);
 
       const response = await fetchWithAuth(
-        `http://localhost:5001/api/employees/${id}/documents/${documentType}`,
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${id}/documents/${documentType}`,
         {
           method: 'POST',
           body: formData
@@ -129,7 +129,7 @@ function EmployeeDetails() {
   const handleInsuranceUpdate = async (insuranceType, field, value) => {
     try {
       const response = await fetchWithAuth(
-        `http://localhost:5001/api/employees/${id}/insurance/${insuranceType}`,
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${id}/insurance/${insuranceType}`,
         {
           method: 'PUT',
           headers: {
@@ -155,7 +155,7 @@ function EmployeeDetails() {
   const handleDeleteEmployee = async () => {
     try {
       setActionLoading(true);
-      const response = await fetchWithAuth(`http://localhost:5001/api/employees/${id}`, {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${id}`, {
         method: 'DELETE'
       });
 
@@ -212,11 +212,11 @@ function EmployeeDetails() {
     }
 
     try {
-      console.log('Sending request to:', `http://localhost:5001/api/employees/${id}/custom-deductions`);
+      console.log('Sending request to:', `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${id}/custom-deductions`);
       console.log('Request body:', newDeduction);
       
       const response = await fetchWithAuth(
-        `http://localhost:5001/api/employees/${id}/custom-deductions`,
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${id}/custom-deductions`,
         {
           method: 'POST',
           headers: {
@@ -259,7 +259,7 @@ function EmployeeDetails() {
   const handleUpdateDeductionStatus = async (deductionId, newStatus) => {
     try {
       const response = await fetchWithAuth(
-        `http://localhost:5001/api/employees/${id}/custom-deductions/${deductionId}`,
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${id}/custom-deductions/${deductionId}`,
         {
           method: 'PUT',
           headers: {
@@ -288,7 +288,7 @@ function EmployeeDetails() {
 
     try {
       const response = await fetchWithAuth(
-        `http://localhost:5001/api/employees/${id}/custom-deductions/${deductionId}`,
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${id}/custom-deductions/${deductionId}`,
         {
           method: 'DELETE'
         }
@@ -311,14 +311,14 @@ function EmployeeDetails() {
     try {
       // Remove Staffpesa wallet if exists
       const updatedEmployee = { ...employee, bankAccounts: [{ ...bankForm }], staffpesaWallet: null };
-      const response = await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/bank-accounts`, {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${employee._id}/bank-accounts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...bankForm, isPrimary: true })
       });
       if (!response.ok) throw new Error('Failed to add bank account');
       // Remove wallet
-      await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/staffpesa-wallet`, { method: 'DELETE' });
+      await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${employee._id}/staffpesa-wallet`, { method: 'DELETE' });
       await fetchEmployeeDetails();
       setBankForm({ bankName: '', accountNumber: '', accountType: '', isPrimary: false });
     } catch (error) {
@@ -330,9 +330,9 @@ function EmployeeDetails() {
     e.preventDefault();
     try {
       // Remove all bank accounts if exist
-      await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/bank-accounts`, { method: 'DELETE' });
+      await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${employee._id}/bank-accounts`, { method: 'DELETE' });
       // Add/update wallet
-      const response = await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/staffpesa-wallet`, {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${employee._id}/staffpesa-wallet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(walletForm)
@@ -352,7 +352,7 @@ function EmployeeDetails() {
       if (method === 'bank') {
         // Switch to bank account - remove wallet if exists
         if (employee.staffpesaWallet && employee.staffpesaWallet.walletId) {
-          await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/staffpesa-wallet`, { 
+          await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${employee._id}/staffpesa-wallet`, { 
             method: 'DELETE' 
           });
           // Update employee state directly
@@ -364,7 +364,7 @@ function EmployeeDetails() {
       } else if (method === 'wallet') {
         // Switch to wallet - remove bank accounts if exist
         if (employee.bankAccounts && employee.bankAccounts.length > 0) {
-          await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/bank-accounts`, { 
+          await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${employee._id}/bank-accounts`, { 
             method: 'DELETE' 
           });
           // Update employee state directly
@@ -388,7 +388,7 @@ function EmployeeDetails() {
     }
 
     try {
-      await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/bank-accounts`, { method: 'DELETE' });
+      await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${employee._id}/bank-accounts`, { method: 'DELETE' });
       await fetchEmployeeDetails();
       alert('All bank accounts removed successfully');
     } catch (error) {
@@ -403,7 +403,7 @@ function EmployeeDetails() {
     }
 
     try {
-      await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/staffpesa-wallet`, { method: 'DELETE' });
+      await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${employee._id}/staffpesa-wallet`, { method: 'DELETE' });
       await fetchEmployeeDetails();
       alert('Staffpesa wallet removed successfully');
     } catch (error) {
@@ -420,7 +420,7 @@ function EmployeeDetails() {
     try {
       setActionLoading(true);
       // Remove bank accounts
-      await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/bank-accounts`, { method: 'DELETE' });
+      await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${employee._id}/bank-accounts`, { method: 'DELETE' });
       // Switch to wallet
       setActivePaymentMethod('wallet');
       // Update employee state
@@ -446,7 +446,7 @@ function EmployeeDetails() {
     try {
       setActionLoading(true);
       // Remove wallet
-      await fetchWithAuth(`http://localhost:5001/api/employees/${employee._id}/staffpesa-wallet`, { method: 'DELETE' });
+      await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${employee._id}/staffpesa-wallet`, { method: 'DELETE' });
       // Switch to bank
       setActivePaymentMethod('bank');
       // Update employee state

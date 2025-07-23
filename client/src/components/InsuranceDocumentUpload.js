@@ -49,7 +49,7 @@ const InsuranceDocumentUpload = ({ employeeId, insuranceType, currentDocument, o
       const fileUrl = await uploadDocument(file, employeeId, `insurance_${insuranceType}`);
       
       // Update the insurance document with both file URL and insurance details
-      const response = await fetchWithAuth(`http://localhost:5001/api/employees/${employeeId}/insurance/${insuranceType}`, {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${employeeId}/insurance/${insuranceType}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -80,7 +80,7 @@ const InsuranceDocumentUpload = ({ employeeId, insuranceType, currentDocument, o
   const handleDelete = async () => {
     try {
       setError(null);
-      const response = await fetchWithAuth(`http://localhost:5001/api/employees/${employeeId}/insurance/${insuranceType}`, {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${employeeId}/insurance/${insuranceType}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'

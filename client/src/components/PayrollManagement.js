@@ -33,7 +33,7 @@ function PayrollManagement() {
 
   const fetchEmployees = async () => {
     try {
-      const response = await fetchWithAuth('http://localhost:5001/api/employees', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -57,7 +57,7 @@ function PayrollManagement() {
     try {
       setLoading(true);
       
-      const response = await fetchWithAuth(`http://localhost:5001/api/payroll/history?month=${selectedMonth}&year=${selectedYear}`, {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/history?month=${selectedMonth}&year=${selectedYear}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -101,7 +101,7 @@ function PayrollManagement() {
         data.map(async (payrollRecord) => {
           try {
             const employeeResponse = await fetchWithAuth(
-              `http://localhost:5001/api/employees/${payrollRecord.employeeId._id}`
+              `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${payrollRecord.employeeId._id}`
             );
             
             if (employeeResponse.ok) {
@@ -135,7 +135,7 @@ function PayrollManagement() {
 
   const fetchPayrollSettings = async () => {
     try {
-      const response = await fetchWithAuth('http://localhost:5001/api/payroll/settings', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/settings`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -158,7 +158,7 @@ function PayrollManagement() {
 
   const fetchBusinessCurrency = async () => {
     try {
-      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/business`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -189,7 +189,7 @@ function PayrollManagement() {
         throw new Error(`Payroll for ${new Date(2000, selectedMonth - 1).toLocaleString('default', { month: 'long' })} ${selectedYear} has already been processed and paid. Cannot reprocess.`);
       }
       
-      const response = await fetchWithAuth('http://localhost:5001/api/payroll/process', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/process`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -251,7 +251,7 @@ function PayrollManagement() {
         employeeIds: selectedEmployees
       };
 
-      const response = await fetchWithAuth('http://localhost:5001/api/payroll/approve', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
@@ -283,7 +283,7 @@ function PayrollManagement() {
       setProcessing(true);
       setError('');
 
-      const response = await fetchWithAuth('http://localhost:5001/api/payroll/process-payments', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/process-payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -318,7 +318,7 @@ function PayrollManagement() {
 
   const downloadPayslip = async (payrollId) => {
     try {
-      const response = await fetchWithAuth(`http://localhost:5001/api/payroll/download/${payrollId}`, {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/download/${payrollId}`, {
         method: 'GET'
       });
       
@@ -343,7 +343,7 @@ function PayrollManagement() {
 
   const downloadExcel = async () => {
     try {
-      const response = await fetchWithAuth(`http://localhost:5001/api/payroll/download-excel?month=${selectedMonth}&year=${selectedYear}`, {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/download-excel?month=${selectedMonth}&year=${selectedYear}`, {
         method: 'GET'
       });
       
@@ -368,7 +368,7 @@ function PayrollManagement() {
 
   const fetchBusinessDetails = async () => {
     try {
-      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/business`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'

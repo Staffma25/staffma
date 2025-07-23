@@ -17,7 +17,7 @@ function EmployeePayrollHistory({ employeeId }) {
 
   const fetchBusinessCurrency = async () => {
     try {
-      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/business`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -35,7 +35,7 @@ function EmployeePayrollHistory({ employeeId }) {
 
   const fetchPayrollSettings = async () => {
     try {
-      const response = await fetchWithAuth('http://localhost:5001/api/payroll/settings', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/settings`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -57,7 +57,7 @@ function EmployeePayrollHistory({ employeeId }) {
 
   const fetchEmployeePayrollHistory = async () => {
     try {
-      const response = await fetchWithAuth(`http://localhost:5001/api/payroll/employee/${employeeId}`, {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/employee/${employeeId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -82,7 +82,7 @@ function EmployeePayrollHistory({ employeeId }) {
 
   const downloadPayslip = async (month, year) => {
     try {
-      const response = await fetchWithAuth('http://localhost:5001/api/payroll/generate-pdf-payslip', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/generate-pdf-payslip`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

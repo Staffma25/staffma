@@ -1,7 +1,7 @@
 import { fetchWithAuth } from './auth';
 
 // API base URL
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 // Business API calls
 export const getBusiness = async (signal) => {

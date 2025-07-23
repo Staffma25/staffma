@@ -23,7 +23,7 @@ function PaymentProcessing() {
   const fetchApprovedPayroll = async () => {
     try {
       const response = await fetchWithAuth(
-        `http://localhost:5001/api/payroll/approved?month=${month}&year=${year}`
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/approved?month=${month}&year=${year}`
       );
 
       if (!response.ok) {
@@ -41,7 +41,7 @@ function PaymentProcessing() {
 
   const fetchBusinessCurrency = async () => {
     try {
-      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/business`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -67,7 +67,7 @@ function PaymentProcessing() {
       setProcessing(true);
       setError('');
 
-      const response = await fetchWithAuth('http://localhost:5001/api/payroll/process-payments', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/process-payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

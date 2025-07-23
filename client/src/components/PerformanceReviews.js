@@ -19,7 +19,7 @@ function PerformanceReviews() {
   const fetchReviews = async () => {
     try {
       const response = await fetchWithAuth(
-        `http://localhost:5001/api/performance-reviews/performance-reviews?year=${selectedYear}&quarter=${selectedQuarter}`,
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/performance-reviews/performance-reviews?year=${selectedYear}&quarter=${selectedQuarter}`,
         {
           method: 'GET',
           headers: {

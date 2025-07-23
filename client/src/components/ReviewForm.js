@@ -38,7 +38,7 @@ const ReviewForm = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const response = await fetchWithAuth('http://localhost:5001/api/employees', {
+        const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json'
@@ -97,7 +97,7 @@ const ReviewForm = () => {
     
     try {
       const response = await fetchWithAuth(
-        `http://localhost:5001/api/performance-reviews/employees/${review.employeeId}/performance-reviews`,
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/performance-reviews/employees/${review.employeeId}/performance-reviews`,
         {
           method: 'POST',
           headers: {
@@ -135,7 +135,7 @@ const ReviewForm = () => {
           try {
             // First, get the existing review ID
             const getResponse = await fetchWithAuth(
-              `http://localhost:5001/api/performance-reviews/performance-reviews?year=${review.year}&quarter=${review.quarter}`,
+              `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/performance-reviews/performance-reviews?year=${review.year}&quarter=${review.quarter}`,
               {
                 method: 'GET',
                 headers: {
@@ -154,7 +154,7 @@ const ReviewForm = () => {
             if (existingReview) {
               // Update the existing review
               const updateResponse = await fetchWithAuth(
-                `http://localhost:5001/api/performance-reviews/performance-reviews/${existingReview._id}`,
+                `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/performance-reviews/performance-reviews/${existingReview._id}`,
                 {
                   method: 'PUT',
                   headers: {

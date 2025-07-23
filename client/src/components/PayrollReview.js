@@ -21,7 +21,7 @@ function PayrollReview() {
 
   const fetchBusinessCurrency = async () => {
     try {
-      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/business`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -40,7 +40,7 @@ function PayrollReview() {
   const fetchPayrollData = async () => {
     try {
       const response = await fetchWithAuth(
-        `http://localhost:5001/api/payroll/history?month=${month}&year=${year}`
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/history?month=${month}&year=${year}`
       );
 
       if (!response.ok) {
@@ -58,7 +58,7 @@ function PayrollReview() {
 
   const handleApprovePayroll = async () => {
     try {
-      const response = await fetchWithAuth('http://localhost:5001/api/payroll/approve', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

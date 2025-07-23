@@ -29,7 +29,7 @@ function PayrollWorkflow() {
     try {
       setLoadingEmployees(true);
       const response = await fetchWithAuth(
-        `http://localhost:5001/api/payroll/history?month=${month}&year=${year}`
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/history?month=${month}&year=${year}`
       );
 
       if (!response.ok) {
@@ -43,7 +43,7 @@ function PayrollWorkflow() {
         data.map(async (payrollRecord) => {
           try {
             const employeeResponse = await fetchWithAuth(
-              `http://localhost:5001/api/employees/${payrollRecord.employeeId._id}`
+              `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/employees/${payrollRecord.employeeId._id}`
             );
             
             if (employeeResponse.ok) {
@@ -77,7 +77,7 @@ function PayrollWorkflow() {
 
   const fetchPayrollSettings = async () => {
     try {
-      const response = await fetchWithAuth('http://localhost:5001/api/payroll/settings');
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/settings`);
       if (response.ok) {
         const data = await response.json();
         setPayrollSettings(data);
@@ -89,7 +89,7 @@ function PayrollWorkflow() {
 
   const fetchBusinessCurrency = async () => {
     try {
-      const response = await fetchWithAuth('http://localhost:5001/api/business', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/business`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -114,7 +114,7 @@ function PayrollWorkflow() {
         throw new Error('Please configure your payroll settings before processing payroll');
       }
 
-      const response = await fetchWithAuth('http://localhost:5001/api/payroll/process', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/process`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -166,7 +166,7 @@ function PayrollWorkflow() {
       })));
       console.log('=== END PAYROLL APPROVAL REQUEST DEBUG ===');
 
-      const response = await fetchWithAuth('http://localhost:5001/api/payroll/approve', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
@@ -198,7 +198,7 @@ function PayrollWorkflow() {
       setProcessing(true);
       setError('');
 
-      const response = await fetchWithAuth('http://localhost:5001/api/payroll/process-payments', {
+      const response = await fetchWithAuth(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/payroll/process-payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
