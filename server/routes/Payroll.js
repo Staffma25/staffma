@@ -1017,16 +1017,188 @@ router.get('/download/:payrollId', auth, async (req, res) => {
   } catch (error) {
     console.error('Error generating payslip:', error);
     res.status(500).json({ error: 'Failed to generate payslip' });
-  } finally {
-    if (doc) {
-      doc.end();
-    }
   }
 });
 
 // Health check endpoint
 router.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
+});
+
+// Generate PDF payslip for specific employee and period
+router.post('/generate-pdf-payslip', auth, async (req, res) => {
+  let doc;
+  try {
+    const { employeeId, month, year } = req.body;
+
+    if (!employeeId || !month || !year) {
+      return res.status(400).json({ error: 'Employee ID, month, and year are required' });
+    }
+
+    // Find the payroll record for the specified employee and period
+    const payroll = await Payroll.findOne({
+      businessId: req.user.businessId,
+      employeeId: employeeId,
+      month: parseInt(month),
+      year: parseInt(year)
+    })
+    .populate('employeeId', 'firstName lastName employeeNumber position department')
+    .populate('businessId', 'businessName currency');
+
+    if (!payroll) {
+      return res.status(404).json({ error: 'Payroll record not found for the specified period' });
+    }
+
+    const businessCurrency = payroll.businessId.currency || 'KES';
+    const currencySymbol = businessCurrency === 'KES' ? 'KES' : 
+                          businessCurrency === 'USD' ? '$' :
+                          businessCurrency === 'EUR' ? '€' :
+                          businessCurrency === 'GBP' ? '£' :
+                          businessCurrency === 'INR' ? '₹' :
+                          businessCurrency;
+
+    // Create PDF document
+    doc = new PDFDocument({
+      size: 'A4',
+      margin: 50
+    });
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=payslip-${employeeId}-${month}-${year}.pdf`);
+
+    // Pipe the PDF to the response
+    doc.pipe(res);
+
+    // Add company header
+    doc
+      .fontSize(20)
+      .fillColor('#1a237e')
+      .font('Helvetica-Bold')
+      .text(payroll.businessId.businessName, { align: 'center' })
+      .moveDown(0.5)
+      .fontSize(14)
+      .fillColor('#666')
+      .font('Helvetica')
+      .text('PAYSLIP', { align: 'center' })
+      .moveDown(1);
+
+    // Employee Details Section
+    doc
+      .fontSize(14)
+      .fillColor('#1a237e')
+      .font('Helvetica-Bold')
+      .text('Employee Details', { underline: true })
+      .moveDown(0.2)
+      .fontSize(12)
+      .fillColor('#333')
+      .font('Helvetica')
+      .text(`Name: ${payroll.employeeId.firstName} ${payroll.employeeId.lastName}`)
+      .text(`Employee Number: ${payroll.employeeNumber}`)
+      .text(`Position: ${payroll.employeeId.position}`)
+      .text(`Department: ${payroll.employeeId.department}`)
+      .moveDown(0.5);
+
+    // Payroll Details Section
+    doc
+      .fontSize(14)
+      .fillColor('#1a237e')
+      .font('Helvetica-Bold')
+      .text('Payroll Details', { underline: true })
+      .moveDown(0.2)
+      .fontSize(12)
+      .fillColor('#333')
+      .font('Helvetica')
+      .text(`Period: ${payroll.month}/${payroll.year}`)
+      .text(`Processed Date: ${new Date(payroll.processedDate).toLocaleDateString()}`)
+      .moveDown(0.5);
+
+    // Earnings Section
+    doc
+      .fontSize(14)
+      .fillColor('#1a237e')
+      .font('Helvetica-Bold')
+      .text('Earnings', { underline: true })
+      .moveDown(0.2)
+      .fontSize(12)
+      .fillColor('#333')
+      .font('Helvetica')
+      .text(`Basic Salary: ${currencySymbol} ${(payroll.basicSalary || 0).toLocaleString()}`)
+      .moveDown(0.2);
+
+    // Allowances Section
+    doc
+      .fontSize(14)
+      .fillColor('#1a237e')
+      .font('Helvetica-Bold')
+      .text('Allowances', { underline: true })
+      .moveDown(0.2)
+      .fontSize(12)
+      .fillColor('#333')
+      .font('Helvetica');
+
+    // Display allowances from payroll record
+    if (payroll.allowances?.items) {
+      payroll.allowances.items.forEach(allowance => {
+        doc.text(`${allowance.name}: ${currencySymbol} ${allowance.amount.toLocaleString()}`);
+      });
+    }
+    
+    doc.moveDown(0.5);
+
+    // Deductions Section
+    doc
+      .fontSize(14)
+      .fillColor('#1a237e')
+      .font('Helvetica-Bold')
+      .text('Deductions', { underline: true })
+      .moveDown(0.2)
+      .fontSize(12)
+      .fillColor('#333')
+      .font('Helvetica');
+
+    // Display deductions from payroll record
+    if (payroll.deductions?.items) {
+      payroll.deductions.items.forEach(deduction => {
+        doc.text(`${deduction.name}: ${currencySymbol} ${deduction.amount.toLocaleString()}`);
+      });
+    }
+    
+    doc.moveDown(0.5);
+
+    // Summary Section
+    doc
+      .fontSize(14)
+      .fillColor('#1a237e')
+      .font('Helvetica-Bold')
+      .text('Summary', { underline: true })
+      .moveDown(0.2)
+      .fontSize(12)
+      .fillColor('#333')
+      .font('Helvetica')
+      .text(`Basic Salary: ${currencySymbol} ${(payroll.basicSalary || 0).toLocaleString()}`)
+      .text(`Total Allowances: ${currencySymbol} ${(payroll.allowances?.total || 0).toLocaleString()}`)
+      .text(`Gross Salary: ${currencySymbol} ${(payroll.grossSalary || 0).toLocaleString()}`)
+      .text(`Total Deductions: ${currencySymbol} ${(payroll.deductions?.total || 0).toLocaleString()}`)
+      .text(`Net Salary: ${currencySymbol} ${(payroll.netSalary || 0).toLocaleString()}`)
+      .moveDown(1);
+
+    // Footer
+    doc
+      .fontSize(10)
+      .fillColor('#666')
+      .font('Helvetica')
+      .text('This is a computer-generated document. No signature is required.', { align: 'center' })
+      .moveDown(0.5)
+      .text('Thank you for your hard work!', { align: 'center' });
+
+    // End the PDF document
+    doc.end();
+
+  } catch (error) {
+    console.error('Error generating payslip:', error);
+    res.status(500).json({ error: 'Failed to generate payslip' });
+  }
 });
 
 // Delete payroll settings
